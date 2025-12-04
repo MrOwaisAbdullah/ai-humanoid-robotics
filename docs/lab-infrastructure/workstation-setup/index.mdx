@@ -1,0 +1,423 @@
+---
+title: Workstation Setup Guide
+description: Comprehensive guide for setting up high-performance workstations for Physical AI and humanoid robotics development
+sidebar_position: 10
+sidebar_label: Workstation Setup
+slug: /lab-infrastructure/workstation-setup
+tags: ["lab-setup", "hardware", "workstation", "physical-ai"]
+authors: ["AI Book Team"]
+last_updated: 2025-12-04
+---
+
+# Workstation Setup Guide
+
+This guide provides comprehensive instructions for setting up a high-performance workstation optimized for Physical AI and humanoid robotics development. Follow these steps carefully to ensure your environment meets the demanding requirements of modern robotics simulation and AI development.
+
+## Overview
+
+Physical AI development requires substantial computational resources for:
+1. Real-time physics simulation (Gazebo, Isaac Sim)
+2. AI model training and inference
+3. Computer vision processing
+4. 3D rendering and visualization
+5. Multi-sensor data processing
+
+## Hardware Requirements
+
+### Minimum Specifications
+
+**Processor**: Intel Core i7 (13th Gen) or AMD Ryzen 9
+- 8+ cores, 16+ threads preferred
+- Base clock 3.0+ GHz
+- Support for AVX2 instruction set
+
+**Memory**: 32GB DDR5 (minimum)
+- 64GB DDR5 recommended for complex simulations
+- Dual-channel or quad-channel configuration
+
+**GPU**: NVIDIA RTX 4070 Ti (12GB VRAM) - minimum
+- RTX 4090 (24GB VRAM) recommended
+- Must support CUDA 11.8+ and ray tracing
+- Multiple GPU support for advanced workloads
+
+**Storage**: 1TB NVMe SSD (minimum)
+- 2TB NVMe SSD recommended
+- Additional 4TB HDD for data storage
+- USB-C/Thunderbolt external storage support
+
+**Operating System**: Ubuntu 22.04 LTS (mandatory)
+- Native installation preferred
+- Dual-boot configuration acceptable
+- Virtual machines not supported for real-time workloads
+
+### Recommended Hardware Configurations
+
+#### Development Workstation (Premium)
+```yaml
+CPU: Intel Core i9-13900K or AMD Ryzen 9 7950X
+GPU: NVIDIA RTX 4090 (24GB VRAM)
+RAM: 64GB DDR5-5600 (4x16GB)
+Storage: 2TB NVMe SSD + 4TB HDD
+Cooling: Liquid cooling system
+Power: 1000W 80+ Platinum PSU
+Case: Full tower with excellent airflow
+```
+
+#### Research Workstation (Intermediate)
+```yaml
+CPU: Intel Core i7-13700K or AMD Ryzen 7 7700X
+GPU: NVIDIA RTX 4080 (16GB VRAM)
+RAM: 32GB DDR5-5200 (2x16GB)
+Storage: 1TB NVMe SSD + 2TB HDD
+Cooling: High-end air cooling
+Power: 850W 80+ Gold PSU
+Case: Mid-tower with good ventilation
+```
+
+## Ubuntu 22.04 LTS Installation
+
+### Pre-Installation Checklist
+
+1. **Backup Data**: Ensure all important data is backed up
+2. **Verify Compatibility**: Check hardware compatibility with Ubuntu 22.04
+3. **Create Installation Media**: USB drive (8GB+ minimum)
+4. **Network Access**: Ensure internet connectivity for updates
+
+### Installation Process
+
+1. **Download Ubuntu 22.04 LTS**
+   ```bash
+   # Verify download integrity
+   sha256sum ubuntu-22.04.3-desktop-amd64.iso
+   ```
+
+2. **Create Bootable USB**
+   ```bash
+   # Using Rufus (Windows) or dd (Linux/Mac)
+   dd if=ubuntu-22.04.3-desktop-amd64.iso of=/dev/sdX bs=4M status=progress
+   ```
+
+3. **Boot from USB**
+   - Enter BIOS/UEFI setup (F2, F12, or Del during boot)
+   - Disable Secure Boot (temporarily)
+   - Set USB drive as first boot device
+   - Enable virtualization (VT-x/AMD-V)
+
+4. **Partition Scheme (Recommended)**
+   ```
+   /boot/efi     512MB   EFI System Partition
+   /boot          2GB     Ext4 (boot files)
+   swap          8GB      Swap space (equal to RAM for hibernation)
+   /            100GB    Ext4 (root filesystem)
+   /home         500GB   Ext4 (user data)
+   /var          200GB   Ext4 (applications, logs)
+   /tmp          50GB    Ext4 (temporary files)
+   ```
+
+### Post-Installation Configuration
+
+1. **Update System**
+   ```bash
+   sudo apt update && sudo apt upgrade -y
+   sudo apt install -y curl wget git vim htop
+   ```
+
+2. **Enable Additional Drivers**
+   ```bash
+   # Install proprietary NVIDIA drivers
+   ubuntu-drivers autoinstall
+   sudo reboot
+   ```
+
+3. **Configure SSH Access**
+   ```bash
+   sudo apt install -y openssh-server
+   sudo systemctl enable ssh
+   sudo ufw allow ssh
+   ```
+
+## NVIDIA Driver and CUDA Setup
+
+### Driver Installation
+
+1. **Verify GPU Detection**
+   ```bash
+   lspci | grep -i nvidia
+   nvidia-smi
+   ```
+
+2. **Install Latest NVIDIA Drivers**
+   ```bash
+   # Add NVIDIA repository
+   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+   sudo dpkg -i cuda-keyring_1.1-1_all.deb
+   sudo apt-get update
+
+   # Install driver and CUDA toolkit
+   sudo apt-get -y install cuda-toolkit-12-2
+   ```
+
+3. **Configure Environment**
+   ```bash
+   echo 'export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}' >> ~/.bashrc
+   echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+
+### CUDA Verification
+
+```bash
+# Verify CUDA installation
+nvcc --version
+
+# Test with sample compilation
+cd /usr/local/cuda/samples/1_Utilities/deviceQuery
+make
+./deviceQuery
+```
+
+## ROS 2 Humble Installation
+
+### Setup Instructions
+
+1. **Set Locale**
+   ```bash
+   sudo apt install -y locales
+   sudo locale-gen en_US en_US.UTF-8
+   sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+   export LANG=en_US.UTF-8
+   ```
+
+2. **Add ROS 2 Repository**
+   ```bash
+   sudo apt install -y software-properties-common
+   sudo add-apt-repository universe
+   curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+   ```
+
+3. **Install ROS 2 Humble**
+   ```bash
+   sudo apt update
+   sudo apt install -y ros-humble-desktop
+   ```
+
+4. **Development Tools**
+   ```bash
+   sudo apt install -y python3-pip python3-venv
+   pip install --user pip-upgrade setuptools
+   pip install --user rosdep
+   sudo rosdep init
+   rosdep update
+   ```
+
+### Environment Setup
+
+```bash
+# Add ROS 2 to bash session
+echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+ros2 doctor
+```
+
+## Development Environment Configuration
+
+### Python Environment
+
+1. **Install Python 3.10**
+   ```bash
+   sudo apt install -y python3.10 python3.10-venv python3.10-dev
+   ```
+
+2. **Create Virtual Environment**
+   ```bash
+   python3.10 -m venv ~/ros2_ws/env
+   source ~/ros2_ws/env/bin/activate
+   pip install --upgrade pip
+   ```
+
+3. **Install Essential Packages**
+   ```bash
+   pip install numpy scipy matplotlib opencv-python
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+   pip install tensorflow-gpu
+   pip install jupyter notebook pandas scikit-learn
+   ```
+
+### ROS 2 Workspace Setup
+
+```bash
+# Create workspace
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+
+# Clone essential packages
+git clone https://github.com/ros-geometry/geometry2.git
+git clone https://github.com/ros-perception/vision_opencv.git
+git clone https://github.com/ros-drivers/usb_cam.git
+
+# Build workspace
+cd ~/ros2_ws
+colcon build --symlink-install
+
+# Source workspace
+echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+```
+
+## Performance Optimization
+
+### System Tuning
+
+1. **CPU Governor Settings**
+   ```bash
+   # Set to performance mode
+   sudo cpupower frequency-set -g performance
+
+   # Make permanent
+   echo 'GOVERNOR="performance"' | sudo tee /etc/default/cpufrequtils
+   ```
+
+2. **Memory Management**
+   ```bash
+   # Configure swappiness
+   echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+
+   # Configure dirty pages
+   echo 'vm.dirty_ratio=15' | sudo tee -a /etc/sysctl.conf
+   echo 'vm.dirty_background_ratio=5' | sudo tee -a /etc/sysctl.conf
+   ```
+
+3. **GPU Performance**
+   ```bash
+   # Set GPU performance mode
+   sudo nvidia-smi -pm 1
+   sudo nvidia-smi -ac 877,1215
+
+   # Create persistence script
+   echo '#!/bin/bash
+   sudo nvidia-smi -pm 1
+   sudo nvidia-smi -ac 877,1215' | sudo tee /usr/local/bin/gpu-performance
+   sudo chmod +x /usr/local/bin/gpu-performance
+   ```
+
+### File System Optimization
+
+1. **SSD Optimization**
+   ```bash
+   # Enable fstrim timer
+   sudo systemctl enable fstrim.timer
+   sudo systemctl start fstrim.timer
+
+   # Configure I/O scheduler
+   echo 'mq-deadline' | sudo tee /sys/block/sdX/queue/scheduler
+   ```
+
+2. **Tmpfs Configuration**
+   ```bash
+   # Add to /etc/fstab for temporary files in RAM
+   echo 'tmpfs /tmp tmpfs defaults,noatime,mode=1777 0 0' | sudo tee -a /etc/fstab
+   echo 'tmpfs /var/tmp tmpfs defaults,noatime,mode=1777 0 0' | sudo tee -a /etc/fstab
+   ```
+
+## Verification and Testing
+
+### System Performance Test
+
+```bash
+# CPU performance
+sysbench cpu --cpu-max-prime=20000 run
+
+# Memory performance
+sysbench memory --memory-block-size=1K --memory-total-size=10G run
+
+# GPU benchmark
+nvidia-smi dmon -s u -d 1
+
+# ROS 2 latency test
+ros2 run rclcpp_examples latency_test
+```
+
+### ROS 2 Functionality Test
+
+```bash
+# Test basic ROS 2 functionality
+ros2 run demo_nodes_cpp talker &
+ros2 run demo_nodes_py listener
+
+# Test gazebo simulation
+ros2 launch gazebo_ros empty_world.launch.py
+
+# Verify GPU acceleration
+ros2 run rviz2 rviz2  # Should open with hardware acceleration
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **NVIDIA Driver Issues**
+   ```bash
+   # Reinstall drivers
+   sudo apt purge nvidia-*
+   sudo ubuntu-drivers autoinstall
+   sudo reboot
+   ```
+
+2. **ROS 2 Environment Issues**
+   ```bash
+   # Reset environment
+   unset ROS_DOMAIN_ID
+   unset ROS_LOCALHOST_ONLY
+   source /opt/ros/humble/setup.bash
+   ```
+
+3. **Performance Issues**
+   ```bash
+   # Check system resources
+   htop
+   iotop
+   nvidia-smi dmon
+
+   # Check thermals
+   sensors
+   sudo watch -n 1 nvidia-smi
+   ```
+
+### Getting Help
+
+- **ROS 2 Documentation**: https://docs.ros.org/en/humble/
+- **NVIDIA Developer Forums**: https://developer.nvidia.com/
+- **Ubuntu Forums**: https://askubuntu.com/
+- **Hardware-Specific Communities**: Check manufacturer forums
+
+## Next Steps
+
+After completing this workstation setup:
+
+1. **GPU Optimization Guide**: Proceed to [GPU Optimization](/docs/lab-infrastructure/workstation-setup/gpu-optimization) for advanced GPU tuning
+2. **Cloud Setup**: Consider [Cloud Alternatives](/docs/lab-infrastructure/cloud-alternatives) for additional compute resources
+3. **Hardware Procurement**: Review hardware procurement options for robot components
+
+## Validation Checklist
+
+- [ ] Ubuntu 22.04 LTS installed and updated
+- [ ] NVIDIA drivers installed and functioning
+- [ ] CUDA toolkit installed and verified
+- [ ] ROS 2 Humble installed with development tools
+- [ ] Python virtual environment configured
+- [ ] ROS 2 workspace created and built
+- [ ] System performance optimizations applied
+- [ ] All verification tests passing
+- [ ] Backup and recovery procedures documented
+
+---
+
+**Estimated Setup Time**: 4-6 hours
+**Difficulty Level**: Intermediate
+**Prerequisites**: Basic Linux administration skills
+**Support**: Available through course forums and office hours
+
+For cloud-based alternatives or budget-conscious options, see our [Cloud Alternatives](/docs/lab-infrastructure/cloud-alternatives) guide.

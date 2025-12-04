@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-book.com/schemas/chapter",
+  "title": "Physical AI Chapter Schema",
+  "description": "Schema for Physical AI & Humanoid Robotics textbook chapter metadata",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^chapter-[0-9]+-[a-z0-9-]+$",
+      "description": "Unique identifier for the chapter"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 100,
+      "description": "Chapter title for display"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 200,
+      "description": "Chapter description for SEO and navigation"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "URL slug for web navigation"
+    },
+    "module_id": {
+      "type": "string",
+      "pattern": "^module-[0-9]+-[a-z0-9-]+$",
+      "description": "Reference to parent module"
+    },
+    "module_number": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "description": "Module number (1-4)"
+    },
+    "chapter_number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Chapter number within module"
+    },
+    "week_number": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 13,
+      "description": "Week in 13-week curriculum"
+    },
+    "estimated_time": {
+      "type": "integer",
+      "minimum": 15,
+      "maximum": 300,
+      "description": "Estimated reading time in minutes"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["beginner", "intermediate", "advanced"],
+      "description": "Difficulty level of the chapter"
+    },
+    "hardware_tiers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["basic", "intermediate", "advanced", "premium"]
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "description": "Supported hardware configuration tiers"
+    },
+    "cloud_alternative": {
+      "type": "boolean",
+      "description": "Cloud deployment option available"
+    },
+    "prerequisites": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^chapter-[0-9]+-[a-z0-9-]+$"
+      },
+      "uniqueItems": true,
+      "description": "List of prerequisite chapter IDs"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+$"
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "description": "Content tags for categorization"
+    },
+    "authors": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 50
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "description": "Chapter authors/contributors"
+    },
+    "hardware_requirements": {
+      "type": "object",
+      "properties": {
+        "gpu_required": {
+          "type": "boolean",
+          "description": "GPU acceleration required"
+        },
+        "min_ram_gb": {
+          "type": "integer",
+          "minimum": 8,
+          "description": "Minimum RAM in GB"
+        },
+        "rtx_required": {
+          "type": "boolean",
+          "description": "NVIDIA RTX GPU required"
+        },
+        "robot_hardware": {
+          "type": "boolean",
+          "description": "Physical robot hardware required"
+        }
+      },
+      "description": "Hardware requirements for this chapter"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last modification timestamp"
+    }
+  },
+  "required": ["id", "title", "description", "slug", "module_id", "module_number", "chapter_number", "week_number", "difficulty", "hardware_tiers", "cloud_alternative", "tags", "authors", "hardware_requirements"],
+  "additionalProperties": false
+}

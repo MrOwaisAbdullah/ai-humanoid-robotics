@@ -1,0 +1,1101 @@
+---
+title: Chapter 11 - Manipulation and Grasping
+sidebar_position: 30
+description: Grasp planning, contact modeling, and manipulation control strategies
+---
+
+# Chapter 11: Manipulation and Grasping
+
+## What You'll Learn
+
+1. Contact Modeling and Force Analysis
+2. Grasp Planning and Quality Metrics
+3. Dexterous Manipulation Control
+4. Object Recognition and Pose Estimation
+5. Advanced Grasping Strategies
+6. Simulation and Implementation
+
+## Introduction
+
+Manipulation and grasping are fundamental capabilities that enable humanoid robots to interact with their environment. This chapter explores the principles of contact mechanics, grasp planning algorithms, and control strategies for dexterous manipulation.
+
+## 1. Contact Modeling and Force Analysis
+
+### 1.1 Contact Types and Properties
+
+```python
+import numpy as np
+from enum import Enum
+
+class ContactType(Enum):
+    POINT_CONTACT = "point"
+    LINE_CONTACT = "line"
+    SURFACE_CONTACT = "surface"
+    SOFT_CONTACT = "soft"
+
+class ContactModel:
+    def __init__(self, contact_type=ContactType.POINT_CONTACT):
+        self.contact_type = contact_type
+        self.position = None
+        self.normal = None
+        self.force = None
+        self.friction_coeff = 0.5
+
+    def compute_contact_wrench(self):
+        """Compute wrench (force + moment) at contact point"""
+        if self.contact_type == ContactType.POINT_CONTACT:
+            # Point contact: only force, no moment
+            wrench = np.zeros(6)
+            wrench[:3] = self.force
+            return wrench
+        else:
+            raise NotImplementedError(f"Contact type {self.contact_type} not implemented")
+
+    def check_friction_cone(self):
+        """Check if contact force satisfies friction constraints"""
+        if self.contact_type == ContactType.POINT_CONTACT:
+            normal_force = np.dot(self.force, self.normal)
+            tangential_force = self.force - normal_force * self.normal
+            tangential_magnitude = np.linalg.norm(tangential_force)
+
+            return tangential_magnitude <= self.friction_coeff * normal_force
+        return True
+```
+
+### 1.2 Coulomb Friction Model
+
+```python
+class CoulombFriction:
+    def __init__(self, mu_static=0.5, mu_kinetic=0.4):
+        self.mu_static = mu_static
+        self.mu_kinetic = mu_kinetic
+        self.epsilon = 1e-6  # Small number to avoid division by zero
+
+    def compute_friction_force(self, normal_force, tangential_velocity):
+        """Compute friction force based on Coulomb model"""
+        if abs(tangential_velocity) < self.epsilon:
+            # Static friction
+            max_static_friction = self.mu_static * abs(normal_force)
+            return -tangential_velocity * max_static_friction / self.epsilon
+        else:
+            # Kinetic friction
+            friction_magnitude = self.mu_kinetic * abs(normal_force)
+            return -np.sign(tangential_velocity) * friction_magnitude
+
+    def friction_cone_constraint(self, force):
+        """Linearized friction cone constraint"""
+        fx, fy, fz = force
+        return [
+            -self.mu_static * fz <= fx,
+            fx <= self.mu_static * fz,
+            -self.mu_static * fz <= fy,
+            fy <= self.mu_static * fz
+        ]
+```
+
+## 2. Grasp Planning and Quality Metrics
+
+### 2.1 Force Closure Analysis
+
+```python
+class ForceClosure:
+    def __init__(self, contacts):
+        self.contacts = contacts
+
+    def compute_grasp_matrix(self):
+        """Compute grasp matrix G for all contact forces"""
+        G = np.zeros((6, 3 * len(self.contacts)))
+
+        for i, contact in enumerate(self.contacts):
+            # Force contribution
+            G[:3, 3*i:3*i+3] = np.eye(3)
+
+            # Moment contribution (r × f)
+            r = contact.position
+            cross_product = np.array([
+                [0, -r[2], r[1]],
+                [r[2], 0, -r[0]],
+                [-r[1], r[0], 0]
+            ])
+            G[3:, 3*i:3*i+3] = cross_product
+
+        return G
+
+    def check_force_closure(self):
+        """Check if grasp achieves force closure"""
+        G = self.compute_grasp_matrix()
+
+        # Force closure: G has full row rank and positive forces exist
+        rank = np.linalg.matrix_rank(G)
+
+        if rank < 6:
+            return False, "Grasp matrix does not have full rank"
+
+        # Check if grasp is internal (can apply zero net wrench)
+        try:
+            # This is a simplified check
+            # In practice, you'd use force cone constraints
+            null_space = null_space_method(G)
+            if null_space is not None:
+                return True, "Force closure achieved"
+        except:
+            pass
+
+        return False, "Force closure not achieved"
+
+    def compute_grasp_quality(self):
+        """Compute grasp quality using epsilon quality measure"""
+        G = self.compute_grasp_matrix()
+
+        try:
+            # Compute singular values of grasp matrix
+            _, s, _ = np.linalg.svd(G)
+
+            # Smallest singular value (epsilon quality)
+            epsilon = s[-1]
+
+            # Normalized by maximum singular value
+            quality = epsilon / s[0] if s[0] > 1e-6 else 0
+
+            return quality
+        except:
+            return 0.0
+
+def null_space_method(A):
+    """Compute null space of matrix A"""
+    U, s, Vt = np.linalg.svd(A)
+
+    # Find null space vectors (where singular value is zero)
+    null_space_mask = s < 1e-10
+
+    if np.any(null_space_mask):
+        # Return basis for null space
+        return Vt.T[:, null_space_mask]
+
+    return None
+```
+
+### 2.2 Grasp Wrench Space
+
+```python
+class GraspWrenchSpace:
+    def __init__(self, contacts, friction_coeff=0.5):
+        self.contacts = contacts
+        self.friction_coeff = friction_coeff
+
+    def compute_gws(self, resolution=50):
+        """Compute Grasp Wrench Space using discretization"""
+        G = np.zeros((6, 3 * len(self.contacts)))
+
+        # Build grasp matrix
+        for i, contact in enumerate(self.contacts):
+            G[:3, 3*i:3*i+3] = np.eye(3)
+            r = contact.position
+            G[3:, 3*i:3*i+3] = np.array([
+                [0, -r[2], r[1]],
+                [r[2], 0, -r[0]],
+                [-r[1], r[0], 0]
+            ])
+
+        # Discretize friction cone for each contact
+        all_wrenches = []
+
+        for contact_idx, contact in enumerate(self.contacts):
+            contact_wrenches = []
+
+            # Sample contact forces within friction cone
+            for theta in np.linspace(0, 2*np.pi, resolution):
+                for phi in np.linspace(0, np.pi/4, resolution//4):
+                    # Force direction in friction cone
+                    fx = np.cos(theta) * np.sin(phi)
+                    fy = np.sin(theta) * np.sin(phi)
+                    fz = np.cos(phi)
+
+                    force = np.array([fx, fy, fz])
+
+                    # Apply to grasp matrix
+                    wrench = G[:, 3*contact_idx:3*contact_idx+3] @ force
+                    contact_wrenches.append(wrench)
+
+            all_wrenches.append(np.array(contact_wrenches))
+
+        # Convex hull of all possible wrench combinations
+        return all_wrenches
+
+    def check_object_wrench(self, external_wrench):
+        """Check if grasp can resist external wrench"""
+        gws = self.compute_gws()
+
+        # This is a simplified check
+        # In practice, you'd use convex hull algorithms
+        for contact_wrenches in gws:
+            for wrench in contact_wrenches:
+                if np.allclose(wrench, external_wrench, rtol=1e-3):
+                    return True
+
+        return False
+```
+
+## 3. Dexterous Manipulation Control
+
+### 3.1 Hybrid Position/Force Control
+
+```python
+import control as ctrl
+
+class HybridController:
+    def __init__(self, dof=6):
+        self.dof = dof
+        self.Kp_position = np.eye(dof) * 100  # Position gain
+        self.Kd_position = np.eye(dof) * 20   # Derivative gain
+        self.Kp_force = np.eye(dof) * 10      # Force gain
+        self.Ki_force = np.eye(dof) * 5       # Integral gain
+
+        self.selection_matrix = np.eye(dof)   # S matrix
+        self.force_error_integral = np.zeros(dof)
+
+    def update_selection_matrix(self, constrained_dofs):
+        """Update selection matrix for constrained DOFs"""
+        self.selection_matrix = np.eye(self.dof)
+
+        # Constrained directions (force control)
+        for dof in constrained_dofs:
+            self.selection_matrix[dof, dof] = 0
+
+        # Unconstrained directions (position control)
+        for dof in range(self.dof):
+            if dof not in constrained_dofs:
+                self.selection_matrix[dof, dof] = 1
+
+    def compute_control(self, q, qd, q_desired, f_measured, f_desired):
+        """Compute hybrid control signal"""
+        # Position control in unconstrained directions
+        q_error = q_desired - q
+        qd_error = -qd
+
+        position_control = (self.Kp_position @ q_error +
+                          self.Kd_position @ qd_error)
+
+        # Force control in constrained directions
+        f_error = f_desired - f_measured
+        self.force_error_integral += f_error
+
+        force_control = (self.Kp_force @ f_error +
+                        self.Ki_force @ self.force_error_integral)
+
+        # Combine using selection matrices
+        S = self.selection_matrix
+        I_minus_S = np.eye(self.dof) - S
+
+        tau = S @ position_control + I_minus_S @ force_control
+
+        return tau
+```
+
+### 3.2 Impedance Control
+
+```python
+class ImpedanceController:
+    def __init__(self, dof=6):
+        self.dof = dof
+        self.M_desired = np.eye(dof) * 1.0    # Desired inertia
+        self.B_desired = np.eye(dof) * 20.0   # Desired damping
+        self.K_desired = np.eye(dof) * 100.0  # Desired stiffness
+
+        self.x_desired = np.zeros(dof)
+        self.xd_desired = np.zeros(dof)
+
+    def set_impedance_parameters(self, M=None, B=None, K=None):
+        """Update impedance parameters"""
+        if M is not None:
+            self.M_desired = M
+        if B is not None:
+            self.B_desired = B
+        if K is not None:
+            self.K_desired = K
+
+    def compute_command_torque(self, q, qd, J, x, xd, f_ext=None):
+        """Compute impedance control torque"""
+        # Position error in task space
+        x_error = self.x_desired - x
+        xd_error = self.xd_desired - xd
+
+        # Desired impedance dynamics
+        f_desired = (self.M_desired @ (-self.B_desired @ xd_error -
+                                       self.K_desired @ x_error))
+
+        # Add external force compensation
+        if f_ext is not None:
+            f_desired += f_ext
+
+        # Convert to joint torques
+        tau = J.T @ f_desired
+
+        return tau
+
+    def adaptive_impedance(self, x_error, xd_error):
+        """Adaptive impedance adjustment based on interaction"""
+        # Simple adaptation: increase stiffness when error is large
+        error_magnitude = np.linalg.norm(x_error)
+
+        adaptation_factor = min(2.0, 1.0 + error_magnitude)
+        K_adaptive = self.K_desired * adaptation_factor
+
+        return K_adaptive
+```
+
+## 4. Object Recognition and Pose Estimation
+
+### 4.1 3D Object Detection
+
+```python
+import open3d as o3d
+
+class ObjectDetector:
+    def __init__(self):
+        self.models = {}
+        self.recognition_threshold = 0.7
+
+    def add_model(self, name, point_cloud):
+        """Add object model to database"""
+        # Compute FPFH features
+        model_fpfh = self.compute_fpfh_features(point_cloud)
+        self.models[name] = {
+            'cloud': point_cloud,
+            'features': model_fpfh
+        }
+
+    def compute_fpfh_features(self, point_cloud):
+        """Compute Fast Point Feature Histograms"""
+        # Estimate normals
+        point_cloud.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(
+                radius=0.1, max_nn=30
+            )
+        )
+
+        # Compute FPFH
+        fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+            point_cloud,
+            o3d.geometry.KDTreeSearchParamHybrid(radius=0.15, max_nn=100)
+        )
+
+        return fpfh
+
+    def detect_objects(self, scene_cloud):
+        """Detect objects in scene"""
+        scene_fpfh = self.compute_fpfh_features(scene_cloud)
+
+        detected_objects = []
+
+        for model_name, model_data in self.models.items():
+            # Perform RANSAC registration
+            result = self.ransac_registration(
+                model_data['cloud'], model_data['features'],
+                scene_cloud, scene_fpfh
+            )
+
+            if result.fitness > self.recognition_threshold:
+                detected_objects.append({
+                    'name': model_name,
+                    'pose': result.transformation,
+                    'fitness': result.fitness,
+                    'inlier_rmse': result.inlier_rmse
+                })
+
+        return detected_objects
+
+    def ransac_registration(self, source, source_fpfh, target, target_fpfh):
+        """Perform RANSAC-based point cloud registration"""
+        distance_threshold = 0.02
+
+        result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+            source, target, source_fpfh, target_fpfh, True,
+            distance_threshold,
+            o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+            3, [
+                o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+                o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)
+            ],
+            o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999)
+        )
+
+        return result
+```
+
+### 4.2 Pose Estimation with ICP
+
+```python
+class PoseEstimator:
+    def __init__(self):
+        self.icp_convergence_criteria = o3d.pipelines.registration.ICPConvergenceCriteria(
+            max_iteration=2000,
+            relative_fitness=1e-6,
+            relative_rmse=1e-6
+        )
+
+    def estimate_pose(self, model_cloud, scene_cloud, initial_guess=None):
+        """Estimate pose using ICP registration"""
+        if initial_guess is None:
+            initial_guess = np.eye(4)
+
+        # Coarse registration
+        coarse_result = self.coarse_registration(model_cloud, scene_cloud)
+
+        # Fine registration with ICP
+        fine_result = o3d.pipelines.registration.registration_icp(
+            model_cloud, scene_cloud, 0.02,
+            coarse_result.transformation,
+            o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+            self.icp_convergence_criteria
+        )
+
+        return fine_result
+
+    def coarse_registration(self, source, target):
+        """Coarse alignment using global registration"""
+        # Compute features
+        source_fpfh = self.compute_fpfh_features(source)
+        target_fpfh = self.compute_fpfh_features(target)
+
+        # Global registration
+        result = o3d.pipelines.registration.registration_f_based_on_feature_matching(
+            source, target, source_fpfh, target_fpfh,
+            o3d.pipelines.registration.FastGlobalRegistrationOption(
+                maximum_correspondence_distance=0.025
+            )
+        )
+
+        return result
+
+    def evaluate_registration(self, source, target, transformation):
+        """Evaluate registration quality"""
+        # Apply transformation
+        source_transformed = source.transform(transformation)
+
+        # Compute distance metrics
+        distances = source_transformed.compute_point_cloud_distance(target)
+        rmse = np.sqrt(np.mean(np.array(distances) ** 2))
+
+        # Compute overlap ratio
+        overlap = sum(1 for d in distances if d < 0.01) / len(distances)
+
+        return {
+            'rmse': rmse,
+            'overlap': overlap,
+            'mean_distance': np.mean(distances),
+            'std_distance': np.std(distances)
+        }
+```
+
+## 5. Advanced Grasping Strategies
+
+### 5.1 Antipodal Grasping
+
+```python
+class AntipodalGraspPlanner:
+    def __init__(self):
+        self.min_approach_angle = np.pi/6  # 30 degrees
+        self.max_grasp_width = 0.1          # 10 cm
+
+    def find_antipodal_pairs(self, normals_1, normals_2):
+        """Find antipodal normal pairs"""
+        antipodal_pairs = []
+
+        for i, n1 in enumerate(normals_1):
+            for j, n2 in enumerate(normals_2):
+                # Check if normals are antipodal (opposite directions)
+                dot_product = np.dot(n1, n2)
+
+                if abs(dot_product + 1.0) < 0.1:  # Nearly opposite
+                    # Check approach angle
+                    approach_angle = np.arccos(abs(dot_product))
+
+                    if approach_angle > self.min_approach_angle:
+                        antipodal_pairs.append({
+                            'pair': (i, j),
+                            'approach_angle': approach_angle,
+                            'quality': -dot_product  # Higher for more antipodal
+                        })
+
+        # Sort by quality
+        antipodal_pairs.sort(key=lambda x: x['quality'], reverse=True)
+
+        return antipodal_pairs
+
+    def plan_grasp(self, object_mesh, approach_direction=None):
+        """Plan antipodal grasp on object mesh"""
+        # Sample surface points
+        points = np.asarray(object_mesh.vertices)
+        normals = np.asarray(object_mesh.vertex_normals)
+
+        # Find antipodal pairs
+        antipodal_pairs = self.find_antipodal_pairs(normals, normals)
+
+        valid_grasps = []
+
+        for pair_info in antipodal_pairs[:100]:  # Limit to top candidates
+            i, j = pair_info['pair']
+
+            p1, p2 = points[i], points[j]
+            n1, n2 = normals[i], normals[j]
+
+            # Compute grasp center and approach vector
+            center = (p1 + p2) / 2
+            approach = (p1 - p2) / np.linalg.norm(p1 - p2)
+
+            # Check grasp width
+            grasp_width = np.linalg.norm(p1 - p2)
+
+            if grasp_width < self.max_grasp_width:
+                # Compute grasp frame
+                if approach_direction is not None:
+                    # Align with desired approach
+                    axis = np.cross(approach, approach_direction)
+                    angle = np.arccos(np.dot(approach, approach_direction))
+                    if np.linalg.norm(axis) > 1e-6:
+                        axis = axis / np.linalg.norm(axis)
+                    else:
+                        axis = np.array([0, 0, 1])
+                        angle = 0
+
+                    rotation = self.axis_angle_to_matrix(axis, angle)
+                else:
+                    rotation = np.eye(3)
+
+                grasp_pose = np.eye(4)
+                grasp_pose[:3, :3] = rotation
+                grasp_pose[:3, 3] = center
+
+                valid_grasps.append({
+                    'pose': grasp_pose,
+                    'width': grasp_width,
+                    'quality': pair_info['quality'],
+                    'contact_points': [p1, p2],
+                    'contact_normals': [n1, n2]
+                })
+
+        return valid_grasps
+
+    def axis_angle_to_matrix(self, axis, angle):
+        """Convert axis-angle to rotation matrix"""
+        axis = axis / np.linalg.norm(axis)
+        a = np.cos(angle / 2)
+        b, c, d = -axis * np.sin(angle / 2)
+
+        return np.array([
+            [a*a+b*b-c*c-d*d, 2*(b*c-a*d), 2*(b*d+a*c)],
+            [2*(b*c+a*d), a*a+c*c-b*b-d*d, 2*(c*d-a*b)],
+            [2*(b*d-a*c), 2*(c*d+a*b), a*a+d*d-b*b-c*c]
+        ])
+```
+
+### 5.2 Power Grasps
+
+```python
+class PowerGraspPlanner:
+    def __init__(self):
+        self.contact_threshold = 0.005  # 5mm
+        self.force_closure_threshold = 0.1
+
+    def plan_power_grasp(self, object_mesh, hand_model):
+        """Plan power grasp (enveloping grasp)"""
+        # Sample potential grasp configurations
+        grasp_candidates = self.sample_grasp_configurations(object_mesh)
+
+        valid_grasps = []
+
+        for candidate in grasp_candidates:
+            # Check collision and contacts
+            contacts = self.check_contacts(candidate, object_mesh, hand_model)
+
+            if len(contacts) >= 3:  # Minimum contacts for stability
+                # Evaluate grasp quality
+                quality = self.evaluate_grasp_quality(contacts, object_mesh)
+
+                if quality > self.force_closure_threshold:
+                    valid_grasps.append({
+                        'pose': candidate['pose'],
+                        'quality': quality,
+                        'contacts': contacts,
+                        'grasp_type': 'power'
+                    })
+
+        # Sort by quality
+        valid_grasps.sort(key=lambda x: x['quality'], reverse=True)
+
+        return valid_grasps
+
+    def sample_grasp_configurations(self, object_mesh):
+        """Sample potential grasp configurations"""
+        # Get object bounding box
+        vertices = np.asarray(object_mesh.vertices)
+        min_bounds = vertices.min(axis=0)
+        max_bounds = vertices.max(axis=0)
+
+        candidates = []
+
+        # Sample approach directions
+        for direction in self.sample_sphere(20):
+            # Sample positions around object
+            for distance in [0.05, 0.08, 0.1]:
+                position = (min_bounds + max_bounds) / 2 - direction * distance
+
+                # Compute grasp pose
+                z_axis = direction
+                x_axis = np.random.randn(3)
+                x_axis -= x_axis.dot(z_axis) * z_axis
+                x_axis /= np.linalg.norm(x_axis)
+                y_axis = np.cross(z_axis, x_axis)
+
+                rotation = np.column_stack([x_axis, y_axis, z_axis])
+                pose = np.eye(4)
+                pose[:3, :3] = rotation
+                pose[:3, 3] = position
+
+                candidates.append({'pose': pose})
+
+        return candidates
+
+    def sample_sphere(self, n_points):
+        """Sample points uniformly on sphere"""
+        points = []
+        phi = np.pi * (3. - np.sqrt(5.))  # Golden angle
+
+        for i in range(n_points):
+            y = 1 - (i / float(n_points - 1)) * 2
+            radius = np.sqrt(1 - y * y)
+            theta = phi * i
+
+            x = np.cos(theta) * radius
+            z = np.sin(theta) * radius
+
+            points.append(np.array([x, y, z]))
+
+        return points
+
+    def check_contacts(self, grasp, object_mesh, hand_model):
+        """Check contacts between hand and object"""
+        # Transform hand model to grasp pose
+        hand_transformed = hand_model.transform(grasp['pose'])
+
+        # Simple contact detection (in practice, use collision detection)
+        contacts = []
+
+        # This is a simplified implementation
+        # In practice, you'd use FCL or similar collision library
+        hand_vertices = np.asarray(hand_transformed.vertices)
+        object_vertices = np.asarray(object_mesh.vertices)
+
+        for hand_vertex in hand_vertices:
+            distances = np.linalg.norm(object_vertices - hand_vertex, axis=1)
+            min_distance = distances.min()
+
+            if min_distance < self.contact_threshold:
+                closest_point = object_vertices[np.argmin(distances)]
+                normal = self.estimate_normal_at_point(object_mesh, closest_point)
+
+                contacts.append({
+                    'point': closest_point,
+                    'normal': normal,
+                    'hand_point': hand_vertex
+                })
+
+        return contacts
+```
+
+## 6. Simulation and Implementation
+
+### 6.1 Complete Manipulation System
+
+```python
+class ManipulationSystem:
+    def __init__(self):
+        self.detector = ObjectDetector()
+        self.pose_estimator = PoseEstimator()
+        self.grasp_planner = AntipodalGraspPlanner()
+        self.controller = HybridController()
+
+        # Visualization
+        self.fig = plt.figure(figsize=(15, 10))
+        self.plots = {}
+
+    def initialize_visualization(self):
+        """Initialize visualization plots"""
+        # Camera view
+        self.plots['camera'] = self.fig.add_subplot(2, 3, 1, projection='3d')
+        self.plots['camera'].set_title('Camera View')
+
+        # Object detection
+        self.plots['detection'] = self.fig.add_subplot(2, 3, 2, projection='3d')
+        self.plots['detection'].set_title('Object Detection')
+
+        # Grasp planning
+        self.plots['grasp'] = self.fig.add_subplot(2, 3, 3, projection='3d')
+        self.plots['grasp'].set_title('Grasp Planning')
+
+        # Force feedback
+        self.plots['forces'] = self.fig.add_subplot(2, 3, 4)
+        self.plots['forces'].set_title('Contact Forces')
+
+        # Position tracking
+        self.plots['position'] = self.fig.add_subplot(2, 3, 5)
+        self.plots['position'].set_title('End-Effector Position')
+
+        # System status
+        self.plots['status'] = self.fig.add_subplot(2, 3, 6)
+        self.plots['status'].set_title('System Status')
+
+    def run_manipulation_task(self, scene_data):
+        """Run complete manipulation task"""
+        print("\n=== Starting Manipulation Task ===")
+
+        # Step 1: Object detection
+        print("\n1. Detecting objects...")
+        detected_objects = self.detector.detect_objects(scene_data['point_cloud'])
+
+        if not detected_objects:
+            print("No objects detected!")
+            return False
+
+        print(f"Detected {len(detected_objects)} objects:")
+        for obj in detected_objects:
+            print(f"  - {obj['name']} (confidence: {obj['fitness']:.2f})")
+
+        # Step 2: Grasp planning for first detected object
+        target_object = detected_objects[0]
+        print(f"\n2. Planning grasp for {target_object['name']}...")
+
+        grasp_candidates = self.grasp_planner.plan_grasp(
+            scene_data['object_meshes'][target_object['name']]
+        )
+
+        if not grasp_candidates:
+            print("No valid grasps found!")
+            return False
+
+        best_grasp = grasp_candidates[0]
+        print(f"Best grasp quality: {best_grasp['quality']:.2f}")
+
+        # Step 3: Execute grasp
+        print("\n3. Executing grasp...")
+        success = self.execute_grasp(best_grasp, scene_data)
+
+        if success:
+            print("Grasp successful!")
+        else:
+            print("Grasp failed!")
+
+        # Step 4: Visualization update
+        self.update_visualization(detected_objects, grasp_candidates)
+
+        return success
+
+    def execute_grasp(self, grasp, scene_data):
+        """Execute grasping motion"""
+        # Simulate grasping trajectory
+        trajectory = self.plan_grasping_trajectory(grasp)
+
+        for i, pose in enumerate(trajectory):
+            # Simulate control command
+            # In practice, this would send commands to robot
+            time.sleep(0.01)  # 100 Hz control loop
+
+            # Check for collisions (simplified)
+            if self.check_collision(pose, scene_data):
+                print(f"Collision detected at step {i}")
+                return False
+
+        # Simulate grasping force application
+        contact_forces = self.simulate_contact_forces(grasp)
+
+        # Check grasp stability
+        if contact_forces['net_force'] < 0.1:  # Grasp is stable
+            return True
+
+        return False
+
+    def plan_grasping_trajectory(self, grasp):
+        """Plan trajectory to grasp pose"""
+        trajectory = []
+
+        # Pre-grasp position (approach)
+        pre_grasp = grasp['pose'].copy()
+        pre_grasp[:3, 3] -= grasp['pose'][:3, 2] * 0.1  # Move back along z-axis
+        trajectory.append(pre_grasp)
+
+        # Intermediate positions
+        n_steps = 10
+        for i in range(1, n_steps):
+            alpha = i / n_steps
+            pose = (1 - alpha) * pre_grasp + alpha * grasp['pose']
+            trajectory.append(pose)
+
+        # Final grasp pose
+        trajectory.append(grasp['pose'])
+
+        return trajectory
+
+    def check_collision(self, pose, scene_data):
+        """Simple collision checking"""
+        # This is a very simplified collision check
+        # In practice, use proper collision detection
+
+        hand_center = pose[:3, 3]
+
+        for obj_name, obj_mesh in scene_data['object_meshes'].items():
+            obj_vertices = np.asarray(obj_mesh.vertices)
+
+            # Check distance to object
+            distances = np.linalg.norm(obj_vertices - hand_center, axis=1)
+            if distances.min() < 0.02:  # 2cm threshold
+                return True
+
+        return False
+
+    def simulate_contact_forces(self, grasp):
+        """Simulate contact forces during grasp"""
+        # Simplified force simulation
+        contact_force = 5.0  # 5N grasp force
+        friction_coeff = 0.5
+
+        # Maximum friction force
+        max_friction = friction_coeff * contact_force
+
+        # Simulate some external disturbance
+        external_force = np.random.randn(3) * 0.5
+
+        # Net force after friction compensation
+        net_force = np.linalg.norm(external_force) - max_friction
+
+        return {
+            'contact_force': contact_force,
+            'friction_force': max_friction,
+            'external_force': external_force,
+            'net_force': net_force
+        }
+
+    def update_visualization(self, objects, grasps):
+        """Update visualization plots"""
+        plt.clf()
+
+        # Update each subplot
+        for name, plot in self.plots.items():
+            if name == 'detection' and objects:
+                # Plot detected objects
+                plot.text(0.5, 0.5, f"Detected: {len(objects)} objects",
+                         ha='center', va='center', transform=plot.transAxes)
+
+            elif name == 'grasp' and grasps:
+                # Plot grasp quality
+                qualities = [g['quality'] for g in grasps[:10]]
+                plot.bar(range(len(qualities)), qualities)
+                plot.set_xlabel('Grasp Candidate')
+                plot.set_ylabel('Quality')
+                plot.set_ylim([0, 1])
+
+            elif name == 'status':
+                # System status
+                status_text = f"Objects: {len(objects)}\nGrasps: {len(grasps)}\n"
+                status_text += f"Best Quality: {grasps[0]['quality']:.2f}" if grasps else "No grasps"
+                plot.text(0.5, 0.5, status_text, ha='center', va='center',
+                         transform=plot.transAxes, fontsize=12)
+
+        plt.tight_layout()
+        plt.pause(0.01)
+```
+
+### 6.2 Benchmarking and Evaluation
+
+```python
+class GraspBenchmark:
+    def __init__(self):
+        self.test_objects = []
+        self.test_scenes = []
+        self.results = []
+
+    def load_test_dataset(self, dataset_path):
+        """Load benchmark dataset"""
+        # Load YCB or other standard grasp dataset
+        print(f"Loading dataset from {dataset_path}")
+
+        # This would load actual dataset in practice
+        self.test_objects = ['mug', 'bottle', 'scissors', 'hammer', 'phone']
+
+    def run_benchmark(self, planner):
+        """Run benchmark on grasp planner"""
+        print("\n=== Running Grasp Benchmark ===")
+
+        results = {}
+
+        for obj_name in self.test_objects:
+            print(f"\nTesting {obj_name}...")
+
+            obj_results = {
+                'success_rate': 0,
+                'planning_time': [],
+                'grasp_quality': [],
+                'num_candidates': []
+            }
+
+            # Run multiple trials
+            n_trials = 10
+            successes = 0
+
+            for trial in range(n_trials):
+                start_time = time.time()
+
+                # Generate test scene
+                scene = self.generate_test_scene(obj_name)
+
+                # Plan grasps
+                grasps = planner.plan_grasp(scene['object_mesh'])
+
+                planning_time = time.time() - start_time
+
+                if grasps:
+                    # Evaluate grasp success (simulated)
+                    success = self.evaluate_grasp_success(grasps[0], scene)
+                    if success:
+                        successes += 1
+
+                    obj_results['planning_time'].append(planning_time)
+                    obj_results['grasp_quality'].append(grasps[0]['quality'])
+                    obj_results['num_candidates'].append(len(grasps))
+
+            # Compute statistics
+            obj_results['success_rate'] = successes / n_trials
+
+            if obj_results['planning_time']:
+                obj_results['avg_planning_time'] = np.mean(obj_results['planning_time'])
+                obj_results['avg_grasp_quality'] = np.mean(obj_results['grasp_quality'])
+                obj_results['avg_candidates'] = np.mean(obj_results['num_candidates'])
+            else:
+                obj_results['avg_planning_time'] = 0
+                obj_results['avg_grasp_quality'] = 0
+                obj_results['avg_candidates'] = 0
+
+            results[obj_name] = obj_results
+
+            # Print results
+            print(f"  Success Rate: {obj_results['success_rate']:.2%}")
+            print(f"  Avg Planning Time: {obj_results['avg_planning_time']:.3f}s")
+            print(f"  Avg Grasp Quality: {obj_results['avg_grasp_quality']:.2f}")
+
+        return results
+
+    def evaluate_grasp_success(self, grasp, scene):
+        """Evaluate if grasp would be successful"""
+        # Simulate grasp execution
+        # Factors affecting success:
+        # 1. Grasp quality
+        # 2. Contact friction
+        # 3. Object weight
+        # 4. External disturbances
+
+        success_probability = grasp['quality'] * 0.7  # Base success from quality
+
+        # Add randomness for simulation
+        success_probability += np.random.normal(0, 0.1)
+        success_probability = np.clip(success_probability, 0, 1)
+
+        return np.random.random() < success_probability
+
+    def generate_test_scene(self, object_name):
+        """Generate test scene with object"""
+        # This would load actual 3D models in practice
+        vertices = np.random.randn(100, 3)
+        vertices[:, 2] = np.abs(vertices[:, 2])  # Keep above ground
+
+        mesh = o3d.geometry.TriangleMesh()
+        mesh.vertices = o3d.utility.Vector3dVector(vertices)
+
+        return {
+            'object_name': object_name,
+            'object_mesh': mesh
+        }
+
+    def generate_report(self, results):
+        """Generate benchmark report"""
+        print("\n=== Benchmark Report ===")
+
+        # Overall statistics
+        success_rates = [r['success_rate'] for r in results.values()]
+        planning_times = [r['avg_planning_time'] for r in results.values()]
+
+        print(f"\nOverall Success Rate: {np.mean(success_rates):.2%}")
+        print(f"Average Planning Time: {np.mean(planning_times):.3f}s")
+
+        # Per-object results
+        print("\nPer-Object Results:")
+        print("Object\t\tSuccess\tTime\tQuality")
+        print("-" * 50)
+
+        for obj_name, result in results.items():
+            print(f"{obj_name.ljust(12)}\t{result['success_rate']:.2%}\t"
+                  f"{result['avg_planning_time']:.3f}s\t"
+                  f"{result['avg_grasp_quality']:.2f}")
+
+        # Generate plots
+        self.plot_benchmark_results(results)
+
+    def plot_benchmark_results(self, results):
+        """Plot benchmark results"""
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+        objects = list(results.keys())
+
+        # Success rates
+        success_rates = [results[obj]['success_rate'] for obj in objects]
+        axes[0, 0].bar(objects, success_rates)
+        axes[0, 0].set_title('Success Rates')
+        axes[0, 0].set_ylabel('Success Rate')
+        axes[0, 0].set_ylim([0, 1])
+
+        # Planning times
+        planning_times = [results[obj]['avg_planning_time'] for obj in objects]
+        axes[0, 1].bar(objects, planning_times)
+        axes[0, 1].set_title('Planning Times')
+        axes[0, 1].set_ylabel('Time (s)')
+
+        # Grasp qualities
+        qualities = [results[obj]['avg_grasp_quality'] for obj in objects]
+        axes[1, 0].bar(objects, qualities)
+        axes[1, 0].set_title('Grasp Qualities')
+        axes[1, 0].set_ylabel('Quality')
+
+        # Number of candidates
+        candidates = [results[obj]['avg_candidates'] for obj in objects]
+        axes[1, 1].bar(objects, candidates)
+        axes[1, 1].set_title('Grasp Candidates')
+        axes[1, 1].set_ylabel('Count')
+
+        plt.tight_layout()
+        plt.show()
+```
+
+## Conclusion
+
+This chapter provided a comprehensive overview of manipulation and grasping for humanoid robots, covering:
+
+1. **Contact Modeling**: Understanding friction cones and contact wrenches
+2. **Grasp Planning**: Force closure analysis and quality metrics
+3. **Control Strategies**: Hybrid position/force control and impedance control
+4. **Perception**: Object detection and pose estimation using 3D vision
+5. **Advanced Grasping**: Antipodal and power grasp strategies
+6. **Implementation**: Complete system integration and benchmarking
+
+The combination of these techniques enables humanoid robots to manipulate objects with dexterity approaching human capabilities. Future developments in tactile sensing, learning-based grasping, and soft robotics will further enhance manipulation capabilities.
+
+### Key Takeaways
+
+- **Contact Mechanics**: Proper modeling of contact forces and friction is essential for stable grasping
+- **Force Closure**: The fundamental condition for secure object manipulation
+- **Hybrid Control**: Combining position and force control enables robust interaction
+- **Visual Perception**: 3D vision is crucial for object recognition and grasp planning
+- **Quality Metrics**: Quantitative evaluation of grasps informs planning decisions
+- **System Integration**: Successful manipulation requires coordination of all components
+
+---
+
+**Previous: [Chapter 10 - Balance and Locomotion](chapter-10-balance-locomotion.mdx)** | **Next: [Chapter 12 - Computer Vision for Humanoids](../part-4-applications/chapter-12-computer-vision.mdx)**

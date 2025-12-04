@@ -101,12 +101,38 @@ After completing requests, you **MUST** create a PHR (Prompt History Record).
    - On any failure: warn but do not block the main command.
    - Skip PHR only for `/sp.phr` itself.
 
-### 4. Explicit ADR suggestions
+### 4. Use Specialized Agents and Skills When Appropriate
+For complex tasks requiring specialized expertise or parallel execution, leverage the Task tool with appropriate subagent types:
+
+**When to Use Subagents:**
+- **Complex, multi-file corrections** (e.g., fact-checking, technical updates across multiple files)
+- **Specialized domains** (e.g., rag-specialist for RAG systems, content-writer for educational content)
+- **Parallel execution** (e.g., simultaneous research across multiple sources)
+- **Deep expertise required** (e.g., docusaurus-architect for complex site configuration)
+
+**Available Subagent Types:**
+- `general-purpose`: For complex research and multi-step tasks
+- `rag-specialist`: For RAG system implementation and optimization
+- `content-writer`: For creating high-quality technical documentation
+- `docusaurus-architect`: For Docusaurus site configuration and deployment
+- `deployment-engineer`: For cloud deployment and CI/CD setup
+- `chatkit-integrator`: For ChatKit SDK integration and chat functionality
+
+**Example Usage:**
+```bash
+# For fact-checking across multiple files
+Task(subagent_type="general-purpose", description="Fact-check technical data", prompt="Verify AWS pricing and GPU specs...")
+
+# For content creation
+Task(subagent_type="content-writer", description="Create chapter content", prompt="Write comprehensive chapter on...")
+```
+
+### 5. Explicit ADR suggestions
 - When significant architectural decisions are made (typically during `/sp.plan` and sometimes `/sp.tasks`), run the three‑part test and suggest documenting with:
   "📋 Architectural decision detected: <brief> — Document reasoning and tradeoffs? Run `/sp.adr <decision-title>`"
 - Wait for user consent; never auto‑create the ADR.
 
-### 5. Human as Tool Strategy
+### 6. Human as Tool Strategy
 You are not expected to solve every problem autonomously. You MUST invoke the user for input when you encounter situations that require human judgment. Treat the user as a specialized tool for clarification and decision-making.
 
 **Invocation Triggers:**

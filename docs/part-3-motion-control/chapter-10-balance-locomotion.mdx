@@ -1,0 +1,835 @@
+---
+title: "Chapter 2.2: Balance and Locomotion"
+description: "Master the principles of balance control and locomotion for humanoid robots, including ZMP theory, gait planning, and dynamic stabilization"
+keywords: [balance control, ZMP, locomotion, gait planning, humanoid walking, dynamic stability, feedback control]
+sidebar_position: 7
+---
+
+# Chapter 2.2: Balance and Locomotion
+
+Balance and locomotion are among the most challenging problems in humanoid robotics. Unlike wheeled robots, humanoid robots must actively maintain balance while walking, standing, and interacting with their environment. This chapter explores the fundamental principles of dynamic balance, gait generation, and locomotion control that enable humanoid robots to move stably and efficiently.
+
+## What You'll Learn
+
+By the end of this chapter, you'll be able to:
+1. Apply Zero Moment Point (ZMP) theory for balance analysis
+2. Generate and control various walking gaits
+3. Implement feedback controllers for dynamic stabilization
+4. Design push recovery and disturbance rejection systems
+5. Optimize locomotion for energy efficiency
+6. Simulate and validate balance control algorithms
+
+## Balance Theory
+
+### Zero Moment Point (ZMP)
+
+The Zero Moment Point is fundamental to bipedal locomotion. It's the point on the ground where the total moment of all forces acting on the robot equals zero.
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+class ZMPAnalyzer:
+    """Analyze and visualize Zero Moment Point"""
+
+    def __init__(self, robot_model):
+        self.robot = robot_model
+        self.mass = robot_model.mass
+        self.gravity = 9.81
+
+    def compute_zmp(self, forces, contact_points):
+        """
+        Compute ZMP from forces and contact points
+        forces: Array of force vectors [fx, fy, fz]
+        contact_points: Array of contact positions [x, y, z]
+        """
+        zmp_x = 0
+        zmp_y = 0
+        total_fz = 0
+
+        for force, contact in zip(forces, contact_points):
+            fx, fy, fz = force
+            x, y, z = contact
+
+            if abs(fz) > 1e-6:  # Avoid division by zero
+                zmp_x += (x * fz + fy * (z * 0)) / fz
+                zmp_y += (y * fz - fx * (z * 0)) / fz
+                total_fz += fz
+
+        if abs(total_fz) < 1e-6:
+            return None, None  # Robot in the air
+
+        return zmp_x, zmp_y
+
+    def compute_support_polygon(self, foot_positions):
+        """Compute support polygon from foot positions"""
+        if len(foot_positions) == 1:
+            # Single support - footprint polygon
+            foot = foot_positions[0]
+            # Simplified rectangular footprint
+            half_length = 0.15
+            half_width = 0.10
+            polygon = np.array([
+                [foot[0] - half_length, foot[1] - half_width],
+                [foot[0] + half_length, foot[1] - half_width],
+                [foot[0] + half_length, foot[1] + half_width],
+                [foot[0] - half_length, foot[1] + half_width]
+            ])
+        else:
+            # Double support - convex hull of footprints
+            polygon = self.compute_convex_hull(foot_positions)
+
+        return polygon
+
+    def compute_convex_hull(self, points):
+        """Compute convex hull of points"""
+        from scipy.spatial import ConvexHull
+        hull = ConvexHull(points)
+        return points[hull.vertices]
+
+    def is_stable(self, zmp, support_polygon):
+        """Check if ZMP is within support polygon"""
+        if zmp is None:
+            return False
+
+        # Point-in-polygon test
+        n = len(support_polygon)
+        inside = False
+
+        p1x, p1y = support_polygon[0]
+        for i in range(1, n + 1):
+            p2x, p2y = support_polygon[i % n]
+            if zmp[1] > min(p1y, p2y):
+                if zmp[1] <= max(p1y, p2y):
+                    if zmp[0] <= max(p1x, p2x):
+                        if p1y != p2y:
+                            xinters = (zmp[1] - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if xinters <= max(p1x, p2x):
+                            inside = not inside
+                elif zmp[0] <= min(p1x, p2x):
+                    inside = not inside
+            elif zmp[1] <= min(p1y, p2y):
+                if (zmp[0] <= max(p1x, p2x)) and (zmp[0] >= min(p1x, p2x)):
+                    inside = not inside
+
+            p1x, p1y = p2x, p2y
+
+        return inside
+```
+
+### Center of Mass and ZMP Relationship
+
+```python
+class BalanceController:
+    """Balance controller using ZMP feedback"""
+
+    def __init__(self, robot_model):
+        self.robot = robot_model
+        self.zmp_analyzer = ZMPAnalyzer(robot_model)
+
+        # Control gains
+        self.kp = 100.0  # Proportional gain
+        self.kd = 20.0   # Derivative gain
+        self.ki = 5.0    # Integral gain
+
+        # State variables
+        self.zmp_error_integral = 0
+        self.last_zmp_error = np.zeros(2)
+
+        # Reference trajectory
+        self.ref_zmp = np.zeros(2)
+
+    def update(self, com_pos, com_vel, foot_positions):
+        """Update balance controller"""
+        # Compute current ZMP (simplified calculation)
+        forces = np.array([[0, 0, self.robot.mass * self.gravity]])
+        zmp = self.zmp_analyzer.compute_zmp(forces, foot_positions)
+
+        if zmp is None:
+            return np.zeros(3)  # No control if robot is airborne
+
+        # Compute support polygon
+        support_polygon = self.zmp_analyzer.compute_support_polygon(foot_positions)
+
+        # ZMP error
+        zmp_error = self.ref_zmp - zmp[:2]
+
+        # PID control
+        zmp_error_integral += zmp_error * 0.01
+        zmp_error_derivative = (zmp_error - self.last_zmp_error) / 0.01
+
+        # Control output
+        control = (self.kp * zmp_error +
+                    self.kd * zmp_error_derivative +
+                    self.ki * zmp_error_integral)
+
+        self.last_zmp_error = zmp_error.copy()
+
+        # Limit control output
+        max_control = np.array([0.5, 0.5, 0.3])  # [ax, ay, az]
+        control = np.clip(control, -max_control, max_control)
+
+        return control
+
+    def set_reference_zmp(self, ref_zmp):
+        """Set reference ZMP trajectory"""
+        self.ref_zmp = ref_zmp
+```
+
+## Gait Generation
+
+### Walking Pattern Generator
+
+```python
+class GaitGenerator:
+    """Generate walking patterns for humanoid robots"""
+
+    def __init__(self, robot_model):
+        self.robot = robot_model
+        self.step_length = 0.3
+        self.step_width = 0.15
+        self.step_height = 0.05
+        self.step_duration = 0.6
+        self.double_support_duration = 0.1
+
+    def generate_foot_trajectory(self, start_pos, end_pos, step_height):
+        """Generate foot trajectory for a single step"""
+        # Create trajectory using cubic Hermite splines
+        trajectory = []
+        num_points = 50
+
+        for i in range(num_points):
+            t = i / (num_points - 1)
+
+            # Parabolic trajectory
+            height = 4 * step_height * t * (1 - t)
+
+            # Linear interpolation in x-y
+            x = start_pos[0] + t * (end_pos[0] - start_pos[0])
+            y = start_pos[1] + t * (end_pos[1] - start_pos[1])
+
+            # Smooth start and end
+            if t < 0.5:
+                x = start_pos[0] + 2 * t * (end_pos[0] - start_pos[0])
+                y = start_pos[1] + 2 * t * (end_pos[1] - start_pos[1])
+            else:
+                x = end_pos[0] - 2 * (1 - t) * (end_pos[0] - start_pos[0])
+                y = end_pos[1] - 2 * (1 - t) * (end_pos[1] - start_pos[1])
+
+            trajectory.append([x, y, height])
+
+        return np.array(trajectory)
+
+    def generate_walking_gait(self, num_steps=4):
+        """Generate complete walking gait sequence"""
+        foot_trajectories = []
+
+        # Initial positions
+        left_start = np.array([-self.step_width/2, 0, 0])
+        right_start = np.array([self.step_width/2, 0, 0])
+
+        # Generate footstep positions
+        foot_steps = []
+        current_left = left_start.copy()
+        current_right = right_start.copy()
+
+        for i in range(num_steps):
+            if i % 2 == 0:  # Left foot step
+                next_pos = current_right.copy()
+                next_pos[0] += self.step_length
+                foot_steps.append(('left', next_pos, current_left))
+                current_left = next_pos
+            else:  # Right foot step
+                next_pos = current_left.copy()
+                next_pos[0] += self.step_length
+                foot_steps.append(('right', next_pos, current_right))
+                current_right = next_pos
+
+        # Generate trajectories for each step
+        for foot, end_pos, start_pos in foot_steps:
+            trajectory = self.generate_foot_trajectory(
+                start_pos, end_pos, self.step_height
+            )
+            foot_trajectories.append({
+                'foot': foot,
+                'trajectory': trajectory,
+                'start_time': foot_steps.index((foot, end_pos, start_pos)) * self.step_duration,
+                'duration': self.step_duration
+            })
+
+        return foot_trajectories
+
+    def compute_com_trajectory(self, foot_trajectories):
+        """Generate center of mass trajectory for balance"""
+        com_trajectory = []
+
+        total_time = max([t['start_time'] + t['duration'] for t in foot_trajectories])
+
+        for i in range(int(total_time * 100)):
+            t = i / 100.0
+
+            # Average foot positions weighted by support phase
+            left_in_contact = self.is_foot_in_contact('left', foot_trajectories, t)
+            right_in_contact = self.is_foot_in_contact('right', foot_trajectories, t)
+
+            if left_in_contact and right_in_contact:
+                # Double support
+                left_pos = self.get_foot_position('left', foot_trajectories, t)
+                right_pos = self.get_foot_position('right', foot_trajectories, t)
+                com = (left_pos + right_pos) / 2
+            elif left_in_contact:
+                # Single support on left
+                com = self.get_foot_position('left', foot_trajectories, t)
+            elif right_in_contact:
+                # Single support on right
+                com = self.get_foot_position('right', foot_trajectories, t)
+            else:
+                # Flight phase (shouldn't happen in normal walking)
+                com = np.array([0, 0, 1.0])  # Default height
+
+            com_trajectory.append(com)
+
+        return np.array(com_trajectory)
+
+    def is_foot_in_contact(self, foot, foot_trajectories, time):
+        """Check if foot is in contact with ground"""
+        for traj in foot_trajectories:
+            if traj['foot'] == foot:
+                if (traj['start_time'] <= time <=
+                    traj['start_time'] + traj['duration']):
+                    return True
+        return False
+
+    def get_foot_position(self, foot, foot_trajectories, time):
+        """Get foot position at given time"""
+        for traj in foot_trajectories:
+            if traj['foot'] == foot:
+                if traj['start_time'] <= time <= traj['start_time'] + traj['duration']:
+                    t_local = (time - traj['start_time']) / traj['duration']
+                    idx = int(t_local * (len(traj['trajectory']) - 1))
+                    return traj['trajectory'][idx]
+        return np.array([0, 0, 0])
+```
+
+### Dynamic Gait Generation
+
+```python
+class DynamicGaitGenerator:
+    """Dynamic gait generator with online adaptation"""
+
+    def __init__(self, robot_model):
+        self.robot = robot_model
+        self.current_gait = 'walking'
+
+        # Gait parameters
+        self.gait_params = {
+            'walking': {
+                'step_length': 0.3,
+                'step_width': 0.15,
+                'cadence': 1.8,
+                'double_support_ratio': 0.2
+            },
+            'running': {
+                'step_length': 0.6,
+                'step_width': 0.2,
+                'cadence': 2.5,
+                'double_support_ratio': 0.1
+            },
+            'stair_climbing': {
+                'step_length': 0.2,
+                'step_height': 0.15,
+                'cadence': 1.2,
+                'double_support_ratio': 0.3
+            }
+        }
+
+    def generate_adaptive_gait(self, terrain_info, speed_command):
+        """Generate gait adapted to terrain and speed"""
+        # Select base gait based on terrain
+        if terrain_info['type'] == 'flat':
+            base_gait = 'walking'
+        elif terrain_info['type'] == 'rough':
+            base_gait = 'walking'
+            # Reduce speed on rough terrain
+            speed_command *= 0.7
+        elif terrain_info['type'] == 'stairs':
+            base_gait = 'stair_climbing'
+        else:
+            base_gait = 'walking'
+
+        # Adapt to speed
+        if speed_command > 1.5:
+            base_gait = 'running'
+
+        # Get parameters
+        params = self.gait_params[base_gait].copy()
+
+        # Adapt step length based on speed
+        params['step_length'] = min(params['step_length'] * speed_command, 0.6)
+
+        # Adapt to terrain slope
+        if 'slope' in terrain_info:
+            slope_factor = terrain_info['slope']
+            if slope_factor > 0.1:  # Uphill
+                params['step_length'] *= 0.8
+                params['step_height'] *= 1.2
+            elif slope_factor < -0.1:  # Downhill
+                params['step_length'] *= 1.1
+                params['step_height'] *= 0.8
+
+        return self.generate_gait(params)
+
+    def generate_gait(self, params):
+        """Generate gait from parameters"""
+        step_duration = 1.0 / params['cadence']
+        double_support_duration = step_duration * params['double_support_ratio']
+
+        # Generate footstep pattern
+        gait_pattern = {
+            'step_duration': step_duration,
+            'double_support_duration': double_support_duration,
+            'step_length': params['step_length'],
+            'step_width': params['step_width'],
+            'step_height': params.get('step_height', 0.05)
+        }
+
+        return gait_pattern
+```
+
+## Locomotion Control
+
+### Whole Body Control
+
+```python
+class LocomotionController:
+    """Whole-body locomotion controller"""
+
+    def __init__(self, robot_model):
+        self.robot = robot_model
+        self.balance_controller = BalanceController(robot_model)
+        self.gait_generator = DynamicGaitGenerator(robot_model)
+
+        # Control state
+        self.current_gait = 'walking'
+        self.foot_trajectories = []
+        self.current_time = 0
+
+        # Joint controllers
+        self.joint_controllers = [
+            PIDController(kp=100, ki=10, kd=50) for _ in range(robot_model.n_joints)
+        ]
+
+    def update(self, current_state, terrain_info=None, speed_command=1.0):
+        """Update locomotion controller"""
+        self.current_time += 0.01
+
+        # Generate adaptive gait
+        if self.current_time % 1.0 < 0.01:  # Update every second
+            self.foot_trajectories = self.gait_generator.generate_adaptive_gait(
+                terrain_info or {'type': 'flat'},
+                speed_command
+            )
+
+        # Get desired foot positions
+        left_foot_ref = self.get_desired_foot_position('left', self.current_time)
+        right_foot_ref = self.get_desired_foot_position('right', self.current_time)
+
+        # Get current foot positions
+        left_foot_pos = current_state['left_foot_position']
+        right_foot_pos = current_state['right_foot_position']
+
+        # Compute COM reference trajectory
+        com_ref = self.compute_com_reference(
+            left_foot_ref, right_foot_ref, self.current_time
+        )
+
+        # Current COM position
+        com_pos = current_state['com_position']
+        com_vel = current_state['com_velocity']
+
+        # Balance control
+        balance_control = self.balance_controller.update(
+            com_pos, com_vel, [left_foot_pos, right_foot_pos]
+        )
+
+        # Foot position control
+        foot_control = self.compute_foot_control(
+            [left_foot_pos, right_foot_pos],
+            [left_foot_ref, right_foot_ref]
+        )
+
+        # Combine controls (simplified)
+        total_control = balance_control + foot_control * 0.5
+
+        # Distribute to individual joints
+        joint_control = self.distribute_control_to_joints(total_control)
+
+        # Update joint controllers
+        joint_commands = []
+        for i, (controller, control) in enumerate(zip(self.joint_controllers, joint_control)):
+            joint_commands.append(controller.update(control, 0.01))
+
+        return joint_commands
+
+    def get_desired_foot_position(self, foot, time):
+        """Get desired foot position from gait trajectory"""
+        for traj in self.foot_trajectories:
+            if traj['foot'] == foot:
+                if traj['start_time'] <= time <= traj['start_time'] + traj['duration']:
+                    t_local = (time - traj['start_time']) / traj['duration']
+                    idx = int(t_local * (len(traj['trajectory']) - 1))
+                    return traj['trajectory'][idx][:2]  # Return x, y only
+        return np.zeros(2)
+
+    def compute_com_reference(self, left_foot, right_foot, time):
+        """Compute reference COM trajectory"""
+        # Simple COM controller: COM is ahead of feet by offset
+        offset = 0.2
+        height = 1.0  # Robot height
+
+        # Average foot positions with forward offset
+        avg_foot = (left_foot + right_foot) / 2
+        com_ref = avg_foot + np.array([offset, 0, height])
+
+        return com_ref
+
+    def compute_foot_control(self, current_feet, desired_feet):
+        """Compute control for foot positions"""
+        control = []
+        for current, desired in zip(current_feet, desired_feet):
+            error = desired - current
+            control.append(error * 50)  # Proportional control
+        return control
+
+    def distribute_control_to_joints(self, total_control):
+        """Distribute whole-body control to individual joints"""
+        # Simplified mapping - would use inverse kinematics
+        n_joints = self.robot.n_joints
+        joint_control = np.zeros(n_joints)
+
+        # Hip joints affect foot positions most
+        if n_joints >= 12:
+            # Left leg (hip, knee, ankle)
+            joint_control[0] = total_control[0]  # Left hip yaw
+            joint_control[1] = total_control[1]  # Left hip roll
+            joint_control[2] = total_control[2]  # Left hip pitch
+            joint_control[3] = 0.5 * total_control[2]  # Left knee
+            joint_control[4] = -0.5 * total_control[2]  # Left ankle
+
+            # Right leg
+            joint_control[6] = total_control[0]  # Right hip yaw
+            joint_control[7] = total_control[1]  # Right hip roll
+            joint_control[8] = total_control[2]  # Right hip pitch
+            joint_control[9] = 0.5 * total_control[2]  # Right knee
+            joint_control[10] = -0.5 * total_control[2]  # Right ankle
+
+        return joint_control
+
+    def handle_disturbance(self, disturbance_force, disturbance_point):
+        """Handle external disturbances"""
+        # Compute disturbance moment about COM
+        com_pos = self.get_com_position()
+        moment_arm = disturbance_point - com_pos
+        disturbance_moment = np.cross(moment_arm, disturbance_force)
+
+        # Increase control gains to reject disturbance
+        original_kp = self.balance_controller.kp
+        self.balance_controller.kp *= 2.0
+
+        # Apply compensation
+        compensation = self.compute_disturbance_compensation(disturbance_moment)
+        return compensation
+
+    def compute_disturbance_compensation(self, disturbance_moment):
+        """Compute compensation for disturbance moment"""
+        # Simple compensation based on moment magnitude
+        compensation = np.zeros(3)
+        compensation[2] = disturbance_moment / 10.0  # Ankle compensation
+        return compensation
+```
+
+### Push Recovery
+
+```python
+class PushRecoveryController:
+    """Controller for recovering from external pushes"""
+
+    def __init__(self, robot_model):
+        self.robot = robot_model
+        self.recovery_active = False
+        self.recovery_timer = 0
+
+        # Ankle strategy parameters
+        self.ankle_stiffness = 100.0
+        self.max_ankle_angle = np.pi / 6
+
+    def detect_push(self, current_state, desired_state):
+        """Detect if robot has been pushed"""
+        # Large deviation from desired state
+        position_error = np.linalg.norm(
+            current_state['com_position'] - desired_state['com_position']
+        )
+        velocity_error = np.linalg.norm(
+            current_state['com_velocity'] - desired_state.get('com_velocity', np.zeros(3))
+        )
+
+        # Threshold for detecting push
+        threshold = 0.05  # 5cm
+        return position_error > threshold or velocity_error > threshold
+
+    def activate_recovery(self):
+        """Activate push recovery mode"""
+        self.recovery_active = True
+        self.recovery_timer = 0
+
+    def update_recovery(self, current_state, desired_state):
+        """Update recovery control"""
+        if not self.recovery_active:
+            return np.zeros(self.robot.n_joints)
+
+        self.recovery_timer += 0.01
+
+        # Check if recovery is complete
+        if self.recovery_timer > 2.0:  # 2 second recovery window
+            position_error = np.linalg.norm(
+                current_state['com_position'] - desired_state['com_position']
+            )
+            if position_error < 0.02:  # Within 2cm
+                self.recovery_active = False
+                return np.zeros(self.robot.n_joints)
+
+        # Ankle strategy: increase ankle stiffness
+        ankle_control = self.compute_ankle_strategy(
+            current_state, desired_state
+        )
+
+        return ankle_control
+
+    def compute_ankle_strategy(self, current_state, desired_state):
+        """Compute ankle strategy control"""
+        control = np.zeros(self.robot.n_joints)
+
+        # Compute COM error
+        com_error = desired_state['com_position'] - current_state['com_position']
+        com_vel = current_state['com_velocity']
+
+        # Ankle impedance control
+        # Control = stiffness * error + damping * velocity
+        ankle_impedance = com_error * self.ankle_stiffness + com_vel * 20.0
+
+        # Limit ankle angles
+        ankle_impedance = np.clip(
+            ankle_impedance,
+            -self.max_ankle_angle,
+            self.max_ankle_angle
+        )
+
+        # Map to joint controls (simplified)
+        if self.robot.n_joints >= 12:
+            control[4] = -ankle_impedance[0]  # Left ankle roll
+            control[10] = -ankle_impedance[0]  # Right ankle roll
+
+        return control
+```
+
+## Simulation and Visualization
+
+### Walking Simulation
+
+```python
+class WalkingSimulation:
+    """Simulate humanoid robot walking"""
+
+    def __init__(self, robot_model):
+        self.robot = robot_model
+        self.controller = LocomotionController(robot_model)
+        self.push_recovery = PushRecoveryController(robot_model)
+
+        # Simulation parameters
+        self.dt = 0.01
+        self.time = 0
+
+        # Robot state
+        self.state = {
+            'joint_angles': np.zeros(robot_model.n_joints),
+            'joint_velocities': np.zeros(robot_model.n_joints),
+            'com_position': np.array([0, 0, 1.0]),
+            'com_velocity': np.zeros(3),
+            'left_foot_position': np.array([-0.075, 0, 0]),
+            'right_foot_position': np.array([0.075, 0, 0])
+        }
+
+    def step(self, terrain_info=None, speed_command=1.0, apply_push=False):
+        """Advance simulation by one time step"""
+        # Check for push
+        if apply_push and self.time > 3.0 and self.time < 3.5:
+            push_force = np.array([100, 0, 0])  # 100N push
+            push_point = self.state['com_position'] + np.array([0, 0, 1.5])
+            self.state['com_velocity'] += push_force / self.robot.mass * self.dt
+
+        # Control update
+        if self.push_recovery.detect_push(self.state, self.state):
+            self.push_recovery.activate_recovery()
+            control = self.push_recovery.update_recovery(self.state, self.state)
+        else:
+            control = self.controller.update(
+                self.state, terrain_info, speed_command
+            )
+
+        # Apply control
+        self.state['joint_accelerations'] = control
+        self.state['joint_velocities'] += control * self.dt
+        self.state['joint_angles'] += self.state['joint_velocities'] * self.dt
+
+        # Update forward kinematics
+        self.update_forward_kinematics()
+
+        # Update time
+        self.time += self.dt
+
+        return self.state.copy()
+
+    def update_forward_kinematics(self):
+        """Update positions from joint angles"""
+        # Simplified kinematics update
+        # In practice, would use full forward kinematics
+
+        # Update COM position (simplified)
+        self.state['com_position'] = np.array([
+            0.1 * np.sin(self.state['joint_angles'][0]),
+            0.1 * np.sin(self.state['joint_angles'][6]),
+            1.0 + 0.05 * np.sin(self.state['joint_angles'][2])
+        ])
+
+        # Update foot positions
+        self.state['left_foot_position'] = np.array([
+            -0.075 + 0.3 * np.sin(self.state['joint_angles'][0]),
+            0.15 + 0.3 * np.cos(self.state['joint_angles'][0]),
+            -0.9
+        ])
+
+        self.state['right_foot_position'] = np.array([
+            0.075 + 0.3 * np.sin(self.state['joint_angles'][6]),
+            0.15 - 0.3 * np.cos(self.state['joint_angles'][6]),
+            -0.9
+        ])
+
+    def run_simulation(self, duration=10.0, terrain_info=None):
+        """Run simulation for specified duration"""
+        history = {
+            'time': [],
+            'com_position': [],
+            'left_foot': [],
+            'right_foot': [],
+            'joint_angles': []
+        }
+
+        steps = int(duration / self.dt)
+        for i in range(steps):
+            # Apply push in middle of simulation
+            apply_push = (3.0 <= i * self.dt <= 3.5)
+
+            state = self.step(terrain_info, speed_command=1.0, apply_push=apply_push)
+
+            # Store history
+            history['time'].append(self.time)
+            history['com_position'].append(state['com_position'].copy())
+            history['left_foot'].append(state['left_foot_position'].copy())
+            history['right_foot'].append(state['right_foot_position'].copy())
+            history['joint_angles'].append(state['joint_angles'].copy())
+
+        return history
+
+    def visualize_gait(self, history):
+        """Visualize walking gait"""
+        import matplotlib.pyplot as plt
+
+        fig, axes = plt.subplots(3, 1, figsize=(12, 10))
+
+        # Plot COM trajectory
+        com_traj = np.array(history['com_position'])
+        axes[0].plot(com_traj[:, 0], com_traj[:, 1], 'b-', label='COM trajectory')
+        axes[0].set_xlabel('X Position (m)')
+        axes[0].set_ylabel('Y Position (m)')
+        axes[0].set_title('Center of Mass Trajectory')
+        axes[0].legend()
+        axes[0].grid(True)
+
+        # Plot foot trajectories
+        left_foot = np.array(history['left_foot'])
+        right_foot = np.array(history['right_foot'])
+
+        axes[1].plot(left_foot[:, 0], left_foot[:, 1], 'r-', label='Left foot')
+        axes[1].plot(right_foot[:, 0], right_foot[:, 1], 'g-', label='Right foot')
+        axes[1].set_xlabel('X Position (m)')
+        axes[1].set_ylabel('Y Position (m)')
+        axes[1].set_title('Foot Trajectories')
+        axes[1].legend()
+        axes[1].grid(True)
+
+        # Plot support polygon
+        times = np.array(history['time'])
+        for t in times[::100]:  # Every 1 second
+            idx = int(t * 100)
+            if idx < len(left_foot):
+                # Draw support polygon
+                support_points = np.array([
+                    left_foot[idx, :2],
+                    right_foot[idx, :2]
+                ])
+                polygon = plt.Polygon(support_points, alpha=0.2, color='blue')
+                axes[1].add_patch(polygon)
+
+        # Plot joint angles
+        joint_angles = np.array(history['joint_angles'])
+        for i in range(min(6, joint_angles.shape[1])):
+            axes[2].plot(times, joint_angles[:, i], label=f'Joint {i}')
+
+        axes[2].set_xlabel('Time (s)')
+        axes[2].set_ylabel('Joint Angle (rad)')
+        axes[2].set_title('Joint Angles Over Time')
+        axes[2].legend()
+        axes[2].grid(True)
+
+        plt.tight_layout()
+        plt.show()
+
+# Example usage
+if __name__ == '__main__':
+    # Create simplified robot model
+    class RobotModel:
+        def __init__(self):
+            self.mass = 50.0
+            self.n_joints = 12
+
+    robot = RobotModel()
+    sim = WalkingSimulation(robot)
+
+    # Run simulation
+    print("Starting walking simulation...")
+    history = sim.run_simulation(duration=10.0)
+
+    # Visualize results
+    sim.visualize_gait(history)
+    print("Simulation complete!")
+```
+
+## Summary
+
+Balance and locomotion are essential for humanoid robot mobility:
+
+- **ZMP theory** provides the foundation for balance analysis
+- **Gait generation** creates stable walking patterns
+- **Feedback control** maintains dynamic stability
+- **Push recovery** enables disturbance rejection
+- **Dynamic adaptation** allows navigation of varied terrains
+
+These principles enable humanoid robots to move stably and effectively in complex environments, bringing us closer to truly autonomous Physical AI systems.
+
+## Knowledge Check
+
+1. Explain why ZMP is critical for bipedal balance.
+2. How does the double support phase improve stability?
+3. Compare different gait patterns (walking, running, stair climbing).
+4. Design a balance controller for a 12-DOF humanoid.
+5. How would you adapt locomotion for slippery surfaces?

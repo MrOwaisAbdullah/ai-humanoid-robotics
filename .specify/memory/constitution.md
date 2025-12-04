@@ -1,9 +1,13 @@
 <!--
 Sync Impact Report:
-- Version change: 1.0.0 → 1.0.0 (initial adoption)
-- Added sections: Core Development Philosophy, Code Quality Standards, Architecture Principles, Testing Strategy, Performance & Scalability, Documentation Standards, Security & Best Practices, Accessibility & User Experience, Git & Version Control, AI Collaboration Guidelines, Decision-Making Framework, Success Metrics, Bonus Features Strategy
-- Templates requiring updates: ✅ All templates aligned with new principles
-- Follow-up TODOs: None - all placeholders resolved
+- Version change: 1.1.0 → 1.2.0 (enhanced AI Collaboration Guidelines and Documentation Research)
+- Enhanced sections:
+  - Documentation Research Principle → Documentation Research & Fact-Checking Principle (added Web Search requirement)
+  - AI Collaboration Guidelines → Comprehensive agent and skill usage guidelines
+- New additions to CLAUDE.md: Section 4 on using specialized agents and skills
+- Templates requiring updates: ✅ All templates aligned with enhanced principles
+- Follow-up TODOs: None - all guidelines documented and actionable
+- Key improvement: Institutionalized fact-checking with MCP tools and agent usage for complex tasks
 -->
 
 # AI-Driven Book with RAG Chatbot Constitution
@@ -65,6 +69,26 @@ Every piece of knowledge has one authoritative representation. If you need to ma
 
 ### 7. Styling Strategy
 Use utility-first CSS (Tailwind CSS) for all custom components. Avoid writing custom CSS/CSS Modules unless absolutely necessary for complex animations or Docusaurus internal overrides.
+
+### 8. Documentation Research & Fact-Checking Principle
+Always use Context7 MCP for latest documentation and Web Search for fact-checking technical data. Never rely on cached knowledge or internal knowledge for external library documentation or technical specifications.
+
+**Application for Documentation**: Use `mcp__context7__get-library-docs` for all framework documentation:
+- Docusaurus: Use library ID "docusaurus" for latest docs at https://docusaurus.io/docs
+- OpenAI: Use library ID "openai" for API documentation
+- FastAPI: Use library ID "fastapi" for framework documentation
+- Qdrant: Use library ID "qdrant" for vector database documentation
+- React: Use library ID "react" for component patterns
+- ChatKit JS: Use library ID "chatkit-js" for latest docs at https://github.com/openai/chatkit-js
+
+**Application for Fact-Checking**: Use Web Search for all technical data, pricing, specifications, and current information:
+- AWS pricing: Verify against official AWS pricing pages
+- Hardware specifications: Cross-reference with manufacturer documentation
+- Software versions: Check official release notes and compatibility matrices
+- API changes: Search for recent updates and deprecation notices
+- Cost calculations: Verify with current pricing calculators
+
+**Rationale**: Technical data changes frequently; using MCP tools ensures accuracy and prevents dissemination of outdated information. This is critical for educational content where incorrect data can impact student budgeting and technical decisions.
 
 ## Architecture Principles
 
@@ -263,14 +287,79 @@ docs(readme): add deployment instructions
 
 ## AI Collaboration Guidelines
 
-### 1. When to Use Subagents
-Complex, specialized tasks: RAG architecture, Docusaurus configuration. Need separate context: Keep main conversation focused on high-level coordination. Reusable expertise: Package knowledge for future use.
+### 1. When to Use Subagents (Specialized Agent Execution)
+Use the Task tool with specialized subagents for:
 
-### 2. When to Use Skills
-Repeatable patterns: Book structure generation, API endpoint scaffolding. Template-driven work: Chapter templates, component boilerplates. Knowledge packaging: Chunk strategies, deployment scripts.
+**Complex, Multi-File Operations:**
+- Fact-checking technical data across multiple documents
+- Coordinated updates to related files and configurations
+- Parallel research and analysis across multiple sources
+- System-wide corrections and standardization
 
-### 3. Prompt Quality
-Good Prompt includes specific success criteria, clear step-by-step instructions, and expected outcomes. Bad prompt is vague like "Make RAG thing work."
+**Specialized Domain Expertise:**
+- `rag-specialist`: RAG system implementation, optimization, troubleshooting
+- `content-writer`: High-quality technical documentation, educational materials
+- `docusaurus-architect`: Complex site configuration, deployment, theme customization
+- `deployment-engineer`: Cloud deployment, CI/CD pipelines, infrastructure setup
+- `chatkit-integrator`: ChatKit SDK integration, real-time chat functionality
+- `general-purpose`: Research, analysis, multi-step problem solving
+
+**Separate Context Requirements:**
+- Keep main conversation focused on high-level coordination
+- Isolate complex technical details from primary workflow
+- Package reusable expertise for future tasks
+
+### 2. When to Use Skills (Pre-built Capabilities)
+Use the Skill tool for:
+
+**Repeatable Patterns:**
+- `book-structure-generator`: Automated book hierarchy and navigation
+- `rag-pipeline-builder`: Complete RAG implementation with common patterns
+- `chatbot-widget-creator`: React components for chat integration
+
+**Template-Driven Work:**
+- Chapter templates with consistent structure
+- Component boilerplates with best practices
+- Deployment scripts with error handling
+
+**Knowledge Packaging:**
+- Proven strategies for document chunking
+- Established patterns for vector database optimization
+- Standardized workflows for content generation
+
+### 3. Prompt Quality for Agent and Skill Usage
+**Effective Prompts Include:**
+- Specific success criteria and acceptance tests
+- Clear step-by-step instructions with expected outputs
+- Context about the current project state and constraints
+- Examples of desired outcomes or formats
+
+**Example Structure:**
+```
+Task description: Brief 3-5 word summary
+Subagent type: Choose based on required expertise
+Prompt:
+- Context: Current project status and goals
+- Specific task: What needs to be accomplished
+- Success criteria: How to measure completion
+- Expected outputs: File formats, content types, etc.
+```
+
+### 4. Agent Selection Guidelines
+**Choose general-purpose when:**
+- Task requires research across multiple domains
+- Need flexibility to adapt to changing requirements
+- Complex problem solving with multiple possible approaches
+
+**Choose specialized subagent when:**
+- Task clearly maps to a specific domain expertise
+- Need deep knowledge of particular tools or frameworks
+- Requiring established patterns and best practices from that domain
+
+**Choose skills when:**
+- Task matches a predefined pattern or template
+- Need rapid execution of common workflows
+- Want to leverage pre-packaged expertise
 
 ## Decision-Making Framework
 
@@ -349,4 +438,4 @@ This constitution supersedes all other practices. Amendments require documentati
 
 **Compliance Review**: Every feature implementation must reference specific constitution principles that guided design decisions.
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-03 | **Last Amended**: 2025-12-03
+**Version**: 1.2.0 | **Ratified**: 2025-12-03 | **Last Amended**: 2025-12-04
