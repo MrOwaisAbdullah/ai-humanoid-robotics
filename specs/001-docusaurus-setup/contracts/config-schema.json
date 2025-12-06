@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Docusaurus Configuration Schema",
+  "description": "Schema for docusaurus.config.ts configuration file",
+  "type": "object",
+  "required": ["title", "url", "baseUrl"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Website title",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "tagline": {
+      "type": "string",
+      "description": "Website tagline",
+      "maxLength": 500
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "description": "Website URL (HTTPS required)"
+    },
+    "baseUrl": {
+      "type": "string",
+      "pattern": "^/.*/$",
+      "description": "Base URL path (must start and end with /)"
+    },
+    "favicon": {
+      "type": "string",
+      "description": "Path to favicon file"
+    },
+    "organizationName": {
+      "type": "string",
+      "description": "GitHub organization or username"
+    },
+    "projectName": {
+      "type": "string",
+      "description": "GitHub repository name"
+    },
+    "deploymentBranch": {
+      "type": "string",
+      "default": "gh-pages",
+      "description": "GitHub deployment branch"
+    },
+    "themeConfig": {
+      "type": "object",
+      "properties": {
+        "colorMode": {
+          "type": "object",
+          "properties": {
+            "defaultMode": {
+              "type": "string",
+              "enum": ["dark", "light"],
+              "default": "dark"
+            },
+            "disableSwitch": {
+              "type": "boolean",
+              "default": false
+            },
+            "respectPrefersColorScheme": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        "navbar": {
+          "type": "object",
+          "required": ["title"],
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1
+            },
+            "logo": {
+              "type": "object",
+              "properties": {
+                "alt": {
+                  "type": "string"
+                },
+                "src": {
+                  "type": "string"
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": ["src"]
+            }
+          }
+        },
+        "footer": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": ["light", "dark"],
+              "default": "dark"
+            },
+            "copyright": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

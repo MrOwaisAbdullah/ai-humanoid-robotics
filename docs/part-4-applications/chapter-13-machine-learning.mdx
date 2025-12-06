@@ -1,0 +1,1841 @@
+---
+title: Chapter 13 - Machine Learning in Robotics
+sidebar_position: 36
+description: Learning-based control, reinforcement learning, and adaptive systems
+---
+
+# Chapter 13: Machine Learning in Robotics
+
+## What You'll Learn
+
+1. Supervised Learning for Perception
+2. Reinforcement Learning for Control
+3. Imitation Learning from Demonstrations
+4. Online Learning and Adaptation
+5. Sim-to-Real Transfer
+6. Safe Learning for Robotics
+
+## Introduction
+
+Machine learning has revolutionized robotics by enabling robots to acquire skills through data rather than explicit programming. This chapter explores various learning paradigms that empower humanoid robots to adapt, improve, and perform complex tasks in dynamic environments.
+
+## 1. Supervised Learning for Perception
+
+### 1.1 Deep Neural Networks for Sensor Processing
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+from torch.utils.data import Dataset, DataLoader
+
+class SensorDataset(Dataset):
+    def __init__(self, sensor_data, labels, transform=None):
+        self.sensor_data = sensor_data
+        self.labels = labels
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        data = self.sensor_data[idx]
+        label = self.labels[idx]
+
+        if self.transform:
+            data = self.transform(data)
+
+        return torch.FloatTensor(data), torch.FloatTensor(label)
+
+class MultimodalPerceptionNet(nn.Module):
+    def __init__(self, vision_input_size, tactile_input_size, proprioception_input_size, output_size):
+        super(MultimodalPerceptionNet, self).__init__()
+
+        # Vision branch
+        self.vision_branch = nn.Sequential(
+            nn.Linear(vision_input_size, 512),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128)
+        )
+
+        # Tactile branch
+        self.tactile_branch = nn.Sequential(
+            nn.Linear(tactile_input_size, 256),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64)
+        )
+
+        # Proprioception branch
+        self.proprioception_branch = nn.Sequential(
+            nn.Linear(proprioception_input_size, 256),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64)
+        )
+
+        # Fusion layer
+        self.fusion_layer = nn.Sequential(
+            nn.Linear(128 + 64 + 64, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, output_size)
+        )
+
+    def forward(self, vision, tactile, proprioception):
+        # Process each modality
+        vision_features = self.vision_branch(vision)
+        tactile_features = self.tactile_branch(tactile)
+        proprioception_features = self.proprioception_branch(proprioception)
+
+        # Fuse features
+        fused_features = torch.cat([vision_features, tactile_features, proprioception_features], dim=1)
+        output = self.fusion_layer(fused_features)
+
+        return output
+
+class PerceptionTrainer:
+    def __init__(self, model, learning_rate=1e-3):
+        self.model = model
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        self.criterion = nn.MSELoss()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(self.device)
+
+    def train_epoch(self, dataloader):
+        self.model.train()
+        total_loss = 0
+        num_batches = len(dataloader)
+
+        for batch_idx, (vision, tactile, proprioception, targets) in enumerate(dataloader):
+            vision = vision.to(self.device)
+            tactile = tactile.to(self.device)
+            proprioception = proprioception.to(self.device)
+            targets = targets.to(self.device)
+
+            self.optimizer.zero_grad()
+            outputs = self.model(vision, tactile, proprioception)
+            loss = self.criterion(outputs, targets)
+            loss.backward()
+            self.optimizer.step()
+
+            total_loss += loss.item()
+
+        return total_loss / num_batches
+
+    def validate(self, dataloader):
+        self.model.eval()
+        total_loss = 0
+        predictions = []
+        targets_list = []
+
+        with torch.no_grad():
+            for vision, tactile, proprioception, targets in dataloader:
+                vision = vision.to(self.device)
+                tactile = tactile.to(self.device)
+                proprioception = proprioception.to(self.device)
+                targets = targets.to(self.device)
+
+                outputs = self.model(vision, tactile, proprioception)
+                loss = self.criterion(outputs, targets)
+
+                total_loss += loss.item()
+                predictions.append(outputs.cpu().numpy())
+                targets_list.append(targets.cpu().numpy())
+
+        avg_loss = total_loss / len(dataloader)
+        predictions = np.concatenate(predictions)
+        targets = np.concatenate(targets_list)
+
+        return avg_loss, predictions, targets
+```
+
+### 1.2 Object Recognition with CNNs
+
+```python
+import torchvision.models as models
+import torchvision.transforms as transforms
+
+class ObjectRecognitionNet(nn.Module):
+    def __init__(self, num_classes, pretrained=True):
+        super(ObjectRecognitionNet, self).__init__()
+
+        # Load pretrained ResNet-50
+        self.backbone = models.resnet50(pretrained=pretrained)
+
+        # Remove the final classification layer
+        self.features = nn.Sequential(*list(self.backbone.children())[:-1])
+
+        # Add custom classification head
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(2048, 512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, x):
+        # Extract features
+        features = self.features(x)
+        features = features.view(features.size(0), -1)
+
+        # Classify
+        output = self.classifier(features)
+
+        return output, features
+
+class FewShotLearning:
+    def __init__(self, feature_extractor):
+        self.feature_extractor = feature_extractor
+        self.support_features = {}
+        self.support_labels = {}
+
+    def extract_features(self, images):
+        """Extract features from images using the feature extractor"""
+        self.feature_extractor.eval()
+        features = []
+
+        with torch.no_grad():
+            for image in images:
+                # Preprocess image
+                transform = transforms.Compose([
+                    transforms.Resize((224, 224)),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                       std=[0.229, 0.224, 0.225])
+                ])
+
+                input_tensor = transform(image).unsqueeze(0)
+                _, feature = self.feature_extractor(input_tensor)
+                features.append(feature.squeeze().numpy())
+
+        return np.array(features)
+
+    def set_support_set(self, support_images, support_labels):
+        """Set the support set for few-shot learning"""
+        support_features = self.extract_features(support_images)
+
+        self.support_features = {}
+        self.support_labels = {}
+
+        for i, label in enumerate(support_labels):
+            if label not in self.support_features:
+                self.support_features[label] = []
+                self.support_labels[label] = label
+
+            self.support_features[label].append(support_features[i])
+
+        # Compute prototypes for each class
+        self.prototypes = {}
+        for label, features in self.support_features.items():
+            self.prototypes[label] = np.mean(features, axis=0)
+
+    def predict(self, query_images):
+        """Predict labels for query images using nearest prototype"""
+        query_features = self.extract_features(query_images)
+
+        predictions = []
+        confidences = []
+
+        for feature in query_features:
+            distances = {}
+
+            # Compute distance to each prototype
+            for label, prototype in self.prototypes.items():
+                distance = np.linalg.norm(feature - prototype)
+                distances[label] = distance
+
+            # Find nearest prototype
+            predicted_label = min(distances, key=distances.get)
+            confidence = 1.0 / (1.0 + distances[predicted_label])
+
+            predictions.append(predicted_label)
+            confidences.append(confidence)
+
+        return predictions, confidences
+```
+
+## 2. Reinforcement Learning for Control
+
+### 2.1 Deep Q-Network (DQN)
+
+```python
+import random
+from collections import deque
+import gymnasium as gym
+
+class DQNNetwork(nn.Module):
+    def __init__(self, state_size, action_size, hidden_size=256):
+        super(DQNNetwork, self).__init__()
+
+        self.fc1 = nn.Linear(state_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, hidden_size)
+        self.fc4 = nn.Linear(hidden_size, action_size)
+
+        self.dropout = nn.Dropout(0.2)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)
+        return x
+
+class ReplayBuffer:
+    def __init__(self, capacity):
+        self.buffer = deque(maxlen=capacity)
+
+    def push(self, state, action, reward, next_state, done):
+        self.buffer.append((state, action, reward, next_state, done))
+
+    def sample(self, batch_size):
+        batch = random.sample(self.buffer, batch_size)
+        state, action, reward, next_state, done = map(np.stack, zip(*batch))
+        return state, action, reward, next_state, done
+
+    def __len__(self):
+        return len(self.buffer)
+
+class DQNAgent:
+    def __init__(self, state_size, action_size, lr=1e-3):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Neural networks
+        self.q_network = DQNNetwork(state_size, action_size).to(self.device)
+        self.target_network = DQNNetwork(state_size, action_size).to(self.device)
+        self.update_target_network()
+
+        # Optimizer and replay buffer
+        self.optimizer = torch.optim.Adam(self.q_network.parameters(), lr=lr)
+        self.replay_buffer = ReplayBuffer(100000)
+
+        # Hyperparameters
+        self.gamma = 0.99
+        self.epsilon = 1.0
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.995
+        self.batch_size = 64
+        self.target_update_frequency = 1000
+
+        self.training_step = 0
+
+    def update_target_network(self):
+        """Update target network with current network weights"""
+        self.target_network.load_state_dict(self.q_network.state_dict())
+
+    def select_action(self, state, training=True):
+        """Select action using epsilon-greedy policy"""
+        if training and random.random() < self.epsilon:
+            return random.randrange(self.action_size)
+
+        with torch.no_grad():
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            q_values = self.q_network(state_tensor)
+            return q_values.argmax().item()
+
+    def train_step(self):
+        """Perform one training step"""
+        if len(self.replay_buffer) < self.batch_size:
+            return None
+
+        # Sample batch
+        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
+
+        states = torch.FloatTensor(states).to(self.device)
+        actions = torch.LongTensor(actions).to(self.device)
+        rewards = torch.FloatTensor(rewards).to(self.device)
+        next_states = torch.FloatTensor(next_states).to(self.device)
+        dones = torch.BoolTensor(dones).to(self.device)
+
+        # Current Q values
+        current_q_values = self.q_network(states).gather(1, actions.unsqueeze(1))
+
+        # Next Q values from target network
+        with torch.no_grad():
+            next_q_values = self.target_network(next_states).max(1)[0]
+            target_q_values = rewards + (self.gamma * next_q_values * ~dones)
+
+        # Compute loss
+        loss = F.mse_loss(current_q_values.squeeze(), target_q_values)
+
+        # Optimize
+        self.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), 1.0)
+        self.optimizer.step()
+
+        # Update epsilon
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+
+        # Update target network
+        self.training_step += 1
+        if self.training_step % self.target_update_frequency == 0:
+            self.update_target_network()
+
+        return loss.item()
+```
+
+### 2.2 Proximal Policy Optimization (PPO)
+
+```python
+class PPOActorCritic(nn.Module):
+    def __init__(self, state_size, action_size, continuous=True):
+        super(PPOActorCritic, self).__init__()
+
+        self.continuous = continuous
+        self.action_size = action_size
+
+        # Shared layers
+        self.shared_layers = nn.Sequential(
+            nn.Linear(state_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU()
+        )
+
+        # Actor head
+        self.actor_mean = nn.Linear(256, action_size)
+        self.actor_log_std = nn.Parameter(torch.zeros(1, action_size))
+
+        # Critic head
+        self.critic = nn.Linear(256, 1)
+
+    def forward(self, state):
+        shared_features = self.shared_layers(state)
+
+        # Actor
+        action_mean = self.actor_mean(shared_features)
+        action_std = torch.exp(self.actor_log_std)
+
+        # Critic
+        value = self.critic(shared_features)
+
+        return action_mean, action_std, value
+
+    def get_action_and_value(self, state, action=None):
+        action_mean, action_std, value = self.forward(state)
+
+        if self.continuous:
+            dist = torch.distributions.Normal(action_mean, action_std)
+        else:
+            dist = torch.distributions.Categorical(F.softmax(action_mean, dim=-1))
+
+        if action is None:
+            action = dist.sample()
+
+        return action, dist.log_prob(action).sum(1), dist.entropy().sum(1), value.squeeze(1)
+
+class PPOAgent:
+    def __init__(self, state_size, action_size, continuous=True, lr=3e-4):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.network = PPOActorCritic(state_size, action_size, continuous).to(self.device)
+        self.optimizer = torch.optim.Adam(self.network.parameters(), lr=lr)
+
+        self.clip_epsilon = 0.2
+        self.gamma = 0.99
+        self.gae_lambda = 0.95
+        self.ppo_epochs = 4
+        self.minibatch_size = 64
+        self.entropy_coef = 0.01
+        self.value_coef = 0.5
+
+    def collect_trajectories(self, env, num_timesteps):
+        """Collect trajectories for training"""
+        states = []
+        actions = []
+        rewards = []
+        log_probs = []
+        values = []
+        dones = []
+
+        state = env.reset()
+
+        for _ in range(num_timesteps):
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+
+            with torch.no_grad():
+                action, log_prob, _, value = self.network.get_action_and_value(state_tensor)
+
+            next_state, reward, done, _ = env.step(action.cpu().numpy())
+
+            states.append(state)
+            actions.append(action.cpu().numpy())
+            rewards.append(reward)
+            log_probs.append(log_prob.cpu().numpy())
+            values.append(value.cpu().numpy())
+            dones.append(done)
+
+            state = next_state
+
+            if done:
+                state = env.reset()
+
+        return {
+            'states': np.array(states),
+            'actions': np.array(actions),
+            'rewards': np.array(rewards),
+            'log_probs': np.array(log_probs),
+            'values': np.array(values),
+            'dones': np.array(dones)
+        }
+
+    def compute_gae(self, rewards, values, dones):
+        """Compute Generalized Advantage Estimation"""
+        advantages = np.zeros_like(rewards)
+        returns = np.zeros_like(rewards)
+
+        gae = 0
+        for t in reversed(range(len(rewards))):
+            if t == len(rewards) - 1:
+                next_value = 0
+            else:
+                next_value = values[t + 1]
+
+            delta = rewards[t] + self.gamma * next_value * (1 - dones[t]) - values[t]
+            gae = delta + self.gamma * self.gae_lambda * (1 - dones[t]) * gae
+            advantages[t] = gae
+            returns[t] = gae + values[t]
+
+        return advantages, returns
+
+    def update(self, trajectories):
+        """Update policy using PPO"""
+        states = torch.FloatTensor(trajectories['states']).to(self.device)
+        actions = torch.FloatTensor(trajectories['actions']).to(self.device)
+        old_log_probs = torch.FloatTensor(trajectories['log_probs']).to(self.device)
+
+        # Compute GAE advantages and returns
+        advantages, returns = self.compute_gae(
+            trajectories['rewards'],
+            trajectories['values'],
+            trajectories['dones']
+        )
+
+        advantages = torch.FloatTensor(advantages).to(self.device)
+        returns = torch.FloatTensor(returns).to(self.device)
+
+        # Normalize advantages
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        # Update policy
+        batch_size = len(states)
+        indices = np.arange(batch_size)
+
+        for _ in range(self.ppo_epochs):
+            np.random.shuffle(indices)
+
+            for start in range(0, batch_size, self.minibatch_size):
+                end = start + self.minibatch_size
+                mb_indices = indices[start:end]
+
+                mb_states = states[mb_indices]
+                mb_actions = actions[mb_indices]
+                mb_old_log_probs = old_log_probs[mb_indices]
+                mb_advantages = advantages[mb_indices]
+                mb_returns = returns[mb_indices]
+
+                # Get current action and value predictions
+                _, new_log_prob, entropy, new_value = self.network.get_action_and_value(
+                    mb_states, mb_actions
+                )
+
+                # Compute ratio
+                log_ratio = new_log_prob - mb_old_log_probs
+                ratio = log_ratio.exp()
+
+                # PPO clip loss
+                policy_loss1 = -mb_advantages * ratio
+                policy_loss2 = -mb_advantages * torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon)
+                policy_loss = torch.max(policy_loss1, policy_loss2).mean()
+
+                # Value loss
+                value_loss = F.mse_loss(new_value, mb_returns)
+
+                # Entropy bonus
+                entropy_loss = entropy.mean()
+
+                # Total loss
+                loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy_loss
+
+                # Optimize
+                self.optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 0.5)
+                self.optimizer.step()
+```
+
+## 3. Imitation Learning from Demonstrations
+
+### 3.1 Behavioral Cloning
+
+```python
+class BehaviorCloning:
+    def __init__(self, state_dim, action_dim, hidden_dim=256):
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Policy network
+        self.policy = nn.Sequential(
+            nn.Linear(state_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, action_dim)
+        ).to(self.device)
+
+        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=1e-3)
+
+        # For continuous actions, use tanh activation
+        self.action_scale = 1.0
+
+    def train(self, states, actions, epochs=100, batch_size=64):
+        """Train policy network from demonstrations"""
+        dataset = torch.utils.data.TensorDataset(
+            torch.FloatTensor(states),
+            torch.FloatTensor(actions)
+        )
+        dataloader = torch.utils.data.DataLoader(
+            dataset, batch_size=batch_size, shuffle=True
+        )
+
+        losses = []
+
+        for epoch in range(epochs):
+            epoch_losses = []
+
+            for batch_states, batch_actions in dataloader:
+                batch_states = batch_states.to(self.device)
+                batch_actions = batch_actions.to(self.device)
+
+                self.optimizer.zero_grad()
+
+                predicted_actions = self.policy(batch_states)
+
+                # Apply tanh for continuous actions
+                if self.action_dim > 1:  # Assume continuous if multi-dimensional
+                    predicted_actions = torch.tanh(predicted_actions) * self.action_scale
+
+                loss = F.mse_loss(predicted_actions, batch_actions)
+                loss.backward()
+                self.optimizer.step()
+
+                epoch_losses.append(loss.item())
+
+            avg_loss = np.mean(epoch_losses)
+            losses.append(avg_loss)
+
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch}, Loss: {avg_loss:.4f}")
+
+        return losses
+
+    def predict(self, state):
+        """Predict action for given state"""
+        with torch.no_grad():
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            action = self.policy(state_tensor)
+
+            if self.action_dim > 1:  # Continuous actions
+                action = torch.tanh(action) * self.action_scale
+
+            return action.cpu().numpy().squeeze()
+```
+
+### 3.2 Generative Adversarial Imitation Learning (GAIL)
+
+```python
+class Discriminator(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_dim=256):
+        super(Discriminator, self).__init__()
+
+        self.network = nn.Sequential(
+            nn.Linear(state_dim + action_dim, hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, state, action):
+        x = torch.cat([state, action], dim=1)
+        return self.network(x)
+
+class GAIL:
+    def __init__(self, state_dim, action_dim, expert demonstrations, lr=3e-4):
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Expert demonstrations
+        self.expert_states = torch.FloatTensor(demonstrations['states']).to(self.device)
+        self.expert_actions = torch.FloatTensor(demonstrations['actions']).to(self.device)
+
+        # Policy network
+        self.policy = PPOAgent(state_dim, action_dim).network
+
+        # Discriminator
+        self.discriminator = Discriminator(state_dim, action_dim).to(self.device)
+        self.discriminator_optimizer = torch.optim.Adam(
+            self.discriminator.parameters(), lr=lr
+        )
+
+        # Training parameters
+        self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr)
+        self.epochs = 100
+        self.policy_updates_per_epoch = 10
+        self.discriminator_updates_per_epoch = 5
+
+    def train_discriminator(self, policy_states, policy_actions):
+        """Train discriminator to distinguish expert from policy"""
+        self.discriminator_optimizer.zero_grad()
+
+        # Expert predictions
+        expert_predictions = self.discriminator(
+            self.expert_states, self.expert_actions
+        )
+
+        # Policy predictions
+        policy_predictions = self.discriminator(
+            policy_states, policy_actions
+        )
+
+        # Discriminator loss
+        expert_loss = -torch.log(expert_predictions + 1e-8).mean()
+        policy_loss = -torch.log(1 - policy_predictions + 1e-8).mean()
+        discriminator_loss = (expert_loss + policy_loss) / 2
+
+        discriminator_loss.backward()
+        self.discriminator_optimizer.step()
+
+        return discriminator_loss.item()
+
+    def train_policy(self, states, actions):
+        """Train policy to fool discriminator"""
+        self.policy_optimizer.zero_grad()
+
+        # Get discriminator predictions for policy actions
+        discriminator_predictions = self.discriminator(states, actions)
+
+        # Policy wants to maximize discriminator confusion
+        # Equivalent to minimizing negative log probability of being expert
+        policy_loss = -torch.log(discriminator_predictions + 1e-8).mean()
+
+        policy_loss.backward()
+        self.policy_optimizer.step()
+
+        return policy_loss.item()
+
+    def collect_policy_trajectories(self, env, num_trajectories):
+        """Collect trajectories from current policy"""
+        policy_states = []
+        policy_actions = []
+
+        for _ in range(num_trajectories):
+            state = env.reset()
+            done = False
+
+            while not done:
+                state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+
+                with torch.no_grad():
+                    action_mean, action_std, _ = self.policy(state_tensor)
+                    dist = torch.distributions.Normal(action_mean, action_std)
+                    action = dist.sample()
+
+                policy_states.append(state)
+                policy_actions.append(action.cpu().numpy().squeeze())
+
+                next_state, _, done, _ = env.step(action.cpu().numpy())
+                state = next_state
+
+        return (
+            torch.FloatTensor(policy_states).to(self.device),
+            torch.FloatTensor(policy_actions).to(self.device)
+        )
+
+    def train(self, env):
+        """Train GAIL"""
+        print("Starting GAIL training...")
+
+        for epoch in range(self.epochs):
+            # Collect policy trajectories
+            policy_states, policy_actions = self.collect_policy_trajectories(env, 10)
+
+            # Train discriminator
+            discriminator_losses = []
+            for _ in range(self.discriminator_updates_per_epoch):
+                d_loss = self.train_discriminator(policy_states, policy_actions)
+                discriminator_losses.append(d_loss)
+
+            # Train policy
+            policy_losses = []
+            for _ in range(self.policy_updates_per_epoch):
+                p_loss = self.train_policy(policy_states, policy_actions)
+                policy_losses.append(p_loss)
+
+            if epoch % 10 == 0:
+                avg_d_loss = np.mean(discriminator_losses)
+                avg_p_loss = np.mean(policy_losses)
+                print(f"Epoch {epoch}, Discriminator Loss: {avg_d_loss:.4f}, Policy Loss: {avg_p_loss:.4f}")
+```
+
+## 4. Online Learning and Adaptation
+
+### 4.1 Continual Learning
+
+```python
+class ElasticWeightConsolidation:
+    def __init__(self, model, importance_weight=1000):
+        self.model = model
+        self.importance_weight = importance_weight
+        self.optim_params = {n: p for n, p in self.model.named_parameters() if p.requires_grad}
+        self.previous_weights = {}
+        self.fisher_importance = {}
+
+    def compute_fisher_importance(self, dataloader):
+        """Compute Fisher information importance weights"""
+        print("Computing Fisher importance...")
+
+        # Initialize importance
+        self.fisher_importance = {}
+        for n, p in self.optim_params.items():
+            self.fisher_importance[n] = torch.zeros_like(p)
+
+        # Set model to evaluation mode
+        self.model.eval()
+
+        num_samples = 0
+        for data in dataloader:
+            # Get batch data
+            inputs, labels = data
+            inputs = inputs.to(self.model.device)
+            labels = labels.to(self.model.device)
+
+            # Forward pass
+            outputs = self.model(inputs)
+
+            # Get log probabilities
+            log_probs = F.log_softmax(outputs, dim=1)
+
+            # Compute Fisher importance for each sample
+            for i in range(inputs.size(0)):
+                self.model.zero_grad()
+                loss = -log_probs[i, labels[i]]
+                loss.backward(retain_graph=True)
+
+                # Accumulate squared gradients
+                for n, p in self.optim_params.items():
+                    if p.grad is not None:
+                        self.fisher_importance[n] += p.grad.data ** 2
+
+            num_samples += inputs.size(0)
+
+        # Average importance
+        for n in self.fisher_importance:
+            self.fisher_importance[n] /= num_samples
+
+        # Store current weights
+        self.previous_weights = {n: p.clone() for n, p in self.optim_params.items()}
+
+    def ewc_loss(self):
+        """Compute EWC regularization loss"""
+        loss = 0
+        for n, p in self.optim_params.items():
+            if n in self.fisher_importance:
+                loss += (self.fisher_importance[n] * (p - self.previous_weights[n]) ** 2).sum()
+
+        return self.importance_weight * loss
+
+class ContinualLearner:
+    def __init__(self, base_model, learning_rate=1e-3):
+        self.model = base_model
+        self.ewc = ElasticWeightConsolidation(self.model)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.task_accuracies = []
+
+    def learn_task(self, task_dataloader, num_epochs=50):
+        """Learn a new task while preserving previous knowledge"""
+        # Compute importance for previous task (if not first task)
+        if len(self.task_accuracies) > 0:
+            self.ewc.compute_fisher_importance(task_dataloader)
+
+        # Train on new task
+        losses = []
+        for epoch in range(num_epochs):
+            epoch_losses = []
+
+            for batch_x, batch_y in task_dataloader:
+                batch_x = batch_x.to(self.model.device)
+                batch_y = batch_y.to(self.model.device)
+
+                self.optimizer.zero_grad()
+
+                # Forward pass
+                outputs = self.model(batch_x)
+
+                # Task-specific loss
+                task_loss = F.cross_entropy(outputs, batch_y)
+
+                # EWC regularization (if not first task)
+                if len(self.task_accuracies) > 0:
+                    ewc_loss = self.ewc.ewc_loss()
+                    total_loss = task_loss + ewc_loss
+                else:
+                    total_loss = task_loss
+
+                # Backward pass
+                total_loss.backward()
+                self.optimizer.step()
+
+                epoch_losses.append(task_loss.item())
+
+            avg_loss = np.mean(epoch_losses)
+            losses.append(avg_loss)
+
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch}, Task Loss: {avg_loss:.4f}")
+
+        # Evaluate on all tasks
+        self.evaluate_all_tasks()
+
+        return losses
+
+    def evaluate_all_tasks(self):
+        """Evaluate performance on all learned tasks"""
+        # This would maintain test dataloaders for each task
+        # Implementation depends on specific task setup
+        pass
+```
+
+### 4.2 Meta-Learning (MAML)
+
+```python
+class MAML:
+    def __init__(self, model, inner_lr=0.01, outer_lr=0.001, inner_steps=1):
+        self.model = model
+        self.inner_lr = inner_lr
+        self.outer_lr = outer_lr
+        self.inner_steps = inner_steps
+
+        self.meta_optimizer = torch.optim.Adam(self.model.parameters(), lr=outer_lr)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    def inner_update(self, model, support_x, support_y):
+        """Perform inner loop update for adaptation"""
+        # Clone model parameters
+        temp_model = type(model)(model.input_size, model.hidden_size, model.output_size)
+        temp_model.load_state_dict(model.state_dict())
+        temp_model.to(self.device)
+
+        # Inner loop updates
+        for _ in range(self.inner_steps):
+            # Forward pass
+            outputs = temp_model(support_x)
+            loss = F.mse_loss(outputs, support_y)
+
+            # Compute gradients
+            temp_model.zero_grad()
+            loss.backward()
+
+            # Manual gradient descent step
+            with torch.no_grad():
+                for param in temp_model.parameters():
+                    if param.grad is not None:
+                        param.data -= self.inner_lr * param.grad.data
+
+        return temp_model
+
+    def meta_update(self, task_batch):
+        """Perform meta-update across multiple tasks"""
+        meta_loss = 0
+        meta_accuracy = 0
+
+        for task in task_batch:
+            support_x, support_y, query_x, query_y = task
+
+            support_x = support_x.to(self.device)
+            support_y = support_y.to(self.device)
+            query_x = query_x.to(self.device)
+            query_y = query_y.to(self.device)
+
+            # Inner adaptation
+            adapted_model = self.inner_update(self.model, support_x, support_y)
+
+            # Evaluate on query set
+            with torch.no_grad():
+                query_outputs = adapted_model(query_x)
+                query_loss = F.mse_loss(query_outputs, query_y)
+
+                meta_loss += query_loss
+
+                # Compute accuracy for classification tasks
+                if query_outputs.shape[1] > 1:  # Classification
+                    pred_labels = query_outputs.argmax(dim=1)
+                    true_labels = query_y.argmax(dim=1) if query_y.shape[1] > 1 else query_y
+                    accuracy = (pred_labels == true_labels).float().mean()
+                    meta_accuracy += accuracy
+
+        # Average over tasks
+        meta_loss /= len(task_batch)
+        meta_accuracy /= len(task_batch)
+
+        # Meta-optimization step
+        self.meta_optimizer.zero_grad()
+        meta_loss.backward()
+        self.meta_optimizer.step()
+
+        return meta_loss.item(), meta_accuracy.item()
+
+    def train(self, task_generator, num_epochs=1000, tasks_per_batch=5):
+        """Train MAML model"""
+        losses = []
+        accuracies = []
+
+        for epoch in range(num_epochs):
+            # Sample batch of tasks
+            task_batch = [task_generator.sample_task() for _ in range(tasks_per_batch)]
+
+            # Meta-update
+            loss, accuracy = self.meta_update(task_batch)
+
+            losses.append(loss)
+            accuracies.append(accuracy)
+
+            if epoch % 100 == 0:
+                print(f"Epoch {epoch}, Meta Loss: {loss:.4f}, Meta Accuracy: {accuracy:.4f}")
+
+        return losses, accuracies
+
+    def adapt(self, model, support_data, num_steps=10):
+        """Adapt model to new task"""
+        adapted_model = self.inner_update(model, support_data[0], support_data[1])
+        return adapted_model
+```
+
+## 5. Sim-to-Real Transfer
+
+### 5.1 Domain Randomization
+
+```python
+class DomainRandomizer:
+    def __init__(self):
+        self.randomization_params = {
+            'camera_position': {'mean': 0, 'std': 0.1},
+            'lighting': {'min': 0.3, 'max': 1.0},
+            'object_color': {'min': 0, 'max': 1},
+            'background_color': {'min': 0, 'max': 1},
+            'noise_level': {'min': 0, 'max': 0.1},
+            'object_scale': {'min': 0.8, 'max': 1.2},
+            'object_rotation': {'min': 0, 'max': 360}
+        }
+
+    def randomize_camera(self, scene):
+        """Randomize camera parameters"""
+        # Random position offset
+        position_noise = np.random.normal(
+            self.randomization_params['camera_position']['mean'],
+            self.randomization_params['camera_position']['std'],
+            3
+        )
+
+        # Apply to camera
+        scene.camera.position += position_noise
+
+        return scene
+
+    def randomize_lighting(self, scene):
+        """Randomize lighting conditions"""
+        lighting_intensity = np.random.uniform(
+            self.randomization_params['lighting']['min'],
+            self.randomization_params['lighting']['max']
+        )
+
+        # Apply to all light sources
+        for light in scene.lights:
+            light.intensity = lighting_intensity
+
+        return scene
+
+    def randomize_object_properties(self, scene):
+        """Randomize object visual properties"""
+        for obj in scene.objects:
+            # Random color
+            color = np.random.uniform(
+                self.randomization_params['object_color']['min'],
+                self.randomization_params['object_color']['max'],
+                3
+            )
+            obj.color = color
+
+            # Random scale
+            scale = np.random.uniform(
+                self.randomization_params['object_scale']['min'],
+                self.randomization_params['object_scale']['max']
+            )
+            obj.scale = scale
+
+            # Random rotation
+            rotation = np.random.uniform(
+                self.randomization_params['object_rotation']['min'],
+                self.randomization_params['object_rotation']['max']
+            )
+            obj.rotation = rotation
+
+        return scene
+
+    def randomize_background(self, scene):
+        """Randomize background"""
+        bg_color = np.random.uniform(
+            self.randomization_params['background_color']['min'],
+            self.randomization_params['background_color']['max'],
+            3
+        )
+        scene.background_color = bg_color
+
+        return scene
+
+    def add_noise(self, image):
+        """Add sensor noise to image"""
+        noise_level = np.random.uniform(
+            self.randomization_params['noise_level']['min'],
+            self.randomization_params['noise_level']['max']
+        )
+
+        # Add Gaussian noise
+        noise = np.random.normal(0, noise_level * 255, image.shape)
+        noisy_image = image + noise
+        noisy_image = np.clip(noisy_image, 0, 255).astype(np.uint8)
+
+        return noisy_image
+
+    def randomize_scene(self, scene):
+        """Apply all randomizations to scene"""
+        scene = self.randomize_camera(scene)
+        scene = self.randomize_lighting(scene)
+        scene = self.randomize_object_properties(scene)
+        scene = self.randomize_background(scene)
+
+        return scene
+```
+
+### 5.2 System Identification for Transfer
+
+```python
+class SystemIdentifier:
+    def __init__(self, state_dim, action_dim):
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Dynamics model
+        self.dynamics_model = nn.Sequential(
+            nn.Linear(state_dim + action_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, state_dim)
+        ).to(self.device)
+
+        self.dynamics_optimizer = torch.optim.Adam(
+            self.dynamics_model.parameters(), lr=1e-3
+        )
+
+    def collect_data(self, env, num_samples=10000):
+        """Collect data from real system"""
+        states = []
+        actions = []
+        next_states = []
+
+        state = env.reset()
+
+        for _ in range(num_samples):
+            # Random action for exploration
+            action = env.action_space.sample()
+
+            next_state, _, done, _ = env.step(action)
+
+            states.append(state)
+            actions.append(action)
+            next_states.append(next_state)
+
+            state = next_state
+
+            if done:
+                state = env.reset()
+
+        return (
+            np.array(states),
+            np.array(actions),
+            np.array(next_states)
+        )
+
+    def train_dynamics_model(self, states, actions, next_states, epochs=100):
+        """Train dynamics model on collected data"""
+        dataset = torch.utils.data.TensorDataset(
+            torch.FloatTensor(np.concatenate([states, actions], axis=1)),
+            torch.FloatTensor(next_states)
+        )
+        dataloader = torch.utils.data.DataLoader(
+            dataset, batch_size=256, shuffle=True
+        )
+
+        losses = []
+
+        for epoch in range(epochs):
+            epoch_losses = []
+
+            for batch_input, batch_target in dataloader:
+                batch_input = batch_input.to(self.device)
+                batch_target = batch_target.to(self.device)
+
+                self.dynamics_optimizer.zero_grad()
+
+                predicted_next_state = self.dynamics_model(batch_input)
+                loss = F.mse_loss(predicted_next_state, batch_target)
+
+                loss.backward()
+                self.dynamics_optimizer.step()
+
+                epoch_losses.append(loss.item())
+
+            avg_loss = np.mean(epoch_losses)
+            losses.append(avg_loss)
+
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch}, Dynamics Loss: {avg_loss:.4f}")
+
+        return losses
+
+    def predict_next_state(self, state, action):
+        """Predict next state using learned dynamics"""
+        with torch.no_grad():
+            input_tensor = torch.FloatTensor(
+                np.concatenate([state, action])
+            ).unsqueeze(0).to(self.device)
+
+            predicted_next_state = self.dynamics_model(input_tensor)
+
+            return predicted_next_state.cpu().numpy().squeeze()
+
+    def transfer_policy(self, sim_policy, sim_env, real_env, num_episodes=100):
+        """Transfer policy from simulation to real world using system identification"""
+        # Collect real-world data
+        print("Collecting real-world data...")
+        real_states, real_actions, real_next_states = self.collect_data(
+            real_env, num_samples=1000
+        )
+
+        # Train dynamics model
+        print("Training dynamics model...")
+        self.train_dynamics_model(real_states, real_actions, real_next_states)
+
+        # Fine-tune policy using system identification
+        print("Fine-tuning policy...")
+        self.fine_tune_policy(sim_policy, sim_env, real_env, num_episodes)
+
+        return sim_policy
+
+    def fine_tune_policy(self, policy, sim_env, real_env, num_episodes):
+        """Fine-tune policy using learned dynamics"""
+        policy_optimizer = torch.optim.Adam(policy.parameters(), lr=1e-4)
+
+        for episode in range(num_episodes):
+            state = real_env.reset()
+            episode_reward = 0
+
+            for t in range(1000):  # Max episode length
+                # Get action from policy
+                with torch.no_grad():
+                    state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+                    action = policy(state_tensor).cpu().numpy().squeeze()
+
+                # Simulate using learned dynamics
+                simulated_next_state = self.predict_next_state(state, action)
+
+                # Actually step in real environment
+                real_next_state, reward, done, _ = real_env.step(action)
+
+                # Compute dynamics prediction error
+                dynamics_error = np.mean((real_next_state - simulated_next_state) ** 2)
+
+                # Policy loss includes dynamics accuracy
+                policy_optimizer.zero_grad()
+
+                # Recompute action with gradients
+                action_tensor = policy(state_tensor)
+                simulated_next = self.dynamics_model(
+                    torch.cat([state_tensor, action_tensor], dim=1)
+                )
+
+                # Loss: maximize predicted reward + minimize dynamics error
+                target_tensor = torch.FloatTensor(real_next_state).unsqueeze(0).to(self.device)
+                dynamics_loss = F.mse_loss(simulated_next, target_tensor)
+
+                # Inverse dynamics: use real next state to update action
+                action_loss = -reward + dynamics_error
+
+                action_loss.backward()
+                policy_optimizer.step()
+
+                episode_reward += reward
+                state = real_next_state
+
+                if done:
+                    break
+
+            if episode % 10 == 0:
+                print(f"Episode {episode}, Reward: {episode_reward:.2f}")
+```
+
+## 6. Safe Learning for Robotics
+
+### 6.1 Constrained Reinforcement Learning
+
+```python
+class SafeRLAgent:
+    def __init__(self, state_dim, action_dim, constraint_dim):
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.constraint_dim = constraint_dim
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Policy network
+        self.policy = nn.Sequential(
+            nn.Linear(state_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, action_dim)
+        ).to(self.device)
+
+        # Q-function networks
+        self.q1 = nn.Sequential(
+            nn.Linear(state_dim + action_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)
+        ).to(self.device)
+
+        self.q2 = nn.Sequential(
+            nn.Linear(state_dim + action_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1)
+        ).to(self.device)
+
+        # Constraint cost networks
+        self.cost1 = nn.Sequential(
+            nn.Linear(state_dim + action_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, constraint_dim)
+        ).to(self.device)
+
+        self.cost2 = nn.Sequential(
+            nn.Linear(state_dim + action_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, constraint_dim)
+        ).to(self.device)
+
+        # Optimizers
+        self.policy_optimizer = torch.optim.Adam(self.policy.parameters(), lr=3e-4)
+        self.q_optimizer = torch.optim.Adam(
+            list(self.q1.parameters()) + list(self.q2.parameters()),
+            lr=3e-4
+        )
+        self.cost_optimizer = torch.optim.Adam(
+            list(self.cost1.parameters()) + list(self.cost2.parameters()),
+            lr=3e-4
+        )
+
+        # Lagrange multipliers for constraints
+        self.lagrange_multipliers = torch.zeros(constraint_dim, requires_grad=True).to(self.device)
+        self.lambda_optimizer = torch.optim.Adam([self.lagrange_multipliers], lr=1e-2)
+
+        # Replay buffers
+        self.replay_buffer = ReplayBuffer(100000)
+        self.constraint_buffer = ReplayBuffer(100000)
+
+    def select_action(self, state, training=True):
+        """Select action using current policy"""
+        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            action = self.policy(state_tensor)
+
+            if training:
+                # Add exploration noise
+                noise = torch.randn_like(action) * 0.1
+                action = torch.clamp(action + noise, -1, 1)
+
+        return action.cpu().numpy().squeeze()
+
+    def update_q_functions(self, batch_size=256):
+        """Update Q-functions"""
+        if len(self.replay_buffer) < batch_size:
+            return
+
+        states, actions, rewards, next_states, dones = self.replay_buffer.sample(batch_size)
+
+        states = torch.FloatTensor(states).to(self.device)
+        actions = torch.FloatTensor(actions).to(self.device)
+        rewards = torch.FloatTensor(rewards).to(self.device)
+        next_states = torch.FloatTensor(next_states).to(self.device)
+        dones = torch.BoolTensor(dones).to(self.device)
+
+        with torch.no_grad():
+            next_actions = self.policy(next_states)
+
+            # Target Q-values
+            target_q1 = self.q1(torch.cat([next_states, next_actions], dim=1))
+            target_q2 = self.q2(torch.cat([next_states, next_actions], dim=1))
+            target_q = torch.min(target_q1, target_q2)
+            target_q = rewards + (1.0 - dones.float()) * 0.99 * target_q
+
+        # Current Q-values
+        current_q1 = self.q1(torch.cat([states, actions], dim=1))
+        current_q2 = self.q2(torch.cat([states, actions], dim=1))
+
+        # Q-losses
+        q1_loss = F.mse_loss(current_q1, target_q)
+        q2_loss = F.mse_loss(current_q2, target_q)
+        q_loss = q1_loss + q2_loss
+
+        # Optimize Q-functions
+        self.q_optimizer.zero_grad()
+        q_loss.backward()
+        self.q_optimizer.step()
+
+    def update_cost_functions(self, batch_size=256):
+        """Update constraint cost functions"""
+        if len(self.constraint_buffer) < batch_size:
+            return
+
+        states, actions, costs, next_states, dones = self.constraint_buffer.sample(batch_size)
+
+        states = torch.FloatTensor(states).to(self.device)
+        actions = torch.FloatTensor(actions).to(self.device)
+        costs = torch.FloatTensor(costs).to(self.device)
+        next_states = torch.FloatTensor(next_states).to(self.device)
+        dones = torch.BoolTensor(dones).to(self.device)
+
+        with torch.no_grad():
+            next_actions = self.policy(next_states)
+
+            # Target costs
+            target_cost1 = self.cost1(torch.cat([next_states, next_actions], dim=1))
+            target_cost2 = self.cost2(torch.cat([next_states, next_actions], dim=1))
+            target_cost = torch.min(target_cost1, target_cost2)
+            target_cost = costs + (1.0 - dones.float()) * 0.99 * target_cost
+
+        # Current costs
+        current_cost1 = self.cost1(torch.cat([states, actions], dim=1))
+        current_cost2 = self.cost2(torch.cat([states, actions], dim=1))
+
+        # Cost losses
+        cost1_loss = F.mse_loss(current_cost1, target_cost)
+        cost2_loss = F.mse_loss(current_cost2, target_cost)
+        cost_loss = cost1_loss + cost2_loss
+
+        # Optimize cost functions
+        self.cost_optimizer.zero_grad()
+        cost_loss.backward()
+        self.cost_optimizer.step()
+
+    def update_policy(self, batch_size=256):
+        """Update policy with safety constraints"""
+        if len(self.replay_buffer) < batch_size:
+            return
+
+        states, _, _, _, _ = self.replay_buffer.sample(batch_size)
+        states = torch.FloatTensor(states).to(self.device)
+
+        actions = self.policy(states)
+
+        # Policy objective: maximize Q-value while minimizing constraint violation
+        q_values = self.q1(torch.cat([states, actions], dim=1))
+        constraint_costs = self.cost1(torch.cat([states, actions], dim=1))
+
+        # Lagrangian: maximize Q - λ * cost
+        lagrangian = q_values - torch.sum(self.lagrange_multipliers.unsqueeze(0) * constraint_costs, dim=1)
+
+        policy_loss = -lagrangian.mean()
+
+        # Optimize policy
+        self.policy_optimizer.zero_grad()
+        policy_loss.backward()
+        self.policy_optimizer.step()
+
+    def update_lagrange_multipliers(self, batch_size=256):
+        """Update Lagrange multipliers for constraints"""
+        if len(self.constraint_buffer) < batch_size:
+            return
+
+        states, actions, costs, _, _ = self.constraint_buffer.sample(batch_size)
+        states = torch.FloatTensor(states).to(self.device)
+        actions = torch.FloatTensor(actions).to(self.device)
+
+        with torch.no_grad():
+            actions = self.policy(states)
+            constraint_costs = self.cost1(torch.cat([states, actions], dim=1))
+
+            # Update multipliers: increase if constraint violated, decrease otherwise
+            # Constraints: expected cost ≤ threshold
+            threshold = 0.1  # Example threshold
+
+            for i in range(self.constraint_dim):
+                constraint_violation = torch.mean(constraint_costs[:, i]) - threshold
+                gradient = constraint_violation
+                self.lagrange_multipliers[i].data += 0.01 * gradient
+                self.lagrange_multipliers[i].data = torch.clamp(
+                    self.lagrange_multipliers[i].data, min=0
+                )
+
+    def train_step(self, state, action, reward, next_state, done, constraint_cost):
+        """Perform one training step"""
+        # Store experiences
+        self.replay_buffer.push(state, action, reward, next_state, done)
+        self.constraint_buffer.push(state, action, constraint_cost, next_state, done)
+
+        # Update networks
+        self.update_q_functions()
+        self.update_cost_functions()
+        self.update_policy()
+        self.update_lagrange_multipliers()
+```
+
+## 7. Complete Learning System Integration
+
+### 7.1 Unified Learning Framework
+
+```python
+class UnifiedLearningFramework:
+    def __init__(self, robot_config):
+        self.config = robot_config
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Initialize learning modules
+        self.perception_module = MultimodalPerceptionNet(
+            vision_input_size=robot_config['vision_dim'],
+            tactile_input_size=robot_config['tactile_dim'],
+            proprioception_input_size=robot_config['proprioception_dim'],
+            output_size=robot_config['perception_output_dim']
+        )
+
+        self.control_module = PPOAgent(
+            state_size=robot_config['state_dim'],
+            action_size=robot_config['action_dim'],
+            continuous=robot_config['continuous_actions']
+        )
+
+        self.adaptation_module = ContinualLearner(self.perception_module)
+
+        # Safety module
+        self.safety_module = SafeRLAgent(
+            state_dim=robot_config['state_dim'],
+            action_dim=robot_config['action_dim'],
+            constraint_dim=robot_config['constraint_dim']
+        )
+
+        # Experience storage
+        self.experience_buffer = []
+        self.task_history = []
+
+        # Meta-learning
+        self.meta_learner = MAML(self.perception_module)
+
+    def collect_experience(self, env, num_episodes=10):
+        """Collect experience from robot interaction"""
+        print(f"\n=== Collecting Experience ({num_episodes} episodes) ===")
+
+        for episode in range(num_episodes):
+            state = env.reset()
+            episode_experience = []
+
+            for step in range(1000):  # Max episode length
+                # Get perception
+                vision = env.get_vision()
+                tactile = env.get_tactile()
+                proprioception = env.get_proprioception()
+
+                # Process perception
+                with torch.no_grad():
+                    processed_state = self.perception_module(
+                        torch.FloatTensor(vision).unsqueeze(0).to(self.device),
+                        torch.FloatTensor(tactile).unsqueeze(0).to(self.device),
+                        torch.FloatTensor(proprioception).unsqueeze(0).to(self.device)
+                    ).squeeze().cpu().numpy()
+
+                # Select safe action
+                action = self.safety_module.select_action(processed_state)
+
+                # Execute action
+                next_state, reward, done, info = env.step(action)
+                constraint_cost = info.get('constraint_cost', 0)
+
+                # Store experience
+                experience = {
+                    'state': processed_state,
+                    'action': action,
+                    'reward': reward,
+                    'next_state': next_state,
+                    'done': done,
+                    'constraint_cost': constraint_cost,
+                    'vision': vision,
+                    'tactile': tactile,
+                    'proprioception': proprioception
+                }
+                episode_experience.append(experience)
+
+                state = next_state
+
+                if done:
+                    break
+
+            self.experience_buffer.append(episode_experience)
+
+            if (episode + 1) % 5 == 0:
+                avg_reward = np.mean([sum(exp['reward'] for exp in ep) for ep in self.experience_buffer[-5:]])
+                print(f"Episode {episode + 1}, Avg Reward (last 5): {avg_reward:.2f}")
+
+    def learn_from_experience(self):
+        """Learn from collected experience"""
+        print("\n=== Learning from Experience ===")
+
+        # Prepare training data
+        all_states = []
+        all_actions = []
+        all_rewards = []
+        all_next_states = []
+        all_dones = []
+        all_constraint_costs = []
+
+        for episode in self.experience_buffer:
+            for exp in episode:
+                all_states.append(exp['state'])
+                all_actions.append(exp['action'])
+                all_rewards.append(exp['reward'])
+                all_next_states.append(exp['next_state'])
+                all_dones.append(exp['done'])
+                all_constraint_costs.append(exp['constraint_cost'])
+
+        # Update safety module
+        for state, action, reward, next_state, done, cost in zip(
+            all_states, all_actions, all_rewards, all_next_states, all_dones, all_constraint_costs
+        ):
+            self.safety_module.train_step(state, action, reward, next_state, done, cost)
+
+        print(f"Updated safety module with {len(all_states)} transitions")
+
+    def adapt_to_new_task(self, task_data):
+        """Adapt to new task using meta-learning"""
+        print("\n=== Adapting to New Task ===")
+
+        # Use meta-learning to quickly adapt
+        adapted_model = self.meta_learner.adapt(
+            self.perception_module,
+            task_data,
+            num_steps=10
+        )
+
+        # Update perception module
+        self.perception_module.load_state_dict(adapted_model.state_dict())
+
+        # Store task for continual learning
+        self.task_history.append(task_data)
+
+        print("Successfully adapted to new task")
+
+    def evaluate_performance(self, env, num_episodes=5):
+        """Evaluate current performance"""
+        print(f"\n=== Evaluating Performance ({num_episodes} episodes) ===")
+
+        total_rewards = []
+        total_constraint_violations = []
+
+        for episode in range(num_episodes):
+            state = env.reset()
+            episode_reward = 0
+            episode_violations = 0
+
+            for step in range(1000):
+                # Get perception
+                vision = env.get_vision()
+                tactile = env.get_tactile()
+                proprioception = env.get_proprioception()
+
+                # Process perception
+                with torch.no_grad():
+                    processed_state = self.perception_module(
+                        torch.FloatTensor(vision).unsqueeze(0).to(self.device),
+                        torch.FloatTensor(tactile).unsqueeze(0).to(self.device),
+                        torch.FloatTensor(proprioception).unsqueeze(0).to(self.device)
+                    ).squeeze().cpu().numpy()
+
+                # Select action
+                action = self.safety_module.select_action(processed_state, training=False)
+
+                # Execute action
+                next_state, reward, done, info = env.step(action)
+                constraint_cost = info.get('constraint_cost', 0)
+
+                episode_reward += reward
+                if constraint_cost > 0:
+                    episode_violations += 1
+
+                state = next_state
+
+                if done:
+                    break
+
+            total_rewards.append(episode_reward)
+            total_constraint_violations.append(episode_violations)
+
+        avg_reward = np.mean(total_rewards)
+        avg_violations = np.mean(total_constraint_violations)
+
+        print(f"Average Reward: {avg_reward:.2f}")
+        print(f"Average Constraint Violations: {avg_violations:.2f}")
+
+        return avg_reward, avg_violations
+
+    def run_training_loop(self, env, num_iterations=100):
+        """Run complete training loop"""
+        print("\n=== Starting Training Loop ===")
+
+        performance_history = []
+
+        for iteration in range(num_iterations):
+            print(f"\n--- Iteration {iteration + 1}/{num_iterations} ---")
+
+            # Collect experience
+            self.collect_experience(env, num_episodes=5)
+
+            # Learn from experience
+            self.learn_from_experience()
+
+            # Evaluate performance
+            avg_reward, avg_violations = self.evaluate_performance(env, num_episodes=3)
+
+            performance_history.append({
+                'iteration': iteration + 1,
+                'avg_reward': avg_reward,
+                'avg_violations': avg_violations
+            })
+
+            # Adapt if performance degrades
+            if iteration > 0 and performance_history[-2]['avg_reward'] > avg_reward:
+                print("Performance degraded, triggering adaptation...")
+                # Use recent experience for adaptation
+                recent_task = self.experience_buffer[-1]
+                self.adapt_to_new_task(recent_task)
+
+        print("\n=== Training Complete ===")
+        return performance_history
+
+    def visualize_learning_progress(self, performance_history):
+        """Visualize learning progress"""
+        plt.figure(figsize=(12, 5))
+
+        iterations = [h['iteration'] for h in performance_history]
+        rewards = [h['avg_reward'] for h in performance_history]
+        violations = [h['avg_violations'] for h in performance_history]
+
+        plt.subplot(1, 2, 1)
+        plt.plot(iterations, rewards, 'b-', linewidth=2)
+        plt.xlabel('Iteration')
+        plt.ylabel('Average Reward')
+        plt.title('Learning Progress - Rewards')
+        plt.grid(True)
+
+        plt.subplot(1, 2, 2)
+        plt.plot(iterations, violations, 'r-', linewidth=2)
+        plt.xlabel('Iteration')
+        plt.ylabel('Average Constraint Violations')
+        plt.title('Learning Progress - Safety')
+        plt.grid(True)
+
+        plt.tight_layout()
+        plt.show()
+
+# Example usage
+if __name__ == "__main__":
+    # Robot configuration
+    robot_config = {
+        'vision_dim': 224 * 224 * 3,
+        'tactile_dim': 16,
+        'proprioception_dim': 12,
+        'perception_output_dim': 64,
+        'state_dim': 64,
+        'action_dim': 7,
+        'continuous_actions': True,
+        'constraint_dim': 3
+    }
+
+    # Create learning framework
+    learning_framework = UnifiedLearningFramework(robot_config)
+
+    # Initialize environment (placeholder)
+    # env = HumanoidEnvironment()
+
+    # Run training
+    # performance_history = learning_framework.run_training_loop(env, num_iterations=50)
+
+    # Visualize results
+    # learning_framework.visualize_learning_progress(performance_history)
+
+    print("Unified Learning Framework initialized successfully!")
+```
+
+## Conclusion
+
+This chapter provided a comprehensive overview of machine learning techniques for humanoid robots, covering:
+
+1. **Supervised Learning**: For perception tasks and sensor processing
+2. **Reinforcement Learning**: For acquiring complex motor skills
+3. **Imitation Learning**: Learning from human demonstrations
+4. **Online Learning**: Adapting to new situations in real-time
+5. **Sim-to-Real Transfer**: Bridging the reality gap
+6. **Safe Learning**: Ensuring safety during learning process
+
+The integration of these learning approaches enables humanoid robots to acquire, adapt, and improve their skills through interaction with the environment. As learning algorithms continue to advance, we can expect humanoid robots to become increasingly capable of operating in complex, unstructured environments.
+
+### Key Takeaways
+
+- **Multi-Modal Learning**: Combining different sensor modalities improves robustness
+- **Safety First**: Learning must respect safety constraints at all times
+- **Sample Efficiency**: Real-world learning requires data-efficient methods
+- **Continual Adaptation**: Robots must continuously learn without forgetting
+- **Simulation Benefits**: Simulation enables safe and efficient learning
+- **Real-World Challenges**: Noise, delays, and partial observability must be addressed
+
+---
+
+**Previous: [Chapter 12 - Computer Vision for Humanoids](chapter-12-computer-vision.mdx)** | **Next: [Chapter 14 - Human-Robot Interaction](chapter-14-human-robot-interaction.mdx)**

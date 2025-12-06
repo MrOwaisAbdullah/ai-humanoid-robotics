@@ -1,0 +1,1237 @@
+---
+title: "Jetson Orin Nano Setup Guide"
+description: "Complete setup guide for NVIDIA Jetson Orin Nano edge AI development in Physical AI & Humanoid Robotics course"
+keywords: [jetson, orin nano, edge ai, robotics, jetpack, ros2, tensorrt]
+sidebar_position: 3
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Jetson Orin Nano Setup Guide
+
+The NVIDIA Jetson Orin Nano Developer Kit represents the cutting edge of edge AI computing, bringing unprecedented performance to robotics and autonomous systems development. This compact yet powerful device delivers up to 40 TOPS of AI performance in a palm-sized form factor, making it ideal for running sophisticated neural networks directly on your humanoid robot.
+
+This comprehensive guide walks you through setting up the Jetson Orin Nano for Physical AI development, from initial hardware configuration to advanced optimization techniques that will enable your robot to perceive, reason, and act in real-time.
+
+## What You'll Learn
+
+By the end of this guide, you'll be able to:
+1. Configure and flash JetPack SDK on your Jetson Orin Nano
+2. Install and optimize ROS 2 Humble for ARM64 architecture
+3. Deploy and accelerate AI models using TensorRT
+4. Implement effective power management for mobile robotics
+5. Integrate sensors and actuators with the Jetson ecosystem
+6. Troubleshoot common issues and optimize performance
+
+## Hardware Overview
+
+### Jetson Orin Nano Specifications
+
+The Jetson Orin Nano Developer Kit comes in two variants, both designed to deliver exceptional AI performance at the edge:
+
+| Feature | 8GB Variant | 4GB Variant |
+|---------|-------------|-------------|
+| **AI Performance** | 40 TOPS | 20 TOPS |
+| **Memory** | 8GB 128-bit LPDDR5 | 4GB 64-bit LPDDR5 |
+| **Memory Bandwidth** | 102 GB/s | 51 GB/s |
+| **CPU** | 6-core ARM Cortex-A78AE | 6-core ARM Cortex-A78AE |
+| **GPU** | 1024-core NVIDIA Ampere | 512-core NVIDIA Ampere |
+| **Storage** | 128GB eMMC 5.1 | 64GB eMMC 5.1 |
+| **Connectivity** | Gigabit Ethernet, WiFi, Bluetooth | Gigabit Ethernet, WiFi, Bluetooth |
+| **Interfaces** | 4x USB 3.2, 2x CSI, 1x DSI | 4x USB 3.2, 2x CSI, 1x DSI |
+| **Power** | 15W (10W-15W configurable) | 10W (7W-10W configurable) |
+
+:::info Note
+For humanoid robotics applications, we recommend the 8GB variant to handle multiple sensor streams and complex neural models simultaneously.
+:::
+
+### Key Capabilities for Physical AI
+
+The Jetson Orin Nano excels in Physical AI applications through several key capabilities:
+
+1. **Real-time AI Inference**: Run multiple neural networks simultaneously for perception, localization, and control
+2. **Multi-camera Processing**: Process up to 6 camera streams in parallel for 360-degree vision
+3. **Sensor Fusion**: Combine LiDAR, IMU, and visual data using dedicated hardware accelerators
+4. **Low Latency Control**: Sub-millisecond response times for motor control and actuation
+5. **Energy Efficiency**: Optimized power profiles for mobile robot operation
+
+### Use Cases in Humanoid Robotics
+
+The Jetson Orin Nano is particularly suited for:
+
+- **Visual Perception**: Object detection, pose estimation, and semantic segmentation
+- **Navigation**: SLAM, path planning, and obstacle avoidance
+- **Manipulation**: Grasp detection, force feedback, and fine motor control
+- **Human Interaction**: Face recognition, gesture understanding, and voice processing
+- **Learning On-device**: Reinforcement learning and continual model adaptation
+
+## Initial Setup
+
+### Hardware Requirements
+
+Before beginning, ensure you have:
+
+**Essential Hardware:**
+- Jetson Orin Nano Developer Kit
+- 5V 4A (minimum) power adapter with barrel connector
+- microSD card (16GB minimum, class 10 recommended)
+- Display with HDMI input
+- USB keyboard and mouse
+- Host computer (Ubuntu 20.04/22.04 recommended)
+
+**Network Requirements:**
+- Ethernet cable or WiFi access
+- Stable internet connection for software downloads
+
+**Optional but Recommended:**
+- USB camera for testing vision capabilities
+- External SSD via USB for additional storage
+- Cooling fan or heatsink for sustained performance
+
+### Flashing JetPack SDK
+
+The JetPack SDK provides the complete software stack including Ubuntu, CUDA, cuDNN, TensorRT, and essential development tools.
+
+#### Method 1: NVIDIA SDK Manager (Recommended)
+
+1. **Install SDK Manager on Host:**
+
+   Download and install NVIDIA SDK Manager from the NVIDIA Developer website.
+
+2. **Connect Jetson Device:**
+
+   ```bash
+   # Put Jetson in Force Recovery Mode:
+   # 1. Power off the device
+   # 2. Connect USB-C recovery cable to host
+   # 3. Hold REC button
+   # 4. Apply power (keep REC pressed)
+   # 5. Release REC after 2 seconds
+   ```
+
+3. **Run SDK Manager:**
+
+   Launch SDK Manager and select:
+   - Hardware: Jetson Orin Nano Developer Kit
+   - Host OS: Your Ubuntu version
+   - Target OS: JetPack 6.0 (latest)
+
+4. **Configure Installation:**
+
+   Select components to install:
+   - ✓ Jetson OS (Ubuntu 20.04)
+   - ✓ CUDA Toolkit
+   - ✓ TensorRT
+   - ✓ cuDNN
+   - ✓ OpenCV
+   - ✓ VPI (Vision Programming Interface)
+
+5. **Start Installation:**
+
+   Accept license terms and begin the flash process. This typically takes 30-45 minutes.
+
+#### Method 2: Command Line Flashing
+
+For headless or automated installations:
+
+```bash
+# Download JetPack components
+sudo apt update
+sudo apt install nvidia-jetpack
+
+# Flash to device (in recovery mode)
+sudo ./flash.sh jetson-orin-nano-devkit internal
+```
+
+### First Boot Configuration
+
+After successful flashing, complete these initial configurations:
+
+#### 1. System Updates
+
+```bash
+# Update package lists
+sudo apt update
+
+# Upgrade installed packages
+sudo apt upgrade -y
+
+# Install essential utilities
+sudo apt install -y git curl wget vim htop tree
+```
+
+#### 2. User Configuration
+
+```bash
+# Create development user (optional)
+sudo adduser developer
+sudo usermod -aG sudo,video,audio,i2c,gpio,spi,uart developer
+
+# Configure passwordless sudo
+echo "developer ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/99-developer
+```
+
+#### 3. Network Setup
+
+```bash
+# Configure static IP (optional)
+sudo vim /etc/netplan/01-network-manager-all.yaml
+
+# Example configuration:
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    eth0:
+      dhcp4: no
+      addresses: [192.168.1.100/24]
+      gateway4: 192.168.1.1
+      nameservers:
+        addresses: [8.8.8.8, 1.1.1.1]
+
+# Apply configuration
+sudo netplan apply
+```
+
+#### 4. Enable Performance Modes
+
+```bash
+# List available power modes
+sudo nvpmodel --query
+
+# Set maximum performance mode
+sudo nvpmodel -m 0
+
+# Verify mode
+sudo nvpmodel --verbose
+```
+
+## Development Environment Setup
+
+### Installing ROS 2 Humble
+
+ROS 2 Humble Hawksbill is optimized for ARM64 and included with JetPack 6.0. Complete the installation with these steps:
+
+#### 1. Install ROS 2 Base
+
+```bash
+# ROS 2 Humble is pre-installed with JetPack 6.0
+# Verify installation
+source /opt/ros/humble/setup.bash
+ros2 --version
+```
+
+#### 2. Install Development Tools
+
+```bash
+# Install ROS 2 development tools
+sudo apt install -y python3-pip
+pip3 install -U setuptools
+
+# Install colcon build tool
+sudo apt install -y python3-colcon-common-extensions
+
+# Install additional ROS 2 packages
+sudo apt install -y ros-humble-demo-nodes-cpp
+sudo apt install -y ros-humble-demo-nodes-py
+sudo apt install -y ros-humble-navigation2
+sudo apt install -y ros-humble-nav2-bringup
+sudo apt install -y ros-humble-slam-toolbox
+sudo apt install -y ros-humble-vision-opencv
+sudo apt install -y ros-humble-image-transport
+sudo apt install -y ros-humble-image-transport-plugins
+```
+
+#### 3. Configure ROS 2 Environment
+
+```bash
+# Add ROS 2 to .bashrc
+echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc
+echo 'source /usr/share/colcon_argcomplete/hook/colcon' >> ~/.bashrc
+
+# Source immediately
+source ~/.bashrc
+```
+
+#### 4. Install Additional Dependencies
+
+```bash
+# Install Python dependencies
+sudo apt install -y python3-pip python3-rosdep2
+sudo pip3 install transforms3d numpy matplotlib scipy
+
+# Install sensor-specific packages
+sudo apt install -y ros-humble-realsense2-camera
+sudo apt install -y ros-humble-usb-cam
+sudo apt install -y ros-humble-velodyne
+```
+
+### Python Development Environment
+
+Set up Python for AI and robotics development:
+
+```bash
+# Install Python 3.10 (default with JetPack 6.0)
+python3 --version
+
+# Install virtual environment tools
+sudo apt install -y python3-venv python3-virtualenv
+
+# Create development environment
+python3 -m venv ~/robotics_env
+source ~/robotics_env/bin/activate
+
+# Install essential packages
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118
+pip install tensorflow
+pip install scikit-learn
+pip install opencv-python
+pip install pyrealsense2
+pip install jupyterlab
+pip install matplotlib
+pip install seaborn
+pip install pandas
+
+# Install robotics-specific libraries
+pip install gymnasium
+pip install stable-baselines3
+pip install mujoco-py
+pip install isaacgym
+```
+
+### C++ Development Environment
+
+```bash
+# Install build tools
+sudo apt install -y build-essential cmake pkg-config
+
+# Install CMake 3.24+ for modern C++ features
+wget https://github.com/Kitware/CMake/releases/download/v3.24.2/cmake-3.24.2-linux-aarch64.sh
+sudo sh cmake-3.24.2-linux-aarch64.sh --skip-license --prefix=/usr/local
+
+# Install Eigen3 for linear algebra
+sudo apt install -y libeigen3-dev
+
+# Install Google Test
+sudo apt install -y libgtest-dev
+cd /usr/src/gtest
+sudo cmake .
+sudo make
+sudo cp lib/*.a /usr/lib
+```
+
+## Edge AI Optimization
+
+### TensorRT Optimization
+
+TensorRT dramatically accelerates AI inference on Jetson devices:
+
+#### 1. Verify TensorRT Installation
+
+```bash
+# Check TensorRT version
+dpkg -l | grep tensorrt
+
+# Test TensorRT
+/usr/src/tensorrt/bin/trtexec --onnx=model.onnx --saveEngine=model.trt
+```
+
+#### 2. Convert Models to TensorRT
+
+```python
+# Convert PyTorch model to ONNX
+import torch
+import torchvision.models as models
+
+model = models.resnet50(pretrained=True)
+model.eval()
+
+# Create dummy input
+dummy_input = torch.randn(1, 3, 224, 224).cuda()
+
+# Export to ONNX
+torch.onnx.export(model, dummy_input, "resnet50.onnx",
+                  opset_version=13, do_constant_folding=True)
+
+# Convert to TensorRT using Python API
+import tensorrt as trt
+
+TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+builder = trt.Builder(TRT_LOGGER)
+network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+parser = trt.OnnxParser(network, TRT_LOGGER)
+
+# Parse ONNX model
+with open("resnet50.onnx", "rb") as f:
+    parser.parse(f.read())
+
+# Build optimized engine
+config = builder.create_builder_config()
+config.max_workspace_size = 1 << 30  # 1GB
+engine = builder.build_engine(network, config)
+
+# Save engine
+with open("resnet50.trt", "wb") as f:
+    f.write(engine.serialize())
+```
+
+#### 3. FP16 and INT8 Optimization
+
+```python
+# Enable FP16 precision
+config.set_flag(trt.BuilderFlag.FP16)
+
+# For INT8 calibration (requires calibration data)
+config.set_flag(trt.BuilderFlag.INT8)
+config.int8_calibrator = MyCalibrator(calibration_dataset)
+
+# Build with optimization
+engine = builder.build_engine(network, config)
+```
+
+#### 4. TensorRT Performance Profiling
+
+```python
+import tensorrt as trt
+import pycuda.driver as cuda
+import pycuda.autoinit
+import numpy as np
+
+# Load engine
+with open("model.trt", "rb") as f:
+    engine_data = f.read()
+
+engine = trt.Runtime(TRT_LOGGER).deserialize_cuda_engine(engine_data)
+context = engine.create_execution_context()
+
+# Allocate memory
+inputs = []
+outputs = []
+bindings = []
+stream = cuda.Stream()
+
+for binding in engine:
+    size = trt.volume(context.get_binding_shape(binding)) * engine.max_batch_size
+    dtype = trt.nptype(engine.get_binding_dtype(binding))
+
+    # Allocate device memory
+    device_mem = cuda.mem_alloc(size * dtype.itemsize)
+    bindings.append(int(device_mem))
+
+    if engine.binding_is_input(binding):
+        inputs.append({'host': np.empty(size, dtype=dtype), 'device': device_mem})
+    else:
+        outputs.append({'host': np.empty(size, dtype=dtype), 'device': device_mem})
+
+# Warmup
+for _ in range(10):
+    context.execute_async_v2(bindings=bindings, stream_handle=stream.handle)
+
+# Benchmark
+import time
+times = []
+for _ in range(100):
+    start = time.time()
+    context.execute_async_v2(bindings=bindings, stream_handle=stream.handle)
+    stream.synchronize()
+    times.append(time.time() - start)
+
+print(f"Average inference time: {np.mean(times) * 1000:.2f} ms")
+print(f"FPS: {1 / np.mean(times):.2f}")
+```
+
+### DeepStream SDK
+
+DeepStream provides real-time analytics for video streams:
+
+```bash
+# Install DeepStream SDK
+sudo apt install -y deepstream-6.3
+
+# Test with sample application
+/opt/nvidia/deepstream/deepstream-6.3/apps/sample_apps/deepstream-test1/deepstream-test1-app
+```
+
+#### Example: Real-time Object Detection
+
+```python
+# deepstream_object_detection.py
+
+import sys
+sys.path.append('/opt/nvidia/deepstream/deepstream-6.3/bindings/python')
+
+import pyds
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import Gst
+
+def main():
+    # Initialize GStreamer
+    Gst.init(sys.argv)
+
+    # Create pipeline
+    pipeline = Gst.parse_launch("""
+        uridecodebin uri=file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4 !
+        nvvidconv !
+        nvosd !
+        nvvideoconvert !
+        nvegltransform !
+        nveglglessink
+    """)
+
+    # Start pipeline
+    pipeline.set_state(Gst.State.PLAYING)
+
+    # Run until EOS or error
+    bus = pipeline.get_bus()
+    while True:
+        msg = bus.timed_pop_filtered(
+            Gst.CLOCK_TIME_NONE,
+            Gst.MessageType.ERROR | Gst.MessageType.EOS
+        )
+        if msg:
+            break
+
+    # Clean up
+    pipeline.set_state(Gst.State.NULL)
+
+if __name__ == '__main__':
+    main()
+```
+
+## Power Management and Thermal Considerations
+
+### Understanding Power Modes
+
+The Jetson Orin Nano provides configurable power modes to balance performance and energy consumption:
+
+```bash
+# List all available power modes
+sudo nvpmodel -q
+
+# Available modes:
+# Mode Name      Power   CPU Freq  GPU Freq  Memory Freq
+# MAXN           15W     1.5GHz    918MHz    204MHz
+# 10W            10W     1.2GHz    624MHz    102MHz
+# 5W             5W      918MHz    312MHz    51MHz
+```
+
+#### Optimal Power Configuration for Robotics
+
+```bash
+# Create custom power profile
+sudo nvpmodel -c my_profile
+
+# Edit power limits
+sudo vim /etc/nvpmodel/nvpmodel_t194.conf
+
+# Example configuration for mobile robot:
+# [my_profile]
+# PM_CONFIG=10W
+# MAX_FREQ=1500000000
+# MIN_FREQ=408000000
+```
+
+### Thermal Management
+
+Effective thermal management is crucial for sustained performance:
+
+#### 1. Monitor Temperature and Clocks
+
+```python
+# thermal_monitor.py
+import time
+import subprocess
+
+def get_temperature():
+    """Get CPU temperature"""
+    result = subprocess.run(['cat', '/sys/class/thermal/thermal_zone0/temp'],
+                          capture_output=True, text=True)
+    return int(result.stdout.strip()) / 1000  # Convert to Celsius
+
+def get_gpu_freq():
+    """Get GPU frequency"""
+    result = subprocess.run(['sudo', 'tegrastats', '--once'],
+                          capture_output=True, text=True)
+    for line in result.stdout.split():
+        if 'GR3D_FREQ' in line:
+            return line.split('@')[1]
+    return "N/A"
+
+def monitor_thermal(duration_minutes=60):
+    """Monitor thermal status for specified duration"""
+    start_time = time.time()
+    end_time = start_time + (duration_minutes * 60)
+
+    while time.time() < end_time:
+        temp = get_temperature()
+        gpu_freq = get_gpu_freq()
+
+        print(f"Temperature: {temp:.1f}°C | GPU Freq: {gpu_freq}")
+
+        # Alert if temperature is high
+        if temp > 85:
+            print("WARNING: High temperature detected!")
+
+        time.sleep(5)
+
+if __name__ == '__main__':
+    monitor_thermal()
+```
+
+#### 2. Implement Thermal Throttling Prevention
+
+```bash
+# Set fan control script
+sudo apt install -y fan-control
+
+# Create fan control service
+sudo tee /etc/systemd/system/fan-control.service > /dev/null <<EOF
+[Unit]
+Description=Jetson Fan Control
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/fan-control -t 60 -f 255
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable fan-control
+sudo systemctl start fan-control
+```
+
+#### 3. Optimize for Battery Operation
+
+For mobile robots, implement these battery optimization strategies:
+
+```bash
+# Disable unnecessary services
+sudo systemctl disable bluetooth
+sudo systemctl disable cups
+sudo systemctl disable avahi-daemon
+
+# Configure CPU governor
+echo 'performance' | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+# Adjust idle state
+echo '1' | sudo tee /sys/devices/system/cpu/cpu*/cpuidle/state*/disable
+```
+
+### Power Consumption Analysis
+
+```python
+# power_analyzer.py
+import subprocess
+import time
+import json
+
+def measure_power_consumption(duration_seconds=60):
+    """Measure power consumption over time"""
+    measurements = []
+    start_time = time.time()
+
+    while time.time() < start_time + duration_seconds:
+        # Get power from INA3221 power monitor
+        try:
+            result = subprocess.run(['sudo', 'tegrastats', '--once'],
+                                  capture_output=True, text=True)
+            power_data = parse_tegrastats(result.stdout)
+            measurements.append({
+                'timestamp': time.time(),
+                'power_total': power_data['total_power'],
+                'power_gpu': power_data['gpu_power'],
+                'power_cpu': power_data['cpu_power'],
+                'temperature': power_data['temperature']
+            })
+        except Exception as e:
+            print(f"Error reading power data: {e}")
+
+        time.sleep(1)
+
+    return measurements
+
+def parse_tegrastats(output):
+    """Parse tegrastats output"""
+    data = {}
+    lines = output.split('\n')
+
+    for line in lines:
+        if 'VDD_IN' in line:
+            # Parse power consumption
+            parts = line.split()
+            for i, part in enumerate(parts):
+                if 'VDD_IN' in part and i+1 < len(parts):
+                    data['total_power'] = float(parts[i+1].replace('mW', ''))
+
+        if 'GR3D' in line:
+            # Parse GPU usage
+            parts = line.split()
+            for i, part in enumerate(parts):
+                if 'GR3D' in part and i+2 < len(parts):
+                    data['gpu_freq'] = parts[i+1]
+                    data['gpu_load'] = parts[i+2]
+
+    return data
+
+def optimize_power_profile():
+    """Suggest optimal power profile based on usage"""
+    print("Analyzing power usage patterns...")
+    measurements = measure_power_consumption()
+
+    avg_power = sum(m['power_total'] for m in measurements) / len(measurements)
+
+    if avg_power < 5000:
+        print("Suggestion: Use 5W mode for current workload")
+        return 0
+    elif avg_power < 10000:
+        print("Suggestion: Use 10W mode for current workload")
+        return 1
+    else:
+        print("Suggestion: Use MAXN mode for current workload")
+        return 2
+
+if __name__ == '__main__':
+    optimize_power_profile()
+```
+
+## Robotics Integration
+
+### Sensor Integration
+
+#### 1. Camera Setup (Intel RealSense D435i)
+
+```bash
+# Install RealSense SDK
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE
+sudo add-apt-repository "deb https://librealsense.intel.com/Debian/apt-repo jammy main"
+sudo apt update
+sudo apt install -y librealsense2-utils librealsense2-dev librealsense2-dkms
+
+# Install ROS 2 wrapper
+sudo apt install -y ros-humble-realsense2-camera
+```
+
+```python
+# realsense_node.py
+#!/usr/bin/env python3
+
+import rclpy
+from rclpy.node import Node
+import cv2
+import numpy as np
+import pyrealsense2 as rs
+
+class RealSenseNode(Node):
+    def __init__(self):
+        super().__init__('realsense_node')
+
+        # Configure depth and color streams
+        self.pipeline = rs.pipeline()
+        self.config = rs.config()
+
+        # Enable streams
+        self.config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        self.config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+
+        # Start streaming
+        self.pipeline.start(self.config)
+
+        # ROS 2 publishers
+        self.color_pub = self.create_publisher(Image, '/camera/color/image_raw', 10)
+        self.depth_pub = self.create_publisher(Image, '/camera/depth/image_raw', 10)
+
+        self.timer = self.create_timer(1/30, self.capture_frames)
+
+    def capture_frames(self):
+        frames = self.pipeline.wait_for_frames()
+
+        # Get color and depth frames
+        color_frame = frames.get_color_frame()
+        depth_frame = frames.get_depth_frame()
+
+        if not color_frame or not depth_frame:
+            return
+
+        # Convert to numpy arrays
+        color_image = np.asanyarray(color_frame.get_data())
+        depth_image = np.asanyarray(depth_frame.get_data())
+
+        # Publish to ROS 2
+        self.publish_image(self.color_pub, color_image, 'bgr8')
+        self.publish_image(self.depth_pub, depth_image, '16UC1')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = RealSenseNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+#### 2. IMU Integration (MPU6050)
+
+```cpp
+// imu_publisher.cpp
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <wiringPi.h>
+#include <wiringPiI2C.h>
+
+class IMUPublisher : public rclcpp::Node {
+public:
+    IMUPublisher() : Node("imu_publisher") {
+        // Initialize I2C
+        fd_ = wiringPiI2CSetup(MPU6050_ADDRESS);
+        if (fd_ < 0) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to initialize MPU6050");
+            return;
+        }
+
+        // Configure MPU6050
+        wiringPiI2CWriteReg8(fd_, PWR_MGMT_1, 0x00);  // Wake up
+        wiringPiI2CWriteReg8(fd_, GYRO_CONFIG, 0x00);  // ±250°/s
+        wiringPiI2CWriteReg8(fd_, ACCEL_CONFIG, 0x00); // ±2g
+
+        // Create publisher
+        imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>("/imu/data", 10);
+
+        // Create timer
+        timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(10),  // 100 Hz
+            std::bind(&IMUPublisher::read_and_publish, this)
+        );
+    }
+
+private:
+    void read_and_publish() {
+        auto imu_msg = std::make_unique<sensor_msgs::msg::Imu>();
+
+        // Read accelerometer data
+        accel_x = read_sensor(ACCEL_XOUT_H);
+        accel_y = read_sensor(ACCEL_YOUT_H);
+        accel_z = read_sensor(ACCEL_ZOUT_H);
+
+        // Read gyroscope data
+        gyro_x = read_sensor(GYRO_XOUT_H);
+        gyro_y = read_sensor(GYRO_YOUT_H);
+        gyro_z = read_sensor(GYRO_ZOUT_H);
+
+        // Convert to SI units
+        imu_msg->linear_acceleration.x = accel_x * 9.81 / 16384.0;
+        imu_msg->linear_acceleration.y = accel_y * 9.81 / 16384.0;
+        imu_msg->linear_acceleration.z = accel_z * 9.81 / 16384.0;
+
+        imu_msg->angular_velocity.x = gyro_x * 250.0 / 32768.0;
+        imu_msg->angular_velocity.y = gyro_y * 250.0 / 32768.0;
+        imu_msg->angular_velocity.z = gyro_z * 250.0 / 32768.0;
+
+        // Set timestamp and frame
+        imu_msg->header.stamp = this->now();
+        imu_msg->header.frame_id = "imu_link";
+
+        // Publish
+        imu_pub_->publish(std::move(imu_msg));
+    }
+
+    int16_t read_sensor(uint8_t reg) {
+        int16_t high = wiringPiI2CReadReg8(fd_, reg);
+        int16_t low = wiringPiI2CReadReg8(fd_, reg + 1);
+        return (high << 8) | low;
+    }
+
+    int fd_;
+    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+    rclcpp::TimerBase::SharedPtr timer_;
+
+    // MPU6050 registers
+    const uint8_t MPU6050_ADDRESS = 0x68;
+    const uint8_t PWR_MGMT_1 = 0x6B;
+    const uint8_t GYRO_CONFIG = 0x1B;
+    const uint8_t ACCEL_CONFIG = 0x1C;
+    const uint8_t ACCEL_XOUT_H = 0x3B;
+    const uint8_t GYRO_XOUT_H = 0x43;
+};
+
+int main(int argc, char * argv[]) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<IMUPublisher>());
+    rclcpp::shutdown();
+    return 0;
+}
+```
+
+### Motor Control
+
+#### PWM Motor Controller Setup
+
+```python
+# motor_controller.py
+#!/usr/bin/env python3
+
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Float32
+import RPi.GPIO as GPIO
+
+class MotorControllerNode(Node):
+    def __init__(self):
+        super().__init__('motor_controller')
+
+        # GPIO setup
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(MOTOR_PWM_PIN, GPIO.OUT)
+        GPIO.setup(MOTOR_DIR_PIN, GPIO.OUT)
+
+        # PWM setup (1kHz frequency)
+        self.pwm = GPIO.PWM(MOTOR_PWM_PIN, 1000)
+        self.pwm.start(0)
+
+        # ROS 2 subscribers
+        self.velocity_sub = self.create_subscription(
+            Float32,
+            '/motor/velocity',
+            self.velocity_callback,
+            10
+        )
+
+        self.get_logger().info('Motor controller node initialized')
+
+    def velocity_callback(self, msg):
+        """Convert velocity command to PWM signal"""
+        # Convert m/s to PWM duty cycle
+        velocity = msg.data
+        max_velocity = 1.0  # 1 m/s max velocity
+
+        # Calculate duty cycle (0-100%)
+        duty_cycle = min(abs(velocity) / max_velocity * 100, 100)
+
+        # Set direction
+        if velocity > 0:
+            GPIO.output(MOTOR_DIR_PIN, GPIO.HIGH)
+        else:
+            GPIO.output(MOTOR_DIR_PIN, GPIO.LOW)
+
+        # Set PWM
+        self.pwm.ChangeDutyCycle(duty_cycle)
+
+        self.get_logger().info(f'Set motor to {velocity:.2f} m/s (PWM: {duty_cycle:.1f}%)')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = MotorControllerNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.pwm.stop()
+        GPIO.cleanup()
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    # GPIO pin definitions
+    MOTOR_PWM_PIN = 18
+    MOTOR_DIR_PIN = 24
+    main()
+```
+
+#### Servo Controller for Joints
+
+```python
+# servo_controller.py
+#!/usr/bin/env python3
+
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Float32MultiArray
+import board
+import busio
+import adafruit_pca9685
+
+class ServoControllerNode(Node):
+    def __init__(self):
+        super().__init__('servo_controller')
+
+        # Initialize I2C and PCA9685
+        i2c = busio.I2C(board.SCL, board.SDA)
+        self.pca = adafruit_pca9685.PCA9685(i2c)
+        self.pca.frequency = 50  # 50 Hz for servos
+
+        # ROS 2 subscriber
+        self.joint_sub = self.create_subscription(
+            Float32MultiArray,
+            '/servo/joint_positions',
+            self.joint_callback,
+            10
+        )
+
+        self.get_logger().info('Servo controller initialized')
+
+    def joint_callback(self, msg):
+        """Set joint positions"""
+        for i, angle in enumerate(msg.data):
+            if i < 16:  # PCA9685 has 16 channels
+                self.set_servo_angle(i, angle)
+
+    def set_servo_angle(self, channel, angle):
+        """Convert angle (0-180) to servo pulse"""
+        # Convert angle to pulse width (500-2500 μs)
+        pulse = int(500 + (angle / 180) * 2000)
+
+        # Convert to PCA9685 value
+        duty = int(pulse / 20000 * 4096)
+
+        # Set servo position
+        self.pca.channels[channel].duty_cycle = duty
+
+        self.get_logger().debug(f'Servo {channel}: {angle:.1f}° (pulse: {pulse}μs)')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = ServoControllerNode()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### Base Station Integration
+
+#### Wireless Communication Setup
+
+```bash
+# Install ROS 2 DDS configuration for multi-machine
+sudo apt install -y ros-humble-rmw-cyclonedx-cpp
+
+# Configure network for ROS 2 discovery
+export ROS_DOMAIN_ID=42
+export RMW_IMPLEMENTATION=rmw_cyclonedx_cpp
+
+# Configure firewall
+sudo ufw allow 5353/udp  # mDNS
+sudo ufw allow 7400/udp  # CycloneDDS
+sudo ufw allow 7411/tcp  # CycloneDDS
+sudo ufw allow 7412/tcp  # CycloneDDS
+```
+
+#### Network Configuration File
+
+```yaml
+# cyclonedds_config.xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<CycloneDDS xmlns="https://cdds.io/config" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://cdds.io/config https://raw.githubusercontent.com/eclipse-cyclonedds/cyclonedds/main/etc/cyclonedds.xsd">
+    <Domain>
+        <Id>42</Id>
+        <General>
+            <NetworkInterfaceAddress>192.168.1.100</NetworkInterfaceAddress>
+            <AllowMulticast>true</AllowMulticast>
+        </General>
+        <Internal>
+            <SocketReceiveBufferSize>10MB</SocketReceiveBufferSize>
+        </Internal>
+        <Discovery>
+            <MulticastReceiverPort>7400</MulticastReceiverPort>
+            <MaxParticipantIndex>32</MaxParticipantIndex>
+        </Discovery>
+        <Tracing>
+            <Verbosity>warning</Verbosity>
+        </Tracing>
+    </Domain>
+</CycloneDDS>
+```
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### 1. Flashing Failures
+
+**Issue**: SDK Manager fails to flash the device
+
+**Symptoms**:
+- Device not detected in recovery mode
+- Flashing process hangs at 5%
+- "Error: Command failed" messages
+
+**Solutions**:
+```bash
+# Check device is in recovery mode
+lsusb | grep -i nvidia
+
+# Should show: "Bus XXX Device XXX: NVIDIA Corp."
+
+# Reset connection
+sudo ./flash.sh jetson-orin-nano-devkit --clean
+
+# Try alternative flashing method
+sudo ./flash.sh jetson-orin-nano-devkit --no-systemimg
+```
+
+#### 2. ROS 2 Performance Issues
+
+**Issue**: High latency or dropped messages
+
+**Symptoms**:
+- ROS 2 topics show delays
+- RQT plots show gaps in data
+- Node creation takes seconds
+
+**Solutions**:
+```bash
+# Configure QoS for real-time performance
+export ROS_DOMAIN_ID=0
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
+# Test with DDS configuration
+export CYCLONEDDS_URI=/path/to/cyclonedds_config.xml
+
+# Monitor DDS performance
+watch -n 1 "ps aux | grep -E 'ros|dds'"
+```
+
+#### 3. Memory Exhaustion
+
+**Issue**: Out of memory errors during model inference
+
+**Symptoms**:
+- "Killed" message during training
+- System becomes unresponsive
+- swap usage at 100%
+
+**Solutions**:
+```bash
+# Increase swap size
+sudo fallocate -l 8G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# Configure swappiness
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+
+# Monitor memory usage
+watch -n 1 'free -h; echo; ps aux --sort=-%mem | head -10'
+```
+
+#### 4. Thermal Throttling
+
+**Issue**: Performance drops during sustained operation
+
+**Symptoms**:
+- Frame rate decreases
+- Processing time increases
+- Fan runs continuously at full speed
+
+**Solutions**:
+```python
+# Implement thermal monitoring and throttling
+def check_thermal_throttle():
+    temp = get_temperature()
+    if temp > 80:
+        # Reduce batch size
+        batch_size = max(1, batch_size // 2)
+        # Lower precision
+        use_fp16 = True
+        # Reduce resolution
+        resolution = (640, 480)
+```
+
+### Performance Optimization Checklist
+
+#### System Level
+- [ ] Use latest JetPack version
+- [ ] Configure optimal power mode
+- [ ] Enable performance CPU governor
+- [ ] Disable unnecessary services
+- [ ] Monitor temperature and adjust throttling
+
+#### Software Level
+- [ ] Use TensorRT for AI inference
+- [ ] Optimize model precision (FP16/INT8)
+- [ ] Batch processing where possible
+- [ ] Use zero-copy memory operations
+- [ ] Profile and optimize hotspots
+
+#### Network Level
+- [ ] Configure DDS for low latency
+- [ ] Use wired ethernet when possible
+- [ ] Optimize ROS 2 QoS settings
+- [ ] Monitor network bandwidth
+- [ ] Configure appropriate MTU size
+
+### Diagnostic Commands
+
+```bash
+# System information
+sudo dmesg | grep -i error
+sudo journalctl -p err -n 100
+
+# GPU utilization
+sudo tegrastats
+
+# Memory usage
+cat /proc/meminfo
+free -h
+
+# Disk usage
+df -h
+
+# Network connectivity
+ping google.com
+ip addr show
+
+# ROS 2 debugging
+ros2 doctor --report
+ros2 topic list -v
+ros2 node info /node_name
+```
+
+### Getting Help
+
+If you encounter issues not covered here:
+
+1. **NVIDIA Developer Forums**: https://devtalk.nvidia.com/
+2. **Jetson Documentation**: https://developer.nvidia.com/embedded/jetson-resources
+3. **ROS 2 Documentation**: https://docs.ros.org/en/humble/
+4. **Stack Overflow**: Use tags [jetson], [nvidia], [ros2], and [arm64]
+
+## Summary
+
+**Key Takeaways:**
+- The Jetson Orin Nano provides exceptional AI performance for edge robotics applications
+- Proper thermal and power management is essential for reliable operation
+- TensorRT optimization can dramatically improve inference performance
+- ROS 2 integration enables complex robotics applications with minimal latency
+- Careful hardware and software tuning ensures optimal performance for humanoid robots
+
+**Next Steps**: With your Jetson Orin Nano configured, you're ready to explore advanced AI applications in humanoid robotics. Proceed to the next module to learn about implementing visual perception systems and navigation algorithms.
+
+## Further Reading
+
+- [NVIDIA JetPack SDK Documentation](https://developer.nvidia.com/embedded/jetpack-sdk-documentation)
+- [TensorRT Developer Guide](https://developer.nvidia.com/tensorrt)
+- [ROS 2 on ARM64](https://docs.ros.org/en/humble/Installation/Ubuntu-ARM64-Install.html)
+- [Jetson Zoo](https://developer.nvidia.com/embedded/jetson-zoo)
+- [DeepStream SDK Documentation](https://developer.nvidia.com/deepstream-sdk)

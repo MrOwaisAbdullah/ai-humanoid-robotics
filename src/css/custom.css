@@ -1,39 +1,730 @@
+/**
+ * Custom CSS for Physical AI & Humanoid Robotics Book
+ * Minimalist, Modern, Professional Design System
+ */
+
+/* Import modern Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* Import Tailwind CSS v4 */
 @import "tailwindcss";
 
-/* 
-   Docusaurus Theme Overrides 
-   We use @layer utilities to ensure these have correct precedence
-*/
+/* Import glassmorphism styles for ChatWidget */
+@import "../styles/glassmorphism.css";
 
-@layer utilities {
-  /* Custom utility overrides if needed */
+/* Tailwind v4 Theme Configuration */
+@theme {
+  /* Overarching Monochrome/Zinc Palette for custom components */
+  --color-primary-light: #18181b; /* Zinc 900 */
+  --color-primary-dark: #27272a;  /* Zinc 800 */
+  --color-primary-darker: #3f3f46; /* Zinc 700 */
+
+  /* Background Colors - Clean Minimal */
+  --color-bg-light: #ffffff;
+  --color-bg-dark: #09090b; /* Zinc 950 */
+  --color-bg-surface: #18181b; /* Zinc 900 */
+  --color-bg-subtle: #27272a; /* Zinc 800 */
+
+  /* Foreground Colors */
+  --color-fg-light: #18181b; /* Zinc 900 */
+  --color-fg-dark: #fafafa; /* Zinc 50 */
+  --color-fg-muted: #71717a; /* Zinc 500 */
+
+  /* Typography */
+  --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-mono: 'JetBrains Mono', monospace;
 }
 
-/* 
-   Docusaurus Dark Mode Integration 
-   Tailwind v4 automatically handles dark mode via the 'dark' variant
-   if the 'dark' class is present on the html/body tag, which Docusaurus does.
-*/
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  /* Global Variables - Minimalist Theme (Light Mode) */
+  
+  /* Docusaurus Primary Color (Teal Accent) */
+  --ifm-color-primary: #0d9488; /* Teal 600 - Professional Teal */
+  --ifm-color-primary-dark: #0f766e; /* Teal 700 */
+  --ifm-color-primary-darker: #115e59; /* Teal 800 */
+  --ifm-color-primary-light: #14b8a6; /* Teal 500 */
+  --ifm-color-primary-lighter: #2dd4bf; /* Teal 400 */
+  --ifm-color-primary-lightest: #5eead4; /* Teal 300 */
+
+  /* Backgrounds & Text */
+  --ifm-background-color: #ffffff;
+  --ifm-background-surface-color: #fafafa;
+  --ifm-font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+  --ifm-font-color-base: #1A1A1A; /* Dark Gray instead of pure black */
+  --ifm-heading-color: #1A1A1A; /* Dark Gray instead of pure black */
+  
+  /* Borders & UI */
+  --ifm-border-color: #e4e4e7; /* Zinc 200 */
+  --ifm-ui-border-color: #e4e4e7;
+  --color-fg-muted: #71717a; /* Zinc 500 */
+
+  /* Secondary/Accents - Clean Gray */
+  --ifm-color-secondary: #f4f4f5;
+  --ifm-color-secondary-contrast-background: #f4f4f5;
+  --ifm-color-secondary-contrast-foreground: #1A1A1A;
+
+  /* Button Overrides - Minimalist */
+  --ifm-button-border-radius: 0.375rem; /* Slightly softer corners (6px) */
+  --ifm-button-padding-horizontal: 1.25rem;
+  --ifm-button-padding-vertical: 0.5rem;
+  --ifm-button-font-weight: 500;
 }
 
-/* For readability in dark mode */
+/* Dark Mode Configuration */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  /* Docusaurus Primary Color (Teal Accent) */
+  --ifm-color-primary: #14b8a6; /* Teal 500 - Bright Teal for Dark Mode */
+  --ifm-color-primary-dark: #0d9488;
+  --ifm-color-primary-darker: #0f766e;
+  --ifm-color-primary-darkest: #115e59;
+  --ifm-color-primary-light: #2dd4bf;
+  --ifm-color-primary-lighter: #5eead4;
+  --ifm-color-primary-lightest: #99f6e4;
+
+  /* Backgrounds */
+  --ifm-background-color: #09090b; /* Zinc 950 */
+  --ifm-background-surface-color: #18181b; /* Zinc 900 */
+
+  /* Text */
+  --ifm-font-color-base: #e4e4e7; /* Zinc 200 */
+  --ifm-heading-color: #ffffff;
+  --color-fg-muted: #a1a1aa; /* Zinc 400 */
+
+  /* Borders */
+  --ifm-border-color: #27272a; /* Zinc 800 */
+  --ifm-ui-border-color: #27272a;
+
+  /* Code Highlights */
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+}
+
+/* Base Styles */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Utility Classes */
+@utility minimal-card {
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5rem;
+  transition: border-color 0.2s ease;
+}
+
+html[data-theme='dark'] .minimal-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+}
+
+.minimal-card:hover {
+  border-color: var(--ifm-color-primary);
+}
+
+/* Glass Bar Utility */
+@utility glass-bar {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(228, 228, 231, 0.5); /* Zinc 200 with opacity */
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.05);
+}
+
+html[data-theme='dark'] .glass-bar {
+  background: rgba(24, 24, 27, 0.7); /* Zinc 900 with opacity */
+  border: 1px solid rgba(39, 39, 42, 0.5); /* Zinc 800 with opacity */
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.3);
+}
+
+@utility modern-text {
+  color: var(--ifm-font-color-base);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* ==========================================================================
+   SIDEBAR CUSTOMIZATION 
+   ========================================================================== */
+
+/* Main Sidebar Container */
+.theme-doc-sidebar-menu {
+  padding: 1rem 0.5rem !important;
+}
+
+/* Sidebar Items (Base) */
+.menu__list-item {
+  margin-bottom: 0.25rem;
+}
+
+.menu__link {
+  border-radius: 0.375rem;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem; /* Base padding */
+  color: var(--color-fg-muted);
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent; /* Setup for active border */
+}
+
+/* Indentation for different levels */
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible > .menu__list > .menu__list-item > .menu__link {
+  padding-left: 1.5rem; /* Indent level 1 links within categories */
+}
+
+.theme-doc-sidebar-item-category-level-2 > .menu__list-item-collapsible > .menu__list > .menu__list-item > .menu__link {
+  padding-left: 2.5rem; /* Indent level 2 links */
+}
+
+.theme-doc-sidebar-item-link-level-1 > .menu__link {
+  padding-left: 1rem; /* Top level links */
+}
+
+.theme-doc-sidebar-item-link-level-2 > .menu__link {
+  padding-left: 2rem; /* Nested links */
+}
+
+.menu__link:hover {
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-font-color-base);
+}
+
+/* Active State - Vertical Line Indicator */
+.menu__link--active {
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-primary);
+  border-left-color: transparent; /* Changed to transparent */
+  font-weight: 600;
+}
+
+/* Category Headers (Parts) */
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible > .menu__link {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+  color: var(--color-fg-muted); /* Muted color for default state */
+  padding-left: 0.5rem; /* Less padding for category titles */
+  margin-top: 1rem; /* Equal spacing */
+  margin-bottom: 1rem; /* Equal spacing */
+  border-left: none; /* No active border for top headers */
+}
+
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible > .menu__link:hover {
+  background: transparent;
+  color: var(--ifm-color-primary); /* Teal on hover */
+}
+
+/* Category Caret/Arrow */
+.menu__caret {
+  opacity: 0.5;
+  color: var(--color-fg-muted); /* Muted color for default state */
+}
+
+.menu__link--active .menu__caret {
+  opacity: 1;
+  color: var(--ifm-color-primary); /* Teal for active link's caret */
+}
+
+/* Sub-items Indentation */
+.menu__list {
+  padding-left: 0.5rem; /* Reduce default indentation for cleaner look */
+}
+
+.theme-doc-sidebar-item-category-level-1 .menu__list {
+  padding-left: 0; /* Reset for top level */
+  margin-top: 0;
+}
+
+/* Mobile Sidebar Drawer - Full Control */
+.navbar-sidebar {
+  background-color: var(--ifm-background-color);
+  border-right: 1px solid var(--ifm-border-color); /* Optional border */
+  box-shadow: 4px 0 24px rgba(0,0,0,0.15); /* Shadow on right side */
+  z-index: 1000 !important;
+  position: fixed !important;
+  top: 0 !important; /* Full height from top */
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 90% !important; /* 90% Width */
+  max-width: 360px !important; /* Slightly increased cap */
+  height: 100vh !important; /* Full screen height */
+  overflow-y: auto !important;
+}
+
+/* Ensure back button area has solid background to cover content */
+.navbar-sidebar__items {
+  padding: 1rem !important;
+  /* Ensure items are below the back button if sticky */
+}
+
+/* Active state class toggled by Docusaurus */
+.navbar-sidebar--show {
+  transform: translate3d(0, 0, 0) !important; /* Visible state (Right) */
+}
+
+/* Ensure the backdrop is below the sidebar but above content */
+.navbar-sidebar__backdrop {
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 999 !important;
+}
+
+/* Fix Sidebar Item Spacing in Mobile to match Desktop */
+.navbar-sidebar__items {
+  padding: 1rem !important; /* Add padding to prevent edge cutting */
+}
+
+/* Replicate Desktop Item Styling for Mobile */
+.navbar-sidebar__item {
+  padding: 0 !important;
+}
+
+.navbar-sidebar__item .menu__link {
+  border-radius: 0.375rem; /* Match desktop radius */
+  margin-bottom: 0.25rem; /* Match desktop spacing */
+}
+
+.navbar-sidebar__item .menu__list-item {
+  margin-bottom: 0.25rem;
+}
+
+/* Ensure the back button has space too */
+.navbar-sidebar__back {
+  padding: 1rem !important;
+}
+
+/* Hide default Navbar items in Mobile Sidebar to focus on Docs */
+/* This makes it look like the reference image where only the doc menu is visible */
+.navbar-sidebar__items > .navbar__items {
+  display: none !important; 
+}
+
+/* Hide GitHub link on mobile in navbar if it still appears */
+@media (max-width: 996px) {
+  .header-github-link {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   TABLE OF CONTENTS (RIGHT SIDEBAR) CUSTOMIZATION
+   ========================================================================== */
+
+.table-of-contents__link {
+  color: var(--color-fg-muted); /* Default muted color */
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  border-left: 3px solid transparent; /* Prepare for active indicator */
+  border-radius: 0.25rem; /* Small radius */
+  transition: all 0.2s ease;
+}
+
+.table-of-contents__link:hover {
+  color: var(--ifm-color-primary); /* Teal on hover */
+  background-color: var(--ifm-background-surface-color); /* Subtle background on hover */
+}
+
+.table-of-contents__link--active {
+  color: var(--ifm-color-primary); /* Teal for active link */
+  border-left-color: var(--ifm-color-primary); /* Teal line on active */
+  background-color: var(--ifm-background-surface-color); /* Darker background for active */
+}
+
+.table-of-contents__list {
+  padding-left: 0.75rem; /* Default indentation */
+}
+
+.table-of-contents__list-item {
+  margin-top: 0.25rem;
+}
+
+/* ==========================================================================
+   LAYOUT & COMPONENT FIXES
+   ========================================================================== */
+
+/* 1. NAVBAR LINKS */
+.navbar__item {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+  border-radius: 0.5rem; /* Added border radius */
+  padding: 0.375rem 0.75rem; /* Adjust padding for better hover pill shape */
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.navbar__item:hover {
+  background: rgba(20, 184, 166, 0.1) !important; /* Subtle Teal hover background */
+  color: var(--ifm-color-primary) !important; /* Teal text on hover */
+}
+
+/* 2. FOOTER LINKS */
+.footer__link-item {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-fg-muted);
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+  line-height: 1.5;
+}
+
+.footer__link-item:hover {
+  color: var(--ifm-color-primary); /* Teal on hover */
+  text-decoration: none;
+}
+
+/* 3. EDIT BUTTON & BREADCRUMBS */
+.theme-edit-this-page {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-fg-muted) !important;
+  text-decoration: none !important;
+  margin-top: 2rem;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.theme-edit-this-page:hover {
+  color: var(--ifm-color-primary) !important; /* Teal on hover */
+  border-color: var(--ifm-color-primary) !important;
+}
+
+/* Breadcrumbs Vertical Alignment Fix */
+.breadcrumbs__item, .breadcrumbs__link {
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+}
+
+/* 4. BUTTON STYLING RESTORATION & CONTRAST FIXES */
+.button {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: all 0.2s ease;
+  text-transform: none;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  & p {
+    color: inherit !important;
+  }
+}
+
+.button p,
+.button--primary p,
+.button--secondary p,
+.button--lg p,
+a.button p,
+a.button--primary p,
+a.button--secondary p,
+a.button--lg p {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline-block;
+  color: inherit !important;
+}
+
+/* Size fixes for "Very Large" buttons */
+.button--lg {
+  padding: 0.6rem 1.5rem !important; /* Reduced padding */
+  font-size: 1rem !important; /* Reduced font size */
+  min-height: auto !important; /* Remove forced height */
+  line-height: 1.5 !important;
+}
+
+/* Primary Button Colors - High Contrast */
+.button--primary {
+  background-color: var(--ifm-font-color-base) !important; 
+  border-color: var(--ifm-font-color-base) !important;
+  color: var(--ifm-background-color) !important; 
+}
+
+[data-theme='dark'] .button--primary {
+  background-color: var(--ifm-font-color-base) !important;
+  border-color: var(--ifm-font-color-base) !important;
+  color: var(--ifm-background-color) !important; 
+}
+
+.button--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  text-decoration: none !important;
+}
+
+/* Secondary Button Colors */
+.button--secondary {
+  background-color: transparent !important;
+  border: 1px solid var(--ifm-ui-border-color) !important;
+  color: var(--ifm-color-primary) !important;
+}
+
+.button--secondary:hover {
+  background-color: rgba(20, 184, 166, 0.1) !important; /* Subtle Teal hover */
+  border-color: var(--ifm-color-primary) !important;
+  text-decoration: none !important;
+}
+
+/* Navbar Styling - Clean & Minimal */
+.navbar {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--ifm-border-color) !important;
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] .navbar {
+  background: rgba(9, 9, 11, 0.9) !important;
+  border-bottom: 1px solid var(--ifm-border-color) !important;
+}
+
+.navbar__brand {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.navbar__title {
+  color: var(--ifm-heading-color) !important;
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
+}
+
+/* Mobile Navbar Adjustments */
+@media (max-width: 996px) {
+  .navbar__items {
+    gap: 0.5rem; /* Reduce gap on smaller screens */
+  }
+  
+  .navbar__brand {
+    margin-right: 0.5rem; /* Adjust spacing */
+  }
+  
+  .navbar__title {
+    font-size: 1.1rem; /* Slightly smaller title */
+  }
+}
+
+/* Footer Styling - Minimalist */
+.footer {
+  background-color: #fafafa;
+  border-top: 1px solid var(--ifm-border-color);
+  padding-top: 4rem;
+  padding-bottom: 0 !important;
+}
+
+html[data-theme='dark'] .footer {
+  background-color: #09090b;
+  border-top: 1px solid var(--ifm-border-color);
+}
+
+/* Ensure proper alignment for footer links (columns) */
+.footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding-bottom: 1.5rem;
+}
+
+/* Mobile Footer Adjustments */
+@media (max-width: 768px) {
+  .footer {
+    padding-top: 3rem; /* Reduce top padding */
+    text-align: center; /* Center align content on mobile */
+  }
+
+  .footer__links {
+    flex-direction: column; /* Stack columns vertically */
+    align-items: center; /* Center align columns */
+    gap: 2rem; /* Add gap between stacked columns */
+  }
+
+  .footer__col {
+    align-items: center; /* Center items within columns */
+    margin-bottom: 0;
+    width: 100%; /* Full width for centering */
+  }
+  
+  .footer__title {
+    margin-bottom: 0.75rem; /* Adjust title spacing */
+  }
+}
+
+.footer__col {
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.footer__title {
+  color: var(--ifm-heading-color);
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* Spacing for Copyright */
+.footer__copyright {
+  padding-top: 1.5rem !important; /* Spacing above credits */
+  margin-bottom: 0 !important; /* Ensure no extra margin below credits */
+  padding-bottom: 0 !important; /* Ensure no extra padding below credits */
+  text-align: center; /* Center align copyright text */
+  color: var(--color-fg-muted); /* Ensure proper color */
+}
+
+/* General Typography */
+article header h1 {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+p {
+  line-height: 1.7;
+  color: var(--ifm-font-color-base);
+}
+
+/* ==========================================================================
+   GLOBAL GRID EFFECT FOR DOC PAGES
+   ========================================================================== */
+/* Apply grid texture to the bottom of the main content area on doc pages */
+/* Using html[class*="plugin-docs"] ensures this only applies to documentation, not landing page if not desired */
+
+html[class*="plugin-docs"] main {
+  position: relative;
+  isolation: isolate; /* Create stacking context */
+}
+
+html[class*="plugin-docs"] main::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 600px; /* Increased height */
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 10; /* Bring to front */
+  /* Fade out the grid as it goes up - smoother gradient */
+  mask-image: linear-gradient(to top, black 10%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, black 10%, transparent 100%);
+}
+
+[data-theme='dark'] main::after {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+}
+
+/* Read Duration Badge Styling */
+.read-duration-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem; /* Increased gap */
+  padding: 0.35rem 0.75rem; /* Increased padding */
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-fg-muted) !important; /* Forced color */
+  border: 1px solid var(--ifm-border-color);
+  background-color: var(--ifm-background-surface-color);
+  transition: all 0.2s ease;
+  white-space: nowrap; /* Prevent text wrapping */
+  
+  /* Reset text fill properties to prevent inheritance from gradient headers */
+  -webkit-text-fill-color: initial !important;
+  text-fill-color: initial !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+}
+
+.read-duration-badge span {
+  color: inherit !important; /* Ensure text inherits color */
+}
+
+.read-duration-badge svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+
+/* Heading with Duration Styling */
+.heading-with-duration {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) { /* Mobile breakpoint */
+  .heading-with-duration {
+    flex-direction: column-reverse; /* Badge on top of heading */
+    align-items: flex-start; /* Left align items */
+  }
+}
+
+html[data-theme='dark'] .read-duration-badge {
+  color: var(--color-fg-muted) !important;
+  border-color: var(--ifm-border-color);
+  background-color: var(--ifm-background-surface-color);
+}
+
+/* ==========================================================================
+   LIST STYLING
+   ========================================================================== */
+
+/* Ensure ordered lists display properly */
+article ol {
+  list-style: decimal !important;
+  padding-left: 1.5em !important;
+  margin: 1em 0 !important;
+}
+
+article ol li {
+  margin-bottom: 0.5em !important;
+  line-height: 1.6 !important;
+}
+
+/* Ensure unordered lists display properly */
+article ul {
+  list-style: disc !important;
+  padding-left: 1.5em !important;
+  margin: 1em 0 !important;
+}
+
+article ul li {
+  margin-bottom: 0.5em !important;
+  line-height: 1.6 !important;
+}
+
+/* Ensure nested lists have proper indentation */
+article ol ol,
+article ul ul,
+article ol ul,
+article ul ol {
+  margin-top: 0.5em !important;
+  margin-bottom: 0.5em !important;
+}
+
+/* Make list numbers more prominent */
+.theme-doc-content ol {
+  counter-reset: item;
+}
+
+.theme-doc-content ol > li {
+  counter-increment: item;
+  display: block;
+  margin-bottom: 0.5em;
+}
+
+.theme-doc-content ol > li::before {
+  content: counter(item) ". ";
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+  margin-right: 0.5em;
 }

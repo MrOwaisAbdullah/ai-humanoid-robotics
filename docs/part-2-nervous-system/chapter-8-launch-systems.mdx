@@ -1,0 +1,1020 @@
+---
+title: "Chapter 8: Launch Systems & Parameter Management"
+description: "Master ROS 2 launch systems, parameter management, and system orchestration for deploying complex multi-node robotic applications efficiently."
+keywords: [ROS2 launch, parameter management, system orchestration, deployment, configuration management]
+sidebar_position: 5
+---
+
+# Chapter 5: Launch Systems & Parameter Management
+
+The ability to orchestrate complex multi-node robotic systems is essential for deploying Physical AI applications. ROS 2's launch system provides powerful tools for starting, configuring, and managing robotic applications across multiple machines. This chapter explores advanced launch system capabilities, dynamic parameter management, and best practices for creating robust, configurable robotic systems that can adapt to different environments and requirements.
+
+## What You'll Learn
+
+By the end of this chapter, you'll be able to:
+1. Create sophisticated launch files for multi-robot systems
+2. Implement dynamic parameter management and reconfiguration
+3. Design conditional launch configurations
+4. Optimize system startup and shutdown sequences
+5. Debug and monitor launched systems effectively
+6. Apply security and namespace configurations
+
+## Advanced Launch System Concepts
+
+### Launch File Architecture
+
+ROS 2 launch files have evolved from XML to Python, providing programmatic control and advanced features:
+
+```python
+# robot_system_launch.py - Complete robot system launch
+import os
+from launch import LaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument, IncludeLaunchDescription,
+    ExecuteProcess, TimerAction, EmitEvent, RegisterEventHandler
+)
+from launch.conditions import IfCondition, UnlessCondition
+from launch.event_handlers import OnProcessExit, OnProcessStart
+from launch.events import Shutdown
+from launch.substitutions import (
+    LaunchConfiguration, PythonExpression,
+    FindExecutable, TextSubstitution, PathJoinSubstitution
+)
+from launch_ros.actions import Node, PushRosNamespace
+from launch_ros.substitutions import FindPackageShare
+from ament_index_python.packages import get_package_share_directory
+
+def generate_launch_description():
+    """Generate complete robot system launch description"""
+
+    # Package paths
+    robot_bringup_dir = get_package_share_directory('robot_bringup')
+    robot_description_dir = get_package_share_directory('robot_description')
+
+    # Declare launch arguments
+    declared_arguments = declare_launch_arguments()
+
+    # Create launch description
+    ld = LaunchDescription(declared_arguments)
+
+    # Add system components
+    ld.add_action(create_robot_description())
+    ld.add_action(create_sensor_nodes())
+    ld.add_action(create_navigation_stack())
+    ld.add_action(create_manipulation_system())
+    ld.add_action(create_ui_components())
+
+    # Add monitoring and diagnostics
+    ld.add_action(create_monitoring_nodes())
+
+    return ld
+
+def declare_launch_arguments():
+    """Declare all launch arguments with defaults and descriptions"""
+    return [
+        # Robot configuration
+        DeclareLaunchArgument(
+            'robot_name',
+            default_value='robot_1',
+            description='Robot identifier for multi-robot scenarios'
+        ),
+        DeclareLaunchArgument(
+            'robot_model',
+            default_value='turtlebot3_waffle',
+            description='Robot model/configuration'
+        ),
+        DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='false',
+            description='Use simulation time instead of system time'
+        ),
+
+        # Sensor configuration
+        DeclareLaunchArgument(
+            'enable_camera',
+            default_value='true',
+            description='Enable camera sensor'
+        ),
+        DeclareLaunchArgument(
+            'enable_lidar',
+            default_value='true',
+            description='Enable LiDAR sensor'
+        ),
+        DeclareLaunchArgument(
+            'enable_imu',
+            default_value='true',
+            description='Enable IMU sensor'
+        ),
+
+        # Navigation configuration
+        DeclareLaunchArgument(
+            'use_amcl',
+            default_value='true',
+            description='Use AMCL localization'
+        ),
+        DeclareLaunchArgument(
+            'map_file',
+            default_value='',
+            description='Path to map file for navigation'
+        ),
+
+        # Performance tuning
+        DeclareLaunchArgument(
+            'log_level',
+            default_value='info',
+            description='Logging level (debug, info, warn, error)'
+        ),
+        DeclareLaunchArgument(
+            'launch_prefix',
+            default_value='',
+            description='Launch prefix for performance tools (e.g., gdb, valgrind)'
+        ),
+
+        # Security and networking
+        DeclareLaunchArgument(
+            'namespace',
+            default_value='',
+            description='Namespace for all nodes'
+        ),
+        DeclareLaunchArgument(
+            'domain_id',
+            default_value='0',
+            description='ROS 2 domain ID'
+        )
+    ]
+
+def create_robot_description():
+    """Create robot description node with URDF loading"""
+    return [
+        # Robot state publisher
+        Node(
+            package='robot_state_publisher',
+            executable='robot_state_publisher',
+            name='robot_state_publisher',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[
+                {'robot_description': Command([
+                    FindExecutable(name='xacro'),
+                    ' ',
+                    PathJoinSubstitution([
+                        FindPackageShare('robot_description'),
+                        'urdf',
+                        LaunchConfiguration('robot_model'),
+                        LaunchConfiguration('robot_model') + '.urdf.xacro'
+                    ])
+                ])},
+                {'use_sim_time': LaunchConfiguration('use_sim_time')}
+            ],
+            output='screen',
+            emulate_tty=True,
+            log_level=LaunchConfiguration('log_level')
+        ),
+
+        # Joint state publisher (for simulation)
+        Node(
+            package='joint_state_publisher',
+            executable='joint_state_publisher',
+            name='joint_state_publisher',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+            condition=IfCondition(PythonExpression([
+                LaunchConfiguration('use_sim_time'), ' == "true"'
+            ]))
+        )
+    ]
+
+def create_sensor_nodes():
+    """Create sensor processing nodes"""
+    sensor_nodes = []
+
+    # Camera driver
+    sensor_nodes.append(
+        Node(
+            package='usb_cam',
+            executable='usb_cam_node_exe',
+            name='camera',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[
+                PathJoinSubstitution([
+                    FindPackageShare('robot_bringup'),
+                    'config',
+                    'camera_params.yaml'
+                ]),
+                {'use_sim_time': LaunchConfiguration('use_sim_time')}
+            ],
+            remappings=[
+                ('/image_raw', [LaunchConfiguration('namespace'), '/camera/image_raw']),
+                ('/camera_info', [LaunchConfiguration('namespace'), '/camera/camera_info'])
+            ],
+            condition=IfCondition(LaunchConfiguration('enable_camera')),
+            output='screen'
+        )
+    )
+
+    # LiDAR driver
+    sensor_nodes.append(
+        Node(
+            package='rplidar_ros',
+            executable='rplidar_composition',
+            name='rplidar',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[
+                PathJoinSubstitution([
+                    FindPackageShare('robot_bringup'),
+                    'config',
+                    'rplidar_params.yaml'
+                ]),
+                {'use_sim_time': LaunchConfiguration('use_sim_time')}
+            ],
+            condition=IfCondition(LaunchConfiguration('enable_lidar')),
+            output='screen'
+        )
+    )
+
+    # IMU driver
+    sensor_nodes.append(
+        Node(
+            package='imu_filter_madgwick',
+            executable='imu_filter_madgwick_node',
+            name='imu_filter',
+            namespace=LaunchConfiguration('namespace'),
+            parameters=[
+                PathJoinSubstitution([
+                    FindPackageShare('robot_bringup'),
+                    'config',
+                    'imu_params.yaml'
+                ]),
+                {'use_sim_time': LaunchConfiguration('use_sim_time')}
+            ],
+            remappings=[
+                ('/imu/data_raw', [LaunchConfiguration('namespace'), '/imu/data_raw']),
+                ('/imu/data', [LaunchConfiguration('namespace'), '/imu/data'])
+            ],
+            condition=IfCondition(LaunchConfiguration('enable_imu')),
+            output='screen'
+        )
+    )
+
+    return sensor_nodes
+
+def create_navigation_stack():
+    """Create navigation stack nodes"""
+    nav_nodes = []
+
+    # Map server
+    map_server_node = Node(
+        package='nav2_map_server',
+        executable='map_server',
+        name='map_server',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[
+            {'yaml_filename': LaunchConfiguration('map_file')},
+            {'use_sim_time': LaunchConfiguration('use_sim_time')}
+        ],
+        output='screen',
+        condition=UnlessCondition(PythonExpression([
+            '"', LaunchConfiguration('map_file'), '" == ""'
+        ]))
+    )
+
+    # AMCL localization
+    amcl_node = Node(
+        package='nav2_amcl',
+        executable='amcl',
+        name='amcl',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('robot_bringup'),
+                'config',
+                'amcl_params.yaml'
+            ]),
+            {'use_sim_time': LaunchConfiguration('use_sim_time')}
+        ],
+        remappings=[
+            ('/map', [LaunchConfiguration('namespace'), '/map']),
+            ('/scan', [LaunchConfiguration('namespace'), '/scan'])
+        ],
+        output='screen',
+        condition=IfCondition(PythonExpression([
+            LaunchConfiguration('use_amcl'), ' and "',
+            LaunchConfiguration('map_file'), '" != ""'
+        ]))
+    )
+
+    # Lifecycle manager for navigation
+    lifecycle_manager_node = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_navigation',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[
+            {'use_sim_time': LaunchConfiguration('use_sim_time')},
+            {'autostart': True},
+            {'node_names': [
+                'map_server',
+                'amcl',
+                'controller_server',
+                'planner_server',
+                'recoveries_server',
+                'bt_navigator'
+            ]}
+        ],
+        output='screen'
+    )
+
+    # Navigation stack (planner, controller, etc.)
+    nav_bringup = IncludeLaunchDescription(
+        PathJoinSubstitution([
+            FindPackageShare('nav2_bringup'),
+            'launch',
+            'navigation_launch.py'
+        ]),
+        launch_arguments={
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'params_file': PathJoinSubstitution([
+                FindPackageShare('robot_bringup'),
+                'config',
+                'nav2_params.yaml'
+            ]),
+            'autostart': 'true',
+            'namespace': LaunchConfiguration('namespace')
+        }.items()
+    )
+
+    nav_nodes.extend([map_server_node, amcl_node, lifecycle_manager_node, nav_bringup])
+    return nav_nodes
+
+def create_manipulation_system():
+    """Create manipulation system nodes (if applicable)"""
+    manipulation_nodes = []
+
+    # MoveIt! motion planning
+    moveit_node = Node(
+        package='move_group',
+        executable='move_group',
+        name='move_group',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('robot_moveit_config'),
+                'config',
+                'moveit_config.yaml'
+            ]),
+            {'use_sim_time': LaunchConfiguration('use_sim_time')}
+        ],
+        output='screen'
+    )
+
+    manipulation_nodes.append(moveit_node)
+    return manipulation_nodes
+
+def create_ui_components():
+    """Create UI and visualization components"""
+    ui_nodes = []
+
+    # RViz2 with configuration
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        namespace=LaunchConfiguration('namespace'),
+        arguments=[
+            '-d', PathJoinSubstitution([
+                FindPackageShare('robot_bringup'),
+                'rviz',
+                LaunchConfiguration('robot_model') + '.rviz'
+            ])
+        ],
+        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+        condition=IfCondition(PythonExpression([
+            '"', LaunchConfiguration('display_rviz'), '" == "true"'
+        ])),
+        output='screen'
+    )
+
+    # Web interface
+    web_ui_node = Node(
+        package='robot_web_interface',
+        executable='web_server',
+        name='web_interface',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[
+            {'port': 8080},
+            {'robot_namespace': LaunchConfiguration('namespace')}
+        ],
+        output='screen'
+    )
+
+    ui_nodes.extend([rviz_node, web_ui_node])
+    return ui_nodes
+
+def create_monitoring_nodes():
+    """Create system monitoring and diagnostic nodes"""
+    monitoring_nodes = []
+
+    # System monitor
+    system_monitor_node = Node(
+        package='robot_monitor',
+        executable='system_monitor',
+        name='system_monitor',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[
+            {'monitor_frequency': 1.0},
+            {'cpu_warning_threshold': 80.0},
+            {'memory_warning_threshold': 85.0}
+        ],
+        output='screen'
+    )
+
+    # Diagnostic aggregator
+    diagnostic_node = Node(
+        package='diagnostic_aggregator',
+        executable='aggregator_node',
+        name='diagnostic_aggregator',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('robot_bringup'),
+                'config',
+                'diagnostic_params.yaml'
+            ])
+        ],
+        output='screen'
+    )
+
+    # Bag recording for data collection
+    bag_recording_node = ExecuteProcess(
+        cmd=[
+            'ros2', 'bag', 'record',
+            '-a',  # All topics
+            '-o', [LaunchConfiguration('namespace'), '_robot_data'],
+            '--max-cache-size', '1024'
+        ],
+        name='bag_recorder',
+        namespace=LaunchConfiguration('namespace'),
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('enable_recording'))
+    )
+
+    monitoring_nodes.extend([system_monitor_node, diagnostic_node, bag_recording_node])
+    return monitoring_nodes
+
+class ConditionalLaunch:
+    """Advanced conditional launch logic"""
+
+    @staticmethod
+    def get_sensor_config(robot_model):
+        """Return sensor configuration based on robot model"""
+        sensor_configs = {
+            'turtlebot3_waffle': {
+                'lidar': True,
+                'camera': False,
+                'imu': False
+            },
+            'turtlebot3_waffle_pi': {
+                'lidar': True,
+                'camera': True,
+                'imu': False
+            },
+            'custom_robot': {
+                'lidar': True,
+                'camera': True,
+                'imu': True,
+                'depth_camera': True
+            }
+        }
+        return sensor_configs.get(robot_model, {})
+
+    @staticmethod
+    def create_environment_specific_nodes(environment_type):
+        """Create nodes specific to deployment environment"""
+        if environment_type == 'warehouse':
+            return [
+                Node(
+                    package='warehouse_navigation',
+                    executable='warehouse_navigator',
+                    name='warehouse_nav',
+                    output='screen'
+                )
+            ]
+        elif environment_type == 'office':
+            return [
+                Node(
+                    package='office_navigation',
+                    executable='office_navigator',
+                    name='office_nav',
+                    output='screen'
+                )
+            ]
+        else:
+            return []
+```
+
+## Dynamic Parameter Management
+
+### Runtime Parameter Reconfiguration
+
+```python
+# parameter_manager.py - Advanced parameter management
+import rclpy
+from rclpy.node import Node
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType
+from rcl_interfaces.srv import SetParameters, GetParameters, ListParameters
+from lifecycle_msgs.srv import GetState
+import yaml
+import json
+from pathlib import Path
+
+class AdvancedParameterManager(Node):
+    """Advanced parameter management with dynamic reconfiguration"""
+
+    def __init__(self):
+        super().__init__('parameter_manager')
+
+        # Parameter storage
+        self.parameters = {}
+        self.parameter_callbacks = {}
+        self.parameter_groups = {}
+
+        # Initialize parameter services
+        self.setup_parameter_services()
+
+        # Load initial configuration
+        self.load_parameter_config()
+
+        # Watch for parameter changes
+        self.parameter_watcher = self.create_timer(1.0, self.watch_parameters)
+
+        self.get_logger().info("Parameter manager initialized")
+
+    def setup_parameter_services(self):
+        """Setup parameter management services"""
+        # Set parameter service
+        self.set_param_service = self.create_service(
+            SetParameters, 'set_parameters', self.set_parameters_callback)
+
+        # Get parameter service
+        self.get_param_service = self.create_service(
+            GetParameters, 'get_parameters', self.get_parameters_callback)
+
+        # List parameters service
+        self.list_param_service = self.create_service(
+            ListParameters, 'list_parameters', self.list_parameters_callback)
+
+        # Parameter change notification service
+        self.param_change_service = self.create_service(
+            SetParameters, 'notify_parameter_change', self.notify_parameter_change)
+
+    def load_parameter_config(self):
+        """Load parameters from configuration files"""
+        config_paths = [
+            '/opt/robot/config/default_params.yaml',
+            Path.home() / '.robot/config/user_params.yaml',
+            '/tmp/robot/runtime_params.yaml'
+        ]
+
+        for config_path in config_paths:
+            if Path(config_path).exists():
+                self.get_logger().info(f"Loading parameters from {config_path}")
+                self.load_parameters_from_file(config_path)
+
+    def load_parameters_from_file(self, file_path):
+        """Load parameters from YAML file"""
+        try:
+            with open(file_path, 'r') as f:
+                params = yaml.safe_load(f)
+
+            if params:
+                self.apply_parameter_set(params, source=file_path)
+
+        except Exception as e:
+            self.get_logger().error(f"Failed to load parameters from {file_path}: {e}")
+
+    def apply_parameter_set(self, param_set, source='unknown'):
+        """Apply a set of parameters"""
+        for param_name, param_value in param_set.items():
+            if isinstance(param_value, dict):
+                # Handle grouped parameters
+                group_name = param_name
+                self.parameter_groups[group_name] = param_value
+
+                # Apply each parameter in group
+                for sub_name, sub_value in param_value.items():
+                    full_name = f"{group_name}.{sub_name}"
+                    self.set_parameter(full_name, sub_value, source)
+            else:
+                self.set_parameter(param_name, param_value, source)
+
+    def set_parameter(self, name, value, source='direct'):
+        """Set individual parameter with validation"""
+        try:
+            # Validate parameter type and range
+            if self.validate_parameter(name, value):
+                self.parameters[name] = {
+                    'value': value,
+                    'source': source,
+                    'timestamp': self.get_clock().now().to_msg(),
+                    'type': type(value).__name__
+                }
+
+                # Trigger parameter change callback
+                if name in self.parameter_callbacks:
+                    self.parameter_callbacks[name](name, value)
+
+                self.get_logger().info(f"Parameter {name} set to {value} from {source}")
+                return True
+            else:
+                self.get_logger().error(f"Parameter validation failed for {name}")
+                return False
+
+        except Exception as e:
+            self.get_logger().error(f"Failed to set parameter {name}: {e}")
+            return False
+
+    def validate_parameter(self, name, value):
+        """Validate parameter value"""
+        # Type validation
+        type_constraints = {
+            'robot.max_velocity': (float, (0.0, 2.0)),
+            'robot.max_angular_velocity': (float, (0.0, 3.14)),
+            'navigation.planning_timeout': (float, (1.0, 30.0)),
+            'navigation.goal_tolerance': (float, (0.01, 1.0)),
+            'camera.resolution.width': (int, (320, 1920)),
+            'camera.resolution.height': (int, (240, 1080))
+        }
+
+        if name in type_constraints:
+            expected_type, (min_val, max_val) = type_constraints[name]
+
+            if not isinstance(value, expected_type):
+                self.get_logger().error(f"Parameter {name} type mismatch")
+                return False
+
+            if not (min_val <= value <= max_val):
+                self.get_logger().error(f"Parameter {name} out of range")
+                return False
+
+        return True
+
+    def register_parameter_callback(self, name, callback):
+        """Register callback for parameter changes"""
+        self.parameter_callbacks[name] = callback
+
+    def get_parameter_value(self, name, default=None):
+        """Get parameter value with default"""
+        if name in self.parameters:
+            return self.parameters[name]['value']
+        return default
+
+    def set_parameters_callback(self, request, response):
+        """Handle set parameter requests"""
+        results = []
+
+        for param in request.parameters:
+            result = self.set_parameter(param.name, param.value)
+            results.append(result)
+
+        response.results = results
+        return response
+
+    def get_parameters_callback(self, request, response):
+        """Handle get parameter requests"""
+        for name in request.names:
+            if name in self.parameters:
+                param = self.parameters[name]
+                # Create parameter message
+                param_msg = Parameter()
+                param_msg.name = name
+                param_msg.value = self.create_parameter_value(param['value'])
+                response.values.append(param_msg)
+            else:
+                # Parameter not found
+                self.get_logger().warn(f"Parameter {name} not found")
+
+        return response
+
+    def list_parameters_callback(self, request, response):
+        """Handle list parameter requests"""
+        response.names = list(self.parameters.keys())
+        return response
+
+    def notify_parameter_change(self, request, response):
+        """Handle parameter change notifications"""
+        for param in request.parameters:
+            # Broadcast change to interested nodes
+            self.broadcast_parameter_change(param.name, param.value)
+
+        return response
+
+    def broadcast_parameter_change(self, name, value):
+        """Broadcast parameter change to other nodes"""
+        # Publish parameter change event
+        change_msg = ParameterChange()
+        change_msg.name = name
+        change_msg.value = self.create_parameter_value(value)
+        change_msg.timestamp = self.get_clock().now().to_msg()
+
+        # Create temporary publisher
+        temp_publisher = self.create_publisher(
+            ParameterChange, 'parameter_changes', 10)
+        temp_publisher.publish(change_msg)
+
+    def create_parameter_value(self, value):
+        """Create ROS 2 parameter value from Python value"""
+        from rclpy.parameter import Parameter
+
+        if isinstance(value, bool):
+            return Parameter.Type.BOOL
+        elif isinstance(value, int):
+            return Parameter.Type.INTEGER
+        elif isinstance(value, float):
+            return Parameter.Type.DOUBLE
+        elif isinstance(value, str):
+            return Parameter.Type.STRING
+        elif isinstance(value, list):
+            return Parameter.Type.DOUBLE_ARRAY
+        else:
+            return Parameter.Type.NOT_SET
+
+    def save_parameters(self, file_path):
+        """Save current parameters to file"""
+        try:
+            param_dict = {}
+            for name, param_info in self.parameters.items():
+                param_dict[name] = param_info['value']
+
+            # Add parameter groups
+            for group_name, group_params in self.parameter_groups.items():
+                param_dict[group_name] = group_params
+
+            with open(file_path, 'w') as f:
+                yaml.dump(param_dict, f, default_flow_style=False)
+
+            self.get_logger().info(f"Parameters saved to {file_path}")
+            return True
+
+        except Exception as e:
+            self.get_logger().error(f"Failed to save parameters: {e}")
+            return False
+
+    def watch_parameters(self):
+        """Monitor parameter changes and log significant events"""
+        # Check for parameter drift
+        for name, param_info in self.parameters.items():
+            age = (self.get_clock().now() - rclpy.time.Time.from_msg(param_info['timestamp'])).nanoseconds / 1e9
+
+            if age > 3600:  # Parameter not updated for an hour
+                self.get_logger().warn(f"Parameter {name} not updated for {age:.0f} seconds")
+
+# Parameter validation and constraints
+class ParameterValidator:
+    """Advanced parameter validation system"""
+
+    def __init__(self):
+        self.constraints = {}
+        self.load_constraint_definitions()
+
+    def load_constraint_definitions(self):
+        """Load parameter constraint definitions"""
+        self.constraints = {
+            'robot': {
+                'max_velocity': {
+                    'type': float,
+                    'min': 0.0,
+                    'max': 5.0,
+                    'unit': 'm/s',
+                    'description': 'Maximum linear velocity'
+                },
+                'max_acceleration': {
+                    'type': float,
+                    'min': 0.0,
+                    'max': 10.0,
+                    'unit': 'm/s²',
+                    'description': 'Maximum linear acceleration'
+                }
+            },
+            'navigation': {
+                'planning_timeout': {
+                    'type': float,
+                    'min': 0.5,
+                    'max': 60.0,
+                    'unit': 's',
+                    'description': 'Planning timeout duration'
+                }
+            }
+        }
+
+    def validate(self, param_name, value):
+        """Validate parameter against constraints"""
+        # Extract group and parameter name
+        parts = param_name.split('.')
+        if len(parts) < 2:
+            return True  # No constraints defined
+
+        group = parts[0]
+        param = parts[1]
+
+        if group in self.constraints and param in self.constraints[group]:
+            constraint = self.constraints[group][param]
+
+            # Type check
+            if constraint['type'] and not isinstance(value, constraint['type']):
+                return False
+
+            # Range check
+            if 'min' in constraint and value < constraint['min']:
+                return False
+            if 'max' in constraint and value > constraint['max']:
+                return False
+
+        return True
+```
+
+## System Orchestration Patterns
+
+### Multi-Robot System Launch
+
+```python
+# multi_robot_launch.py - Launch multiple robots with configurations
+import os
+import yaml
+from launch import LaunchDescription
+from launch.actions import (
+    GroupAction, IncludeLaunchDescription,
+    DeclareLaunchArgument, LogInfo
+)
+from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch_ros.actions import Node, PushRosNamespace
+
+def generate_launch_description():
+    """Launch multiple robots with different configurations"""
+
+    # Declare arguments
+    declared_arguments = [
+        DeclareLaunchArgument(
+            'robot_config_file',
+            default_value='multi_robot_config.yaml',
+            description='YAML file containing robot configurations'
+        ),
+        DeclareLaunchArgument(
+            'simulated',
+            default_value='false',
+            description='Launch in simulation mode'
+        )
+    ]
+
+    # Load robot configurations
+    robot_configs = load_robot_configs(LaunchConfiguration('robot_config_file'))
+
+    # Create launch description
+    ld = LaunchDescription(declared_arguments)
+
+    # Add robot groups
+    for robot_name, config in robot_configs.items():
+        robot_group = create_robot_group(robot_name, config)
+        ld.add_action(robot_group)
+
+    # Add shared services
+    ld.add_action(create_shared_services())
+
+    return ld
+
+def load_robot_configs(config_file):
+    """Load robot configurations from YAML file"""
+    try:
+        with open(config_file, 'r') as f:
+            configs = yaml.safe_load(f)
+        return configs.get('robots', {})
+    except Exception as e:
+        print(f"Failed to load robot configs: {e}")
+        return {}
+
+def create_robot_group(robot_name, config):
+    """Create launch group for individual robot"""
+    return GroupAction(
+        actions=[
+            PushRosNamespace(robot_name),
+
+            # Robot-specific configuration
+            LogInfo(msg=f"Launching robot: {robot_name}"),
+
+            # Core robot nodes
+            IncludeLaunchDescription(
+                os.path.join(
+                    get_package_share_directory('robot_bringup'),
+                    'launch',
+                    'robot_core.launch.py'
+                ),
+                launch_arguments={
+                    'robot_name': robot_name,
+                    'robot_model': config.get('model', 'default'),
+                    'use_sim_time': LaunchConfiguration('simulated'),
+                    'sensors': ','.join(config.get('sensors', [])),
+                    'capabilities': ','.join(config.get('capabilities', []))
+                }.items()
+            ),
+
+            # Robot-specific navigation
+            IncludeLaunchDescription(
+                os.path.join(
+                    get_package_share_directory('robot_bringup'),
+                    'launch',
+                    'navigation.launch.py'
+                ),
+                launch_arguments={
+                    'robot_name': robot_name,
+                    'map_file': config.get('map_file', ''),
+                    'use_amcl': str(config.get('use_amcl', False)).lower()
+                }.items()
+            )
+        ]
+    )
+
+def create_shared_services():
+    """Create services shared across all robots"""
+    return [
+        # Central monitoring
+        Node(
+            package='multi_robot_monitor',
+            executable='fleet_monitor',
+            name='fleet_monitor',
+            parameters={
+                'update_rate': 10.0,
+                'robot_count': 4
+            }
+        ),
+
+        # Task allocation
+        Node(
+            package='task_allocator',
+            executable='task_server',
+            name='task_server',
+            parameters={
+                'allocation_algorithm': 'hungarian',
+                'update_frequency': 5.0
+            }
+        ),
+
+        # Coordination service
+        Node(
+            package='robot_coordination',
+            executable='coordination_server',
+            name='coordination_server',
+            parameters={
+                'collision_avoidance': True,
+                'coordination_radius': 2.0
+            }
+        )
+    ]
+```
+
+## Knowledge Check
+
+### Conceptual Questions
+
+1. **Explain the advantages** of Python launch files over XML launch files in ROS 2.
+
+2. **How does parameter management** contribute to system flexibility and maintainability?
+
+3. **Describe conditional launching** and provide scenarios where it's essential.
+
+4. **What are the challenges** of managing multi-robot system launches?
+
+5. **How can launch systems** ensure proper startup and shutdown sequences?
+
+### Practical Exercises
+
+6. **Create a launch file** that conditionally starts nodes based on robot type.
+
+7. **Implement parameter validation** for a navigation system with constraints.
+
+8. **Design a multi-robot launch** configuration for a warehouse scenario.
+
+9. **Build a parameter manager** that can reload configurations without restart.
+
+### Advanced Problems
+
+10. **Create a dynamic node launcher** that can add/remove nodes at runtime.
+
+11. **Implement parameter versioning** and rollback capabilities.
+
+12. **Design a launch system** that automatically adapts to available hardware resources.
+
+## Summary
+
+**Key Takeaways:**
+- Launch systems orchestrate complex multi-node robotic applications
+- Dynamic parameter management enables runtime system adaptation
+- Conditional launching provides flexibility for different scenarios
+- Multi-robot systems require careful namespace and domain management
+- Proper system monitoring is essential for production deployments
+
+**Next Steps:** In the next chapter, we'll explore simulation with Gazebo, learning how to create realistic virtual environments for testing and developing robotic systems before deploying them in the real world.
+
+## Further Reading
+
+- [ROS 2 Launch System Documentation](https://docs.ros.org/en/rolling/How-To-Guides/Launch-system.html)
+- [YAML Configuration Management](https://yaml.org/) - Official YAML specification
+- [System Orchestration Patterns](https://docs.ros.org/en/rolling/How-To-Guides/Orchestration.html)
+- [Multi-Robot Systems in ROS 2](https://docs.ros.org/en/rolling/Tutorials/Advanced/Multi-Robot.html)

@@ -1,0 +1,708 @@
+---
+title: Cloud Deployment Guide
+description: Complete guide to cloud-based robotics development using AWS, including cost optimization and performance tuning
+sidebar_position: 30
+sidebar_label: Cloud Alternatives
+slug: /lab-infrastructure/cloud-alternatives
+tags: ["cloud", "aws", "cost-optimization", "robotics", "remote-development"]
+authors: ["AI Book Team"]
+last_updated: 2025-12-04
+---
+
+# Cloud Deployment Guide
+
+This comprehensive guide covers cloud-based alternatives for Physical AI and humanoid robotics development, providing cost-effective solutions when local high-performance hardware is not available.
+
+## Overview
+
+Cloud-based robotics development offers several advantages:
+1. **No upfront hardware costs**: Access to cutting-edge GPUs without capital investment
+2. **Scalability**: Scale resources up or down based on project requirements
+3. **Accessibility**: Access from anywhere with internet connectivity
+4. **Collaboration**: Easy sharing of environments with team members
+5. **Maintenance-free**: No hardware maintenance or upgrade concerns
+
+## Cloud Platform Comparison
+
+### Primary Recommendation: AWS
+
+**Why AWS for Robotics Development?**
+1. **AWS RoboMaker**: Managed robotics development service
+2. **AWS g5 instances**: NVIDIA A10G GPUs optimized for ML and simulation
+3. **Cost-effective pricing**: Spot instances and reserved instances for savings
+4. **Global infrastructure**: Low-latency access from multiple regions
+5. **Educational credits**: AWS Educate provides free credits for students
+
+### NVIDIA A10G GPU Specifications
+
+The AWS g5 instances feature the NVIDIA A10G GPU, providing excellent performance for robotics simulation and ML workloads:
+
+| Specification | Value |
+|---------------|-------|
+| **Architecture** | Ampere |
+| **CUDA Cores** | 24,576 |
+| **Tensor Cores** | 384 |
+| **GPU Memory** | 24 GB GDDR6 |
+| **Memory Bandwidth** | 600 GB/s |
+| **Memory Interface** | 384-bit |
+| **FP32 Performance** | 31.2 TFLOPS |
+| **FP16 Performance** | 624 TOPS |
+| **INT8 Performance** | 1,248 TOPS |
+| **Power Consumption** | 150W |
+| **Virtualization Support** | Yes (NVIDIA vGPU technology) |
+
+**Key Advantages for Robotics Development:**
+- **High Memory Bandwidth** (600 GB/s) enables efficient handling of large simulation datasets
+- **Tensor Cores** accelerate neural network training for perception systems
+- **24 GB VRAM** supports complex 3D environments and high-resolution sensor data
+- **FP16/INT8 Performance** optimized for inference workloads in deployed systems
+
+### Alternative Platforms
+
+#### Google Cloud Platform (GCP)
+- **A2 instances**: NVIDIA A100 GPUs
+- **Deep Learning VM Images**: Pre-configured environments
+- **TensorFlow integration**: Native ML framework support
+
+#### Microsoft Azure
+- **ND A100 v4 series**: NVIDIA A100 GPUs
+- **Azure IoT Hub**: Robust device management
+- **Visual Studio Code integration**: Seamless development experience
+
+## AWS Instance Selection
+
+### Recommended Configuration: g5.2xlarge
+
+**Specifications:**
+- **vCPU**: 8 AMD EPYC processors
+- **Memory**: 32 GB RAM
+- **GPU**: NVIDIA A10G (24 GB VRAM)
+- **Storage**: Up to 4TB NVMe SSD
+- **Network**: Up to 25 Gbps
+
+**Pricing (varies by region):**
+- **On-Demand**: $1.006-2.112 per hour (us-east-1: ~$1.006/hour)
+- **Spot**: $0.25-0.50 per hour (60-80% savings)
+- **Reserved 1-year**: $0.60-1.27 per hour (40% savings)
+
+### Performance Comparison
+
+| Instance | GPU | VRAM | vCPU | RAM | Cost/hr | Use Case |
+|----------|-----|------|------|-----|---------|----------|
+| g5.2xlarge | A10G | 24GB | 8 | 32GB | $1.006-2.112 | Recommended |
+| g5.xlarge | A10G | 24GB | 4 | 16GB | $1.006 | Light tasks |
+| g5.4xlarge | A10G | 24GB | 16 | 64GB | $2.02 | Heavy workloads |
+| g5.12xlarge | A10G | 96GB | 48 | 192GB | $6.08 | Team environments |
+
+## Cost Optimization Strategies
+
+### 1. Spot Instance Usage
+
+**Potential Savings**: 60-90% compared to on-demand
+
+```bash
+# Request spot instance with persistent configuration
+aws ec2 request-spot-instances \
+  --spot-price 0.50 \
+  --instance-count 1 \
+  --type "persistent" \
+  --launch-specifications file://spot-config.json
+```
+
+**Spot Configuration Example:**
+```json
+{
+  "ImageId": "ami-0abcdef1234567890",
+  "InstanceType": "g5.2xlarge",
+  "KeyName": "robotics-key",
+  "SecurityGroupIds": ["sg-12345678"],
+  "SubnetId": "subnet-12345678",
+  "IamInstanceProfile": {
+    "Name": "RoboticsInstanceProfile"
+  },
+  "TagSpecifications": [
+    {
+      "ResourceType": "instance",
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "robotics-dev"
+        },
+        {
+          "Key": "Project",
+          "Value": "physical-ai-course"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 2. Instance Scheduling
+
+**Automated Start/Stop Scripts:**
+```python
+#!/usr/bin/env python3
+# schedule_instances.py - Automate instance lifecycle
+
+import boto3
+import schedule
+import time
+from datetime import datetime, timedelta
+
+ec2 = boto3.client('ec2')
+INSTANCE_ID = 'i-1234567890abcdef0'
+
+def start_instance():
+    print(f"Starting instance {INSTANCE_ID} at {datetime.now()}")
+    ec2.start_instances(InstanceIds=[INSTANCE_ID])
+
+def stop_instance():
+    print(f"Stopping instance {INSTANCE_ID} at {datetime.now()}")
+    ec2.stop_instances(InstanceIds=[INSTANCE_ID])
+
+# Schedule: Start 9 AM, Stop 6 PM on weekdays
+schedule.every().monday.at("09:00").do(start_instance)
+schedule.every().monday.at("18:00").do(stop_instance)
+schedule.every().tuesday.at("09:00").do(start_instance)
+schedule.every().tuesday.at("18:00").do(stop_instance)
+
+# Add rest of the weekdays...
+
+while True:
+    schedule.run_pending()
+    time.sleep(60)
+```
+
+### 3. Storage Optimization
+
+**EBS vs Instance Storage:**
+```bash
+# Use instance storage for temporary data
+sudo mkfs -t ext4 /dev/nvme1n1
+sudo mount /dev/nvme1n1 /tmp/robotics-data
+
+# Create backup script
+#!/bin/bash
+# backup_to_s3.sh
+DATE=$(date +%Y%m%d_%H%M%S)
+tar -czf /tmp/robotics-backup-$DATE.tar.gz /home/ubuntu/ros2_ws
+aws s3 cp /tmp/robotics-backup-$DATE.tar.gz s3://robotics-course-backups/
+```
+
+## Quick Start Guide
+
+### Step 1: AWS Account Setup
+
+1. **Create AWS Account**
+   - Visit [aws.amazon.com](https://aws.amazon.com)
+   - Choose "Personal" account type
+   - Verify email and phone number
+
+2. **Apply for Educational Credits**
+   - Register at [AWS Educate](https://aws.amazon.com/education/awseducate/)
+   - Request $100+ in promotional credits
+   - Submit student/educator verification
+
+3. **Configure IAM**
+   ```bash
+   # Create IAM user for robotics development
+   aws iam create-user --user-name robotics-dev
+
+   # Attach policies
+   aws iam attach-user-policy \
+     --user-name robotics-dev \
+     --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess
+
+   aws iam attach-user-policy \
+     --user-name robotics-dev \
+     --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+   ```
+
+### Step 2: SSH Key Configuration
+
+```bash
+# Generate SSH key pair
+ssh-keygen -t rsa -b 4096 -C "robotics-dev@aws"
+
+# Create EC2 key pair
+aws ec2 import-key-pair \
+  --key-name robotics-key \
+  --public-key-material fileb://~/.ssh/id_rsa.pub
+```
+
+### Step 3: Network Configuration
+
+```bash
+# Create security group
+aws ec2 create-security-group \
+  --group-name robotics-sg \
+  --description "Security group for robotics development"
+
+# Allow SSH access
+aws ec2 authorize-security-group-ingress \
+  --group-name robotics-sg \
+  --protocol tcp \
+  --port 22 \
+  --cidr 0.0.0.0/0
+
+# Allow HTTP/HTTPS for Jupyter
+aws ec2 authorize-security-group-ingress \
+  --group-name robotics-sg \
+  --protocol tcp \
+  --port 8888 \
+  --cidr 0.0.0.0/0
+```
+
+### Step 4: Launch Instance
+
+```bash
+# Launch g5.2xlarge instance
+aws ec2 run-instances \
+  --image-id ami-0c02fb55956c7d316 \  # Ubuntu 22.04 LTS
+  --instance-type g5.2xlarge \
+  --key-name robotics-key \
+  --security-group-ids sg-12345678 \
+  --subnet-id subnet-12345678 \
+  --user-data file://user-data.sh \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=robotics-dev}]'
+```
+
+## Environment Setup
+
+### User Data Script (user-data.sh)
+
+```bash
+#!/bin/bash
+# Automatically run on instance launch
+
+# Update system
+apt-get update && apt-get upgrade -y
+
+# Install NVIDIA drivers
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+dpkg -i cuda-keyring_1.1-1_all.deb
+apt-get update
+apt-get install -y cuda-toolkit-12-2
+
+# Install ROS 2
+apt-get install -y software-properties-common
+add-apt-repository universe
+apt-get update && apt-get install -y curl
+curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+apt-get update
+apt-get install -y ros-humble-desktop python3-pip
+
+# Configure environment
+echo "source /opt/ros/humble/setup.bash" >> /home/ubuntu/.bashrc
+echo "export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}" >> /home/ubuntu/.bashrc
+
+# Create ROS 2 workspace
+mkdir -p /home/ubuntu/ros2_ws/src
+chown -R ubuntu:ubuntu /home/ubuntu/ros2_ws
+
+# Install Jupyter
+pip install jupyter notebook
+pip install torch torchvision opencv-python
+
+# Create systemd service for Jupyter
+cat > /etc/systemd/system/jupyter.service << 'EOF'
+[Unit]
+Description=Jupyter Notebook
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+ExecStart=/home/ubuntu/.local/bin/jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token=''
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable jupyter
+systemctl start jupyter
+```
+
+### Remote Development Setup
+
+#### VS Code Remote Development
+
+1. **Install VS Code**
+2. **Install Remote SSH Extension**
+3. **Connect to Instance:**
+   ```
+   Host robotics-aws
+     HostName your-instance-ip
+     User ubuntu
+     IdentityFile ~/.ssh/id_rsa
+   ```
+
+4. **Install Recommended Extensions:**
+   - Python
+   - ROS
+   - Docker
+   - Remote Development
+
+#### Jupyter Notebook Access
+
+```bash
+# Connect via SSH tunnel (local machine)
+ssh -L 8888:localhost:8888 ubuntu@your-instance-ip
+
+# Access Jupyter in browser
+# http://localhost:8888
+```
+
+## Performance Optimization
+
+### GPU Utilization Monitoring
+
+```python
+#!/usr/bin/env python3
+# gpu_monitor.py - Monitor GPU utilization on AWS
+
+import GPUtil
+import time
+import boto3
+from datetime import datetime
+
+def monitor_gpu_utilization():
+    while True:
+        gpus = GPUtil.getGPUs()
+        for gpu in gpus:
+            utilization = gpu.load * 100
+            memory_util = gpu.memoryUtil * 100
+
+            print(f"{datetime.now()}: GPU {gpu.id} - "
+                  f"Util: {utilization:.1f}%, "
+                  f"Memory: {memory_util:.1f}%")
+
+            # Alert if utilization is low
+            if utilization < 10:
+                print(f"WARNING: Low GPU utilization ({utilization:.1f}%)")
+
+        time.sleep(30)
+
+if __name__ == "__main__":
+    monitor_gpu_utilization()
+```
+
+### Cost Tracking
+
+```python
+#!/usr/bin/env python3
+# cost_tracker.py - Track AWS costs
+
+import boto3
+from datetime import datetime, timedelta
+
+ce_client = boto3.client('ce')
+
+def get_daily_cost():
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=1)
+
+    response = ce_client.get_cost_and_usage(
+        TimePeriod={
+            'Start': start_date.strftime('%Y-%m-%d'),
+            'End': end_date.strftime('%Y-%m-%d')
+        },
+        Granularity='DAILY',
+        Metrics=['BlendedCost'],
+        GroupBy=[
+            {'Type': 'DIMENSION', 'Key': 'INSTANCE_TYPE'}
+        ]
+    )
+
+    for result in response['ResultsByTime']:
+        date = result['TimePeriod']['Start']
+        total = result['Total']['BlendedCost']['Amount']
+        print(f"{date}: ${total}")
+
+if __name__ == "__main__":
+    get_daily_cost()
+```
+
+## Automation Scripts
+
+### Instance Lifecycle Management
+
+```bash
+#!/bin/bash
+# robotics_instance_manager.sh
+
+INSTANCE_ID="i-1234567890abcdef0"
+AWS_REGION="us-east-1"
+
+start_instance() {
+    echo "Starting robotics development instance..."
+    aws ec2 start-instances --instance-ids $INSTANCE_ID --region $AWS_REGION
+    echo "Waiting for instance to start..."
+    aws ec2 wait instance-running --instance-ids $INSTANCE_ID --region $AWS_REGION
+    INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region $AWS_REGION --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+    echo "Instance started. IP: $INSTANCE_IP"
+    echo "Connect: ssh ubuntu@$INSTANCE_IP"
+}
+
+stop_instance() {
+    echo "Stopping robotics development instance..."
+    aws ec2 stop-instances --instance-ids $INSTANCE_ID --region $AWS_REGION
+    aws ec2 wait instance-stopped --instance-ids $INSTANCE_ID --region $AWS_REGION
+    echo "Instance stopped."
+}
+
+case "$1" in
+    start)
+        start_instance
+        ;;
+    stop)
+        stop_instance
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}"
+        exit 1
+        ;;
+esac
+```
+
+### Backup and Recovery
+
+```python
+#!/usr/bin/env python3
+# backup_robotics_workspace.py
+
+import boto3
+import tarfile
+import os
+from datetime import datetime
+
+s3 = boto3.client('s3')
+BUCKET_NAME = 'robotics-course-backups'
+
+def create_workspace_backup():
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_file = f'/tmp/ros2_workspace_{timestamp}.tar.gz'
+
+    # Create backup
+    with tarfile.open(backup_file, 'w:gz') as tar:
+        tar.add('/home/ubuntu/ros2_ws', arcname='ros2_ws')
+
+    # Upload to S3
+    s3_key = f'backups/ros2_workspace_{timestamp}.tar.gz'
+    s3.upload_file(backup_file, BUCKET_NAME, s3_key)
+
+    print(f"Backup uploaded to s3://{BUCKET_NAME}/{s3_key}")
+    os.remove(backup_file)
+
+def restore_workspace_backup(backup_key):
+    backup_file = f'/tmp/{backup_key.split("/")[-1]}'
+
+    # Download from S3
+    s3.download_file(BUCKET_NAME, backup_key, backup_file)
+
+    # Extract backup
+    with tarfile.open(backup_file, 'r:gz') as tar:
+        tar.extractall('/home/ubuntu/')
+
+    print(f"Workspace restored from {backup_key}")
+    os.remove(backup_file)
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == 'restore':
+        restore_workspace_backup(sys.argv[2])
+    else:
+        create_workspace_backup()
+```
+
+## Security Best Practices
+
+### 1. Network Security
+
+```bash
+# Create restrictive security group
+aws ec2 create-security-group \
+  --group-name robotics-restricted \
+  --description "Restricted access for robotics development"
+
+# Only allow access from specific IP ranges
+aws ec2 authorize-security-group-ingress \
+  --group-name robotics-restricted \
+  --protocol tcp \
+  --port 22 \
+  --cidr YOUR_IP_RANGE/32
+```
+
+### 2. Data Encryption
+
+```python
+# Configure encrypted EBS volumes
+import boto3
+
+ec2 = boto3.client('ec2')
+
+# Create encrypted volume
+response = ec2.create_volume(
+    AvailabilityZone='us-east-1a',
+    Encrypted=True,
+    Size=100,
+    VolumeType='gp3',
+    TagSpecifications=[
+        {
+            'ResourceType': 'volume',
+            'Tags': [
+                {'Key': 'Name', 'Value': 'robotics-data'},
+                {'Key': 'Environment', 'Value': 'production'}
+            ]
+        }
+    ]
+)
+```
+
+### 3. Access Management
+
+```bash
+# Use temporary credentials for development
+aws sts assume-role \
+  --role-arn arn:aws:iam::123456789012:role/RoboticsDeveloperRole \
+  --role-session-name robotics-session
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### GPU Not Detected
+```bash
+# Check NVIDIA driver installation
+nvidia-smi
+
+# Reinstall drivers if necessary
+sudo apt-get purge nvidia-*
+sudo apt-get install nvidia-driver-535
+sudo reboot
+```
+
+#### SSH Connection Issues
+```bash
+# Check security group rules
+aws ec2 describe-security-groups \
+  --group-ids sg-12345678
+
+# Check instance status
+aws ec2 describe-instances \
+  --instance-ids i-1234567890abcdef0
+```
+
+#### High Costs Unexpected
+```bash
+# Check running instances
+aws ec2 describe-instances --filters Name=instance-state-name,Values=running
+
+# Check CloudWatch metrics for detailed billing
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/Billing \
+  --metric-name EstimatedCharges \
+  --dimensions Name=Currency,Value=USD \
+  --start-time 2024-01-01T00:00:00Z \
+  --end-time 2024-01-31T23:59:59Z \
+  --period 86400
+```
+
+### Performance Issues
+
+#### Low GPU Utilization
+```python
+# Check if applications are using GPU
+import GPUtil
+GPUtil.showUtilization()
+
+# Optimize PyTorch for GPU
+import torch
+torch.backends.cudnn.benchmark = True
+```
+
+#### Memory Constraints
+```bash
+# Monitor memory usage
+free -h
+nvidia-smi --query-gpu=memory.used,memory.total --format=csv
+
+# Create swap file if needed
+sudo fallocate -l 8G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+```
+
+## Integration with Course Materials
+
+### Accessing Course Content
+
+```bash
+# Clone course repository on instance
+git clone https://github.com/your-org/physical-ai-course.git
+cd physical-ai-course
+
+# Mount course materials from S3
+aws s3 sync s3://robotics-course-materials/ ~/course-materials/
+```
+
+### Submitting Assignments
+
+```python
+#!/usr/bin/env python3
+# submit_assignment.py
+
+import boto3
+import os
+from datetime import datetime
+
+s3 = boto3.client('s3')
+SUBMISSIONS_BUCKET = 'robotics-course-submissions'
+
+def submit_assignment(assignment_name, file_path):
+    student_id = os.getenv('STUDENT_ID', 'unknown')
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    s3_key = f'submissions/{assignment_name}/{student_id}_{timestamp}.zip'
+
+    s3.upload_file(file_path, SUBMISSIONS_BUCKET, s3_key)
+    print(f"Assignment submitted to s3://{SUBMISSIONS_BUCKET}/{s3_key}")
+
+if __name__ == "__main__":
+    submit_assignment(sys.argv[1], sys.argv[2])
+```
+
+## Budget Planning
+
+### Monthly Cost Estimator
+
+| Component | Monthly Cost (10 hrs/week) | Notes |
+|-----------|---------------------------|-------|
+| g5.2xlarge (spot) | ~$40 | Main development environment |
+| EBS Storage (100GB) | ~$10 | Workspace and datasets |
+| Data Transfer | ~$5 | Moderate usage |
+| S3 Storage | ~$2 | Backups and materials |
+| **Total** | **~$57** | Per student |
+
+### Cost Reduction Tips
+
+1. **Use Spot Instances**: 60-90% savings
+2. **Schedule Usage**: Only run when needed
+3. **Optimize Storage**: Use lifecycle policies
+4. **Monitor Usage**: Set up billing alerts
+5. **Leverage Free Tier**: Use AWS Educate credits
+
+---
+
+**Cloud Benefits**: Access to cutting-edge hardware without upfront investment, perfect for learning and experimentation
+**Cost**: ~$40-150/month depending on usage patterns and optimization strategies
+**Setup Time**: 30-60 minutes for initial configuration
+**Skill Level**: Intermediate (familiar with AWS basics helpful)
+
+For local workstation setup alternatives, see the [Workstation Setup Guide](/docs/lab-infrastructure/workstation-setup).

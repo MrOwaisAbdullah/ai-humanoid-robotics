@@ -1,0 +1,696 @@
+---
+title: "Chapter 2.1: Kinematics and Dynamics"
+description: "Master the mathematical foundations of robot motion, including forward/inverse kinematics, Jacobians, and dynamic modeling for humanoid robots"
+keywords: [kinematics, dynamics, Jacobian, forward kinematics, inverse kinematics, DH parameters, Newton-Euler, Lagrange]
+sidebar_position: 6
+---
+
+# Chapter 2.1: Kinematics and Dynamics
+
+Understanding the motion of humanoid robots requires a deep grasp of kinematics and dynamics - the mathematical languages that describe how robots move and interact with forces. This chapter explores the fundamental principles that govern robot motion, from simple joint movements to complex whole-body dynamics, providing the essential mathematical tools needed to model, simulate, and control humanoid robots effectively.
+
+## What You'll Learn
+
+By the end of this chapter, you'll be able to:
+1. Compute forward and inverse kinematics for serial manipulators
+2. Analyze and compute robot Jacobians for velocity analysis
+3. Apply Denavit-Hartenberg parameters to model robot geometry
+4. Model robot dynamics using Newton-Euler and Lagrange methods
+5. Implement kinematic and dynamic algorithms for humanoid robots
+6. Simulate and validate robot motion models
+
+## Forward Kinematics
+
+### Serial Chain Kinematics
+
+Forward kinematics computes the position and orientation of the end-effector given joint angles. For a serial chain robot with n joints:
+
+```python
+import numpy as np
+
+class SerialRobot:
+    def __init__(self, joint_types, dh_params):
+        """
+        joint_types: List of joint types ('R' for revolute, 'P' for prismatic)
+        dh_params: Matrix of DH parameters [a, alpha, d, theta_offset]
+        """
+        self.n_joints = len(joint_types)
+        self.joint_types = joint_types
+        self.dh_params = np.array(dh_params)
+
+    def transformation_matrix(self, joint_values):
+        """Compute end-effector transformation matrix"""
+        T = np.eye(4)
+
+        for i in range(self.n_joints):
+            # Extract DH parameters
+            a, alpha, d, theta_offset = self.dh_params[i]
+
+            # Apply joint variable
+            if self.joint_types[i] == 'R':
+                theta = theta_offset + joint_values[i]
+                d_val = d
+            else:  # Prismatic joint
+                theta = theta_offset
+                d_val = d + joint_values[i]
+
+            # Compute transformation matrix
+            T_i = self.dh_transformation(a, alpha, d_val, theta)
+            T = T @ T_i
+
+        return T
+
+    def dh_transformation(self, a, alpha, d, theta):
+        """Compute DH transformation matrix"""
+        ct = np.cos(theta)
+        st = np.sin(theta)
+        ca = np.cos(alpha)
+        sa = np.sin(alpha)
+
+        T = np.array([
+            [ct, -st*ca, st*sa, a*ct],
+            [st, ct*ca, -ct*sa, a*st],
+            [0, sa, ca, d],
+            [0, 0, 0, 1]
+        ])
+
+        return T
+
+    def forward_kinematics(self, joint_values):
+        """Return end-effector position and orientation"""
+        T = self.transformation_matrix(joint_values)
+        position = T[:3, 3]
+        orientation = self.rotation_matrix_to_euler(T[:3, :3])
+        return position, orientation
+
+    def rotation_matrix_to_euler(self, R):
+        """Convert rotation matrix to Euler angles (ZYX convention)"""
+        sy = np.sqrt(R[0, 0]**2 + R[1, 0]**2)
+
+        singular = sy < 1e-6
+
+        if not singular:
+            x = np.arctan2(R[2, 1], R[2, 2])
+            y = np.arctan2(-R[2, 0], sy)
+            z = np.arctan2(R[1, 0], R[0, 0])
+        else:
+            x = np.arctan2(-R[1, 2], R[1, 1])
+            y = np.arctan2(-R[2, 0], sy)
+            z = 0
+
+        return np.array([x, y, z])
+```
+
+### Humanoid Robot Example
+
+Let's create a simplified 2-DOF arm for our humanoid robot:
+
+```python
+class HumanoidArm:
+    """Simplified 2-DOF humanoid arm"""
+
+    def __init__(self):
+        # DH parameters: [a, alpha, d, theta_offset]
+        self.dh_params = np.array([
+            [0.3, np.pi/2, 0.0, 0],     # Shoulder
+            [0.25, 0, 0.0, 0]          # Elbow
+        ])
+
+        self.joint_types = ['R', 'R']
+        self.robot = SerialRobot(self.joint_types, self.dh_params)
+
+    def compute_end_effector_position(self, shoulder_angle, elbow_angle):
+        """Compute end-effector position"""
+        joint_values = np.array([shoulder_angle, elbow_angle])
+        position, _ = self.robot.forward_kinematics(joint_values)
+        return position
+
+    def workspace_boundary(self, num_samples=50):
+        """Compute workspace boundary"""
+        positions = []
+
+        for shoulder in np.linspace(-np.pi, np.pi, num_samples):
+            for elbow in np.linspace(-np.pi/2, np.pi/2, num_samples):
+                pos = self.compute_end_effector_position(shoulder, elbow)
+                positions.append(pos)
+
+        return np.array(positions)
+
+# Example usage
+arm = HumanoidArm()
+position = arm.compute_end_effector_position(np.pi/4, np.pi/4)
+print(f"End-effector position: {position}")
+```
+
+## Inverse Kinematics
+
+### Analytical Solution for 2-DOF Arm
+
+```python
+class InverseKinematics:
+    """Inverse kinematics solver"""
+
+    def __init__(self, arm: HumanoidArm):
+        self.arm = arm
+        self.L1 = 0.3  # Upper arm length
+        self.L2 = 0.25  # Forearm length
+
+    def solve_2dof_analytical(self, target_x, target_y):
+        """Analytical IK for 2-DOF planar arm"""
+        # Distance to target
+        d = np.sqrt(target_x**2 + target_y**2)
+
+        # Check if target is reachable
+        if d > self.L1 + self.L2 or d < abs(self.L1 - self.L2):
+            return None, None  # Target not reachable
+
+        # Law of cosines for elbow angle
+        cos_elbow = (d**2 - self.L1**2 - self.L2**2) / (2 * self.L1 * self.L2)
+        cos_elbow = np.clip(cos_elbow, -1, 1)
+
+        # Two possible elbow configurations (elbow up/down)
+        elbow_angle1 = np.arccos(cos_elbow)
+        elbow_angle2 = -elbow_angle1
+
+        # Calculate shoulder angle for both elbow configurations
+        target_angle = np.arctan2(target_y, target_x)
+
+        beta = np.arctan2(self.L2 * np.sin(elbow_angle1),
+                          self.L1 + self.L2 * np.cos(elbow_angle1))
+
+        shoulder_angle1 = target_angle - beta
+
+        # Second configuration
+        beta2 = np.arctan2(self.L2 * np.sin(elbow_angle2),
+                           self.L1 + self.L2 * np.cos(elbow_angle2))
+
+        shoulder_angle2 = target_angle - beta2
+
+        return [(shoulder_angle1, elbow_angle1),
+                (shoulder_angle2, elbow_angle2)]
+
+    def select_best_solution(self, target_x, target_y, current_joints=None):
+        """Select best IK solution based on current joint angles"""
+        solutions = self.solve_2dof_analytical(target_x, target_y)
+
+        if solutions is None:
+            return None
+
+        if current_joints is None:
+            return solutions[0]  # Return first solution
+
+        # Choose solution closest to current configuration
+        best_solution = None
+        min_distance = np.inf
+
+        for solution in solutions:
+            distance = np.linalg.norm(np.array(solution) - np.array(current_joints))
+            if distance < min_distance:
+                min_distance = distance
+                best_solution = solution
+
+        return best_solution
+
+# Example usage
+ik = InverseKinematics(arm)
+solutions = ik.solve_2dof_analytical(0.4, 0.3)
+print(f"Joint solutions: {solutions}")
+```
+
+### Numerical IK with Jacobian
+
+For complex robots, we use numerical methods:
+
+```python
+class JacobianIKSolver:
+    """Numerical IK solver using Jacobian transpose"""
+
+    def __init__(self, robot: SerialRobot, max_iterations=100, tolerance=1e-6):
+        self.robot = robot
+        self.max_iterations = max_iterations
+        self.tolerance = tolerance
+        self.alpha = 0.1  # Step size
+
+    def solve(self, target_position, target_orientation=None, initial_guess=None):
+        """Solve IK using Jacobian transpose method"""
+        if initial_guess is None:
+            q = np.zeros(self.robot.n_joints)
+        else:
+            q = initial_guess.copy()
+
+        for iteration in range(self.max_iterations):
+            # Forward kinematics
+            position, orientation = self.robot.forward_kinematics(q)
+
+            # Position error
+            pos_error = target_position - position
+
+            # Compute Jacobian
+            J = self.compute_jacobian(q)
+
+            # Update joint angles using Jacobian transpose
+            delta_q = self.alpha * J.T @ pos_error
+            q += delta_q
+
+            # Check convergence
+            if np.linalg.norm(pos_error) < self.tolerance:
+                return q, iteration + 1
+
+        return q, self.max_iterations
+
+    def compute_jacobian(self, q):
+        """Compute Jacobian matrix numerically"""
+        epsilon = 1e-6
+        J = np.zeros((3, self.robot.n_joints))
+
+        # Forward kinematics at current configuration
+        T = self.robot.transformation_matrix(q)
+        p = T[:3, 3]
+
+        # Numerical differentiation
+        for i in range(self.robot.n_joints):
+            q_plus = q.copy()
+            q_plus[i] += epsilon
+
+            T_plus = self.robot.transformation_matrix(q_plus)
+            p_plus = T_plus[:3, 3]
+
+            # Partial derivative
+            J[:, i] = (p_plus - p) / epsilon
+
+        return J
+
+    def solve_levenberg_marquardt(self, target_position, initial_guess=None):
+        """Solve IK using Levenberg-Marquardt optimization"""
+        if initial_guess is None:
+            q = np.zeros(self.robot.n_joints)
+        else:
+            q = initial_guess.copy()
+
+        lambda_lm = 1.0  # Damping parameter
+
+        for iteration in range(self.max_iterations):
+            # Forward kinematics
+            position, _ = self.robot.forward_kinematics(q)
+
+            # Error
+            error = target_position - position
+
+            if np.linalg.norm(error) < self.tolerance:
+                return q
+
+            # Compute Jacobian
+            J = self.compute_jacobian(q)
+
+            # Levenberg-Marquardt update
+            J_T_J = J.T @ J
+            J_T_e = J.T @ error
+
+            # Solve (J^T J + λI) * Δq = J^T * e
+            try:
+                A = J_T_J + lambda_lm * np.eye(self.robot.n_joints)
+                delta_q = np.linalg.solve(A, J_T_e)
+
+                # Update
+                q_new = q + delta_q
+
+                # Check if error decreased
+                new_position, _ = self.robot.forward_kinematics(q_new)
+                new_error = target_position - new_position
+
+                if np.linalg.norm(new_error) < np.linalg.norm(error):
+                    q = q_new
+                    lambda_lm *= 0.7  # Decrease damping
+                else:
+                    lambda_lm *= 1.3  # Increase damping
+            except np.linalg.LinAlgError:
+                # Singular matrix, increase damping
+                lambda_lm *= 2
+
+        return q
+```
+
+## Velocity Kinematics
+
+### Jacobian for Velocity Analysis
+
+The Jacobian relates joint velocities to end-effector velocities:
+
+```python
+class VelocityKinematics:
+    """Velocity kinematics analysis"""
+
+    def __init__(self, robot: SerialRobot):
+        self.robot = robot
+
+    def compute_twist_jacobian(self, q):
+        """Compute full 6xN twist Jacobian"""
+        epsilon = 1e-6
+        J = np.zeros((6, self.robot.n_joints))
+
+        # Current transformation
+        T = self.robot.transformation_matrix(q)
+        p = T[:3, 3]
+
+        for i in range(self.robot.n_joints):
+            q_plus = q.copy()
+            q_plus[i] += epsilon
+
+            T_plus = self.robot.transformation_matrix(q_plus)
+            p_plus = T_plus[:3, 3]
+
+            R_plus = T_plus[:3, :3]
+
+            # Linear velocity Jacobian (position)
+            J[:3, i] = (p_plus - p) / epsilon
+
+            # Angular velocity Jacobian (orientation)
+            R = T[:3, :3]
+            R_inv = R.T
+
+            # Extract rotation axis
+            if i < self.robot.n_joints:
+                if self.robot.joint_types[i] == 'R':
+                    z_i = R[:, 2]  # Z-axis of joint i
+                    J[3:, i] = z_i
+
+        return J
+
+    def differential_inverse_kinematics(self, q, twist):
+        """Compute joint velocities from end-effector twist"""
+        J = self.compute_twist_jacobian(q)
+
+        # Solve J * q_dot = twist
+        try:
+            # Use pseudoinverse for redundant systems
+            J_pinv = np.linalg.pinv(J)
+            q_dot = J_pinv @ twist
+            return q_dot
+        except:
+            return np.zeros(self.robot.n_joints)
+
+    def compute_manipulability(self, q):
+        """Compute manipulability measure"""
+        J = self.compute_twist_jacobian(q)
+
+        # Manipulability measure: sqrt(det(J * J^T))
+        try:
+            manip = np.sqrt(np.linalg.det(J @ J.T))
+            return manip
+        except:
+            return 0
+
+    def find_optimal_configuration(self, target_position):
+        """Find configuration with maximum manipulability"""
+        from scipy.optimize import minimize
+
+        def objective(q):
+            # Distance to target
+            pos, _ = self.robot.forward_kinematics(q)
+            distance_error = np.linalg.norm(pos - target_position)
+
+            # Negative manipulability (to maximize)
+            manip = -self.compute_manipulability(q)
+
+            return distance_error + 0.1 * manip
+
+        # Initial guess
+        q0 = np.zeros(self.robot.n_joints)
+
+        # Optimize
+        result = minimize(objective, q0, method='L-BFGS-B')
+        return result.x if result.success else q0
+```
+
+## Dynamics
+
+### Newton-Euler Algorithm
+
+The Newton-Euler method computes joint torques from desired accelerations:
+
+```python
+class NewtonEulerDynamics:
+    """Newton-Euler dynamics for serial robots"""
+
+    def __init__(self, robot: SerialRobot):
+        self.robot = robot
+        self.gravity = np.array([0, 0, -9.81])
+
+    def compute_dynamics(self, q, qd, qdd):
+        """
+        Compute joint torques using Newton-Euler
+        q: joint positions
+        qd: joint velocities
+        qdd: joint accelerations
+        """
+        n = self.robot.n_joints
+
+        # Initialize arrays
+        w = np.zeros((n + 1, 3))  # Angular velocities
+        wd = np.zeros((n + 1, 3))  # Angular accelerations
+        v = np.zeros((n + 1, 3))  # Linear velocities
+        vd = np.zeros((n + 1, 3))  # Linear accelerations
+        f = np.zeros((n + 1, 3))  # Forces
+        n_vec = np.zeros((n + 1, 3))  # Torques
+
+        # Link parameters (example values)
+        m = np.ones(n) * 5.0  # Mass of each link
+        lc = np.ones(n) * 0.5  # Center of mass distance
+        I = np.ones((n, 3, 3)) * 0.1  # Inertia tensor
+
+        # Forward iteration (compute velocities and accelerations)
+        T = np.eye(4)
+
+        for i in range(n):
+            # Get transformation from previous joint
+            T = self.robot.transformation_matrix(q[:i+1]) if i > 0 else T
+            R = T[:3, :3]
+            z = R[:, 2]  # Joint axis
+
+            if self.robot.joint_types[i] == 'R':
+                # Revolute joint
+                w[i+1] = R @ w[i] + z * qd[i]
+                wd[i+1] = R @ wd[i] + \
+                           (w[i] * z * qd[i] + R @ w[i] * qd[i])
+            else:
+                # Prismatic joint
+                wd[i+1] = R @ wd[i]
+
+            vd[i+1] = R @ (vd[i] + np.cross(wd[i], np.zeros(3)))
+
+        # Backward iteration (compute forces and torques)
+        for i in reversed(range(n)):
+            # Get transformation
+            T = self.robot.transformation_matrix(q[:i+1]) if i > 0 else np.eye(4)
+            R = T[:3, :3]
+
+            # Gravity force
+            fg = m[i] * self.gravity
+
+            # D'Alembert force (in link frame)
+            Fi = m[i] * (vd[i+1] + np.cross(wd[i+1], lc[i] * z)) - fg
+
+            # Joint torque
+            if self.robot.joint_types[i] == 'R':
+                tau_i = np.dot(z, Fi) + I[i].dot(wd[i+1])
+            else:
+                tau_i = 0
+
+        # Return joint torques
+        return tau  # Would accumulate all torques
+
+    def inverse_dynamics(self, q, qd, qdd, external_forces=None):
+        """Inverse dynamics - compute required joint torques"""
+        # This would be implemented in a real system
+        # For now, return simple proportional control
+        return 10.0 * q + 5.0 * qd  # Simplified PD control
+```
+
+### Lagrangian Dynamics
+
+```python
+class LagrangianDynamics:
+    """Lagrangian formulation of dynamics"""
+
+    def __init__(self, robot: SerialRobot):
+        self.robot = robot
+
+    def lagrangian(self, q, qd):
+        """Compute Lagrangian L = T - V"""
+        T = self.kinetic_energy(q, qd)
+        V = self.potential_energy(q)
+        return T - V
+
+    def kinetic_energy(self, q, qd):
+        """Compute total kinetic energy"""
+        # Simplified calculation
+        KE = 0
+        for i, qd_i in enumerate(qd):
+            KE += 0.5 * 1.0 * qd_i**2  # m * v^2/2
+        return KE
+
+    def potential_energy(self, q):
+        """Compute total potential energy"""
+        # Simplified: only consider gravitational potential
+        PE = 0
+        h = 0  # Height above ground
+
+        for i, q_i in enumerate(q):
+            # Height depends on configuration
+            h += 0.3 * np.sin(q_i) if i < 2 else 0
+            PE += 1.0 * 9.81 * h * 1.0  # m*g*h
+
+        return PE
+
+    def equations_of_motion(self, q, qd, qdd):
+        """Compute equations of motion using Lagrangian"""
+        # Mass matrix
+        M = self.compute_mass_matrix(q)
+
+        # Coriolis and centrifugal forces
+        C = self.compute_coriolis_matrix(q, qd)
+
+        # Gravity forces
+        G = self.compute_gravity_vector(q)
+
+        # Equations of motion: M*qdd + C*qd + G = tau
+        tau = M @ qdd + C @ qd + G
+        return tau
+
+    def compute_mass_matrix(self, q):
+        """Compute configuration-dependent mass matrix"""
+        n = len(q)
+        M = np.zeros((n, n))
+
+        # Simplified diagonal mass matrix
+        for i in range(n):
+            M[i, i] = 1.0  # Unit mass/inertia
+
+        return M
+
+    def compute_coriolis_matrix(self, q, qd):
+        """Compute Coriolis and centrifugal force matrix"""
+        n = len(q)
+        C = np.zeros((n, n))
+
+        # Simplified implementation
+        for i in range(n):
+            for j in range(n):
+                C[i, j] = 0.1 * qd[j] * (i != j)
+
+        return C
+
+    def compute_gravity_vector(self, q):
+        """Compute gravity force vector"""
+        n = len(q)
+        G = np.zeros(n)
+
+        # Simplified gravity compensation
+        for i in range(n):
+            G[i] = 9.81 * np.cos(q[i])
+
+        return G
+```
+
+## Simulation
+
+### Robot Simulator
+
+```python
+class RobotSimulator:
+    """Physics simulator for robot dynamics"""
+
+    def __init__(self, robot: SerialRobot, dynamics='lagrangian'):
+        self.robot = robot
+        self.time = 0
+        self.dt = 0.01
+
+        # Initialize dynamics
+        if dynamics == 'newton-euler':
+            self.dynamics = NewtonEulerDynamics(robot)
+        else:
+            self.dynamics = LagrangianDynamics(robot)
+
+        # State variables
+        self.q = np.zeros(robot.n_joints)      # Joint positions
+        self.qd = np.zeros(robot.n_joints)     # Joint velocities
+        self.qdd = np.zeros(robot.n_joints)    # Joint accelerations
+
+        # Control inputs
+        self.tau = np.zeros(robot.n_joints)      # Joint torques
+
+    def set_joint_positions(self, q):
+        """Set joint positions"""
+        self.q = q.copy()
+
+    def set_joint_velocities(self, qd):
+        """Set joint velocities"""
+        self.qd = qd.copy()
+
+    def step(self, control_input=None):
+        """Advance simulation by one time step"""
+        if control_input is not None:
+            self.tau = control_input
+
+        # Integrate using Euler method
+        # Could use RK4 for better accuracy
+        self.qdd = self.dynamics.inverse_dynamics(self.q, self.qd, np.zeros_like(self.q))
+
+        # Update states
+        self.qd += self.qdd * self.dt
+        self.q += self.qd * self.dt
+
+        # Add joint limits
+        self.q = np.clip(self.q, -np.pi, np.pi)
+
+        self.time += self.dt
+
+    def get_end_effector_pose(self):
+        """Get current end-effector pose"""
+        T = self.robot.transformation_matrix(self.q)
+        position = T[:3, 3]
+        orientation = self.robot.rotation_matrix_to_euler(T[:3, :3])
+        return position, orientation
+
+# Example simulation
+simulator = RobotSimulator(arm)
+simulator.set_joint_positions([np.pi/4, np.pi/4])
+
+print("Running simulation...")
+for i in range(100):
+    # Simple PD control
+    target = [0.4, 0.3]
+    current_pos, _ = simulator.get_end_effector_pose()
+
+    # Simple proportional control
+    error = np.array(target) - current_pos[:2]
+    control = 10.0 * error  # P control
+
+    simulator.step()
+
+    if i % 10 == 0:
+        pos, _ = simulator.get_end_effector_pose()
+        print(f"Time {simulator.time:.2f}s: Position {pos}")
+
+print("Simulation complete.")
+```
+
+## Summary
+
+Kinematics and dynamics provide the mathematical foundation for robot motion:
+
+- **Forward kinematics** maps joint angles to end-effector pose
+- **Inverse kinematics** finds joint angles for desired poses
+- **Jacobians** relate joint to end-effector velocities
+- **Dynamics** model forces and torques in robot motion
+- **Simulation** enables testing and validation before deployment
+
+These mathematical tools are essential for designing, controlling, and simulating Physical AI systems effectively.
+
+## Knowledge Check
+
+1. What's the difference between forward and inverse kinematics?
+2. When would you use analytical vs numerical IK solutions?
+3. How does the Jacobian help with velocity control?
+4. Compare Newton-Euler and Lagrangian dynamics formulations.
+5. Implement a simple 2-DOF robot simulator with gravity effects.

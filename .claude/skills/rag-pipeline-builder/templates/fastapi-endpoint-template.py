@@ -162,21 +162,29 @@ async def search_relevant_chunks(
         results = rag_components.qdrant.search(
             collection_name=rag_components.collection_name,
             query_vector=query_embedding,
-            limit=top_k,
+            limit=top_k * 2,  # Fetch more to allow for deduplication
             score_threshold=similarity_threshold,
             query_filter=query_filter,
         )
 
-        return [
-            {
-                "text": hit.payload["text"],
-                "score": hit.score,
-                "file_name": hit.payload.get("file_name", ""),
-                "title": hit.payload.get("title", ""),
-                "chunk_index": hit.payload.get("chunk_index", 0),
-            }
-            for hit in results
-        ]
+        # Deduplicate results based on text content
+        seen_texts = set()
+        unique_results = []
+        for hit in results:
+            if hit.payload["text"] not in seen_texts:
+                seen_texts.add(hit.payload["text"])
+                unique_results.append({
+                    "text": hit.payload["text"],
+                    "score": hit.score,
+                    "file_name": hit.payload.get("file_name", ""),
+                    "title": hit.payload.get("title", ""),
+                    "chunk_index": hit.payload.get("chunk_index", 0),
+                })
+                
+                if len(unique_results) >= top_k:
+                    break
+
+        return unique_results
 
     except Exception as e:
         logger.error(f"❌ Error searching chunks: {e}")

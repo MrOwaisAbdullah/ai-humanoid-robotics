@@ -1,0 +1,595 @@
+openapi: 3.0.3
+info:
+  title: RAG Embedding System API
+  description: API for document ingestion and retrieval-augmented generation
+  version: 1.0.0
+  contact:
+    name: AI Book Project
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://your-api-domain.com
+    description: Production server
+
+paths:
+  /api/v1/ingest:
+    post:
+      summary: Ingest documents into vector store
+      tags:
+        - Ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestionRequest'
+            examples:
+              directory:
+                summary: Ingest directory
+                value:
+                  content_path: "./book_content"
+                  force_reindex: false
+                  config:
+                    chunk_size: 600
+                    chunk_overlap: 100
+                    exclude_patterns:
+                      - "README.md"
+                      - "*.draft"
+      responses:
+        '200':
+          description: Ingestion started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/ingest/{job_id}:
+    get:
+      summary: Get ingestion job status
+      tags:
+        - Ingestion
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionJobStatus'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/chat:
+    post:
+      summary: Chat with RAG-enhanced responses
+      tags:
+        - Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              simple_question:
+                summary: Simple book question
+                value:
+                  query: "What is Physical AI?"
+                  context: null
+                  config:
+                    similarity_threshold: 0.7
+                    max_results: 5
+      responses:
+        '200':
+          description: Response generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/chat/selection:
+    post:
+      summary: Answer question about selected text
+      tags:
+        - Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextSelectionRequest'
+      responses:
+        '200':
+          description: Answer generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/health:
+    get:
+      summary: Get system health status
+      tags:
+        - System
+      responses:
+        '200':
+          description: System health retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/search:
+    post:
+      summary: Search for similar content
+      tags:
+        - Search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  schemas:
+    IngestionRequest:
+      type: object
+      required:
+        - content_path
+      properties:
+        content_path:
+          type: string
+          description: Path to directory or file to ingest
+          example: "./book_content"
+        force_reindex:
+          type: boolean
+          description: Clear existing data before ingestion
+          default: false
+        config:
+          $ref: '#/components/schemas/IngestionConfig'
+      examples:
+        directory:
+          content_path: "./book_content"
+          force_reindex: true
+        single_file:
+          content_path: "./chapter1.md"
+          force_reindex: false
+
+    IngestionConfig:
+      type: object
+      properties:
+        chunk_size:
+          type: integer
+          minimum: 100
+          maximum: 2000
+          default: 600
+          description: Target chunk size in tokens
+        chunk_overlap:
+          type: integer
+          minimum: 0
+          maximum: 500
+          default: 100
+          description: Token overlap between chunks
+        exclude_patterns:
+          type: array
+          items:
+            type: string
+          description: Glob patterns to exclude
+          example: ["*.draft", "README.md"]
+        template_patterns:
+          type: array
+          items:
+            type: string
+          description: Regex patterns for template content
+          example: ["^how to use this book$", "^table of contents$"]
+
+    IngestionResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: Unique job identifier
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        message:
+          type: string
+          description: Status message
+        estimated_time:
+          type: number
+          description: Estimated processing time in seconds
+          example: 45
+      example:
+        job_id: "550e8400-e29b-41d4-a716-446655440000"
+        status: "pending"
+        message: "Ingestion job queued"
+        estimated_time: 45
+
+    JobStatus:
+      type: string
+      enum:
+        - pending
+        - running
+        - completed
+        - failed
+
+    IngestionJobStatus:
+      allOf:
+        - $ref: '#/components/schemas/IngestionResponse'
+        - type: object
+          properties:
+            progress:
+              type: object
+              properties:
+                files_processed:
+                  type: integer
+                  example: 15
+                chunks_created:
+                  type: integer
+                  example: 1250
+                chunks_skipped:
+                  type: integer
+                  example: 25
+                percent_complete:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  example: 85.5
+            started_at:
+              type: string
+              format: date-time
+            completed_at:
+              type: string
+              format: date-time
+            error_message:
+              type: string
+              nullable: true
+
+    ChatRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: User's question
+          example: "What are the key concepts in Chapter 1?"
+        context:
+          type: array
+          items:
+            type: string
+          description: Optional context to include
+          maxItems: 5
+        config:
+          $ref: '#/components/schemas/RetrievalConfig'
+        stream:
+          type: boolean
+          default: false
+          description: Enable streaming response
+
+    TextSelectionRequest:
+      type: object
+      required:
+        - query
+        - selected_text
+      properties:
+        query:
+          type: string
+          description: Question about selected text
+        selected_text:
+          type: string
+          description: Text selected by user
+        context:
+          type: string
+          description: Surrounding context (optional)
+
+    RetrievalConfig:
+      type: object
+      properties:
+        similarity_threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.7
+          description: Minimum similarity score for retrieval
+        max_results:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+          description: Maximum results to retrieve
+        use_mmr:
+          type: boolean
+          default: true
+          description: Use Maximal Marginal Relevance
+        mmr_lambda:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.5
+          description: MMR diversity parameter
+        exclude_templates:
+          type: boolean
+          default: true
+          description: Exclude template content
+
+    ChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+          description: Generated answer
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Source'
+          description: Sources used for answer
+        context_used:
+          type: boolean
+          description: Whether RAG context was used
+        query_embedding:
+          type: array
+          items:
+            type: number
+          description: Query embedding (for debugging)
+        response_id:
+          type: string
+          format: uuid
+          description: Unique response identifier
+        metadata:
+          type: object
+          properties:
+            model:
+              type: string
+            tokens_used:
+              type: integer
+            duration_ms:
+              type: integer
+
+    Source:
+      type: object
+      properties:
+        content:
+          type: string
+          description: Relevant content snippet
+        file_path:
+          type: string
+          description: Source file path
+        section_header:
+          type: string
+          description: Section title
+        similarity_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Relevance score
+        chunk_index:
+          type: integer
+          description: Chunk position in document
+
+    SearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Search query
+        config:
+          $ref: '#/components/schemas/RetrievalConfig'
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+          description: Maximum results to return
+
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+        total:
+          type: integer
+          description: Total matches found
+        query_time_ms:
+          type: integer
+          description: Search duration in milliseconds
+
+    SearchResult:
+      allOf:
+        - $ref: '#/components/schemas/Source'
+        - type: object
+          properties:
+            id:
+              type: string
+              description: Document ID
+            rank:
+              type: integer
+              description: Result rank
+            is_duplicate:
+              type: boolean
+              description: True if duplicate of higher-ranked result
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+            - unhealthy
+        version:
+          type: string
+          example: "1.0.0"
+        uptime_seconds:
+          type: integer
+          example: 3600
+        services:
+          type: object
+          properties:
+            qdrant:
+              type: object
+              properties:
+                status:
+                  type: string
+                collection_count:
+                  type: integer
+                vector_count:
+                  type: integer
+            openai:
+              type: object
+              properties:
+                status:
+                  type: string
+                model:
+                  type: string
+        metrics:
+          type: object
+          properties:
+            chunks_count:
+              type: integer
+              description: Number of chunks in vector store
+            last_ingestion:
+              type: string
+              format: date-time
+              description: Last successful ingestion
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: object
+              description: Additional error details
+            request_id:
+              type: string
+              format: uuid
+              description: Unique request identifier
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: BAD_REQUEST
+              message: "Invalid content_path provided"
+              request_id: "req_123"
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Error'
+              - type: object
+                example:
+                  error:
+                    code: VALIDATION_ERROR
+                    message: "query must be between 1 and 1000 characters"
+                    details:
+                      field: "query"
+                      constraint: "min_length"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: NOT_FOUND
+              message: "Job not found"
+              request_id: "req_456"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: "An unexpected error occurred"
+              request_id: "req_789"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (optional for development)
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Ingestion
+    description: Document ingestion operations
+  - name: Chat
+    description: Chat and Q&A operations
+  - name: Search
+    description: Content search operations
+  - name: System
+    description: System health and monitoring

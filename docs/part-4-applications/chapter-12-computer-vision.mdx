@@ -1,0 +1,1625 @@
+---
+title: Chapter 12 - Computer Vision for Humanoids
+sidebar_position: 35
+description: Visual perception, scene understanding, and visual servoing
+---
+
+# Chapter 12: Computer Vision for Humanoids
+
+## What You'll Learn
+
+1. Visual Perception Fundamentals
+2. Scene Understanding and Segmentation
+3. Object Recognition and Tracking
+4. Visual Servoing and Control
+5. Deep Learning for Robotics Vision
+6. Multimodal Sensor Fusion
+
+## Introduction
+
+Computer vision is essential for humanoid robots to perceive and understand their environment. This chapter explores the visual perception techniques that enable robots to recognize objects, navigate spaces, and interact with humans in natural ways.
+
+## 1. Visual Perception Fundamentals
+
+### 1.1 Camera Models and Calibration
+
+```python
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+
+class CameraModel:
+    def __init__(self, fx, fy, cx, cy, distortion=None):
+        """Initialize pinhole camera model"""
+        self.fx = fx  # Focal length in x
+        self.fy = fy  # Focal length in y
+        self.cx = cx  # Principal point x
+        self.cy = cy  # Principal point y
+
+        # Intrinsic matrix
+        self.K = np.array([
+            [fx, 0, cx],
+            [0, fy, cy],
+            [0, 0, 1]
+        ])
+
+        # Distortion coefficients
+        self.distortion = distortion if distortion is not None else np.zeros(5)
+
+        # Extrinsic parameters (R, t) - initially identity
+        self.R = np.eye(3)  # Rotation matrix
+        self.t = np.zeros(3)  # Translation vector
+
+    def project_to_image(self, points_3d):
+        """Project 3D points to image plane"""
+        # Convert to homogeneous coordinates
+        points_homo = np.column_stack([points_3d, np.ones(len(points_3d))])
+
+        # Transform to camera coordinates
+        points_camera = (self.R @ points_3d.T + self.t).T
+
+        # Project to image plane
+        points_image = (self.K @ points_camera.T).T
+
+        # Normalize
+        points_2d = points_image[:, :2] / points_image[:, 2:]
+
+        # Apply distortion
+        points_2d_distorted = self.apply_distortion(points_2d, points_camera[:, 2])
+
+        return points_2d_distorted
+
+    def apply_distortion(self, points_2d, depths):
+        """Apply lens distortion to points"""
+        k1, k2, p1, p2, k3 = self.distortion
+
+        x = points_2d[:, 0] - self.cx
+        y = points_2d[:, 1] - self.cy
+
+        r2 = x**2 + y**2
+
+        # Radial distortion
+        radial_factor = (1 + k1*r2 + k2*r2**2 + k3*r2**3)
+
+        # Tangential distortion
+        x_distorted = x * radial_factor + 2*p1*x*y + p2*(r2 + 2*x**2)
+        y_distorted = y * radial_factor + p1*(r2 + 2*y**2) + 2*p2*x*y
+
+        return np.column_stack([x_distorted + self.cx, y_distorted + self.cy])
+
+    def undistort_points(self, points_2d):
+        """Remove distortion from image points"""
+        return cv2.undistortPoints(
+            points_2d.reshape(-1, 1, 2),
+            self.K,
+            self.distortion,
+            None,
+            self.K
+        ).reshape(-1, 2)
+
+    def ray_from_pixel(self, u, v):
+        """Get ray direction from pixel coordinates"""
+        # Convert to normalized coordinates
+        x = (u - self.cx) / self.fx
+        y = (v - self.cy) / self.fy
+
+        # Ray direction in camera frame
+        ray_direction = np.array([x, y, 1])
+        ray_direction = ray_direction / np.linalg.norm(ray_direction)
+
+        return ray_direction
+```
+
+### 1.2 Stereo Vision and Depth Estimation
+
+```python
+class StereoVision:
+    def __init__(self, left_camera, right_camera, baseline):
+        self.left_camera = left_camera
+        self.right_camera = right_camera
+        self.baseline = baseline  # Distance between cameras
+
+    def compute_disparity(self, left_image, right_image):
+        """Compute disparity map using stereo matching"""
+        # Convert to grayscale
+        left_gray = cv2.cvtColor(left_image, cv2.COLOR_BGR2GRAY)
+        right_gray = cv2.cvtColor(right_image, cv2.COLOR_BGR2GRAY)
+
+        # Stereo block matching
+        stereo = cv2.StereoBM_create(numDisparities=64, blockSize=15)
+        disparity = stereo.compute(left_gray, right_gray)
+
+        # Normalize for visualization
+        disparity_normalized = cv2.normalize(
+            disparity, None, alpha=0, beta=255,
+            norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U
+        )
+
+        return disparity, disparity_normalized
+
+    def disparity_to_depth(self, disparity):
+        """Convert disparity to depth map"""
+        # Z = (f * B) / d
+        # where f is focal length, B is baseline, d is disparity
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            depth = (self.left_camera.fx * self.baseline) / disparity
+
+        # Handle invalid values
+        depth[disparity <= 0] = 0
+        depth[disparity > 64] = 0  # Maximum disparity
+
+        return depth
+
+    def triangulate_points(self, left_points, right_points):
+        """Triangulate 3D points from stereo correspondences"""
+        points_3d = []
+
+        for left_pt, right_pt in zip(left_points, right_points):
+            # Ray from left camera
+            left_ray = self.left_camera.ray_from_pixel(left_pt[0], left_pt[1])
+
+            # Ray from right camera
+            right_ray = self.right_camera.ray_from_pixel(right_pt[0], right_pt[1])
+
+            # Solve for intersection (triangulation)
+            # Simplified using midpoint of closest approach
+            point_3d = self.triangulate_rays(
+                left_ray, right_ray, self.baseline
+            )
+
+            points_3d.append(point_3d)
+
+        return np.array(points_3d)
+
+    def triangulate_rays(self, ray1, ray2, baseline):
+        """Triangulate intersection of two rays"""
+        # Simplified triangulation
+        # In practice, use least squares solution
+
+        # Midpoint approach (simplified)
+        midpoint = baseline / 2
+
+        # Estimate depth based on disparity
+        disparity = abs(ray1[0] - ray2[0]) * self.left_camera.fx
+        depth = (self.left_camera.fx * baseline) / disparity if disparity > 0 else 1.0
+
+        # 3D point in left camera frame
+        point_3d = ray1 * depth
+
+        return point_3d
+
+    def rectify_images(self, left_image, right_image):
+        """Rectify stereo images for epipolar geometry"""
+        # Compute stereo rectification
+        R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(
+            self.left_camera.K, self.left_camera.distortion,
+            self.right_camera.K, self.right_camera.distortion,
+            (left_image.shape[1], left_image.shape[0]),
+            np.eye(3), np.array([self.baseline, 0, 0]),
+            flags=cv2.CALIB_ZERO_DISPARITY,
+            alpha=0.9
+        )
+
+        # Compute rectification maps
+        map1_left, map2_left = cv2.initUndistortRectifyMap(
+            self.left_camera.K, self.left_camera.distortion,
+            R1, P1, (left_image.shape[1], left_image.shape[0]),
+            cv2.CV_16SC2
+        )
+
+        map1_right, map2_right = cv2.initUndistortRectifyMap(
+            self.right_camera.K, self.right_camera.distortion,
+            R2, P2, (right_image.shape[1], right_image.shape[0]),
+            cv2.CV_16SC2
+        )
+
+        # Apply rectification
+        left_rectified = cv2.remap(left_image, map1_left, map2_left, cv2.INTER_LINEAR)
+        right_rectified = cv2.remap(right_image, map1_right, map2_right, cv2.INTER_LINEAR)
+
+        return left_rectified, right_rectified
+```
+
+## 2. Scene Understanding and Segmentation
+
+### 2.1 Semantic Segmentation
+
+```python
+import torch
+import torch.nn as nn
+import torchvision.transforms as transforms
+
+class SemanticSegmentation:
+    def __init__(self, model_path=None):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = self.load_model(model_path)
+        self.classes = [
+            'background', 'person', 'car', 'road', 'building',
+            'tree', 'sky', 'object', 'furniture', 'floor'
+        ]
+        self.colors = self.generate_colors(len(self.classes))
+
+    def load_model(self, model_path):
+        """Load pre-trained segmentation model"""
+        # Simplified U-Net architecture
+        model = UNet(num_classes=len(self.classes))
+
+        if model_path and os.path.exists(model_path):
+            model.load_state_dict(torch.load(model_path, map_location=self.device))
+
+        model.to(self.device)
+        model.eval()
+
+        return model
+
+    def generate_colors(self, n_classes):
+        """Generate distinct colors for each class"""
+        colors = []
+        for i in range(n_classes):
+            hue = i / n_classes
+            rgb = plt.cm.hsv(hue)[:3]
+            colors.append([int(c * 255) for c in rgb])
+        return colors
+
+    def predict(self, image):
+        """Predict semantic segmentation"""
+        # Preprocess image
+        transform = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                               std=[0.229, 0.224, 0.225])
+        ])
+
+        image_tensor = transform(image).unsqueeze(0).to(self.device)
+
+        # Predict
+        with torch.no_grad():
+            output = self.model(image_tensor)
+            prediction = torch.argmax(output, dim=1).squeeze().cpu().numpy()
+
+        # Resize to original image size
+        prediction = cv2.resize(prediction, (image.shape[1], image.shape[0]),
+                               interpolation=cv2.INTER_NEAREST)
+
+        return prediction
+
+    def create_overlay(self, image, prediction, alpha=0.5):
+        """Create colored overlay of segmentation"""
+        # Create colored mask
+        colored_mask = np.zeros_like(image)
+        for class_id in range(len(self.classes)):
+            mask = prediction == class_id
+            colored_mask[mask] = self.colors[class_id]
+
+        # Blend with original image
+        overlay = cv2.addWeighted(image, 1-alpha, colored_mask, alpha, 0)
+
+        return overlay
+
+    def extract_object_masks(self, prediction):
+        """Extract individual object masks"""
+        object_masks = {}
+
+        for class_id, class_name in enumerate(self.classes):
+            if class_id == 0:  # Skip background
+                continue
+
+            mask = prediction == class_id
+            if np.any(mask):
+                # Find connected components
+                num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+                    mask.astype(np.uint8), connectivity=8
+                )
+
+                object_masks[class_name] = []
+                for label in range(1, num_labels):
+                    object_mask = labels == label
+                    if np.sum(object_mask) > 100:  # Minimum size filter
+                        object_masks[class_name].append({
+                            'mask': object_mask,
+                            'centroid': centroids[label],
+                            'area': stats[label, cv2.CC_STAT_AREA],
+                            'bbox': (
+                                stats[label, cv2.CC_STAT_LEFT],
+                                stats[label, cv2.CC_STAT_TOP],
+                                stats[label, cv2.CC_STAT_WIDTH],
+                                stats[label, cv2.CC_STAT_HEIGHT]
+                            )
+                        })
+
+        return object_masks
+
+class UNet(nn.Module):
+    def __init__(self, num_classes):
+        super(UNet, self).__init__()
+
+        # Encoder
+        self.enc1 = self.conv_block(3, 64)
+        self.enc2 = self.conv_block(64, 128)
+        self.enc3 = self.conv_block(128, 256)
+        self.enc4 = self.conv_block(256, 512)
+
+        # Decoder
+        self.dec4 = self.conv_block(512 + 256, 256)
+        self.dec3 = self.conv_block(256 + 128, 128)
+        self.dec2 = self.conv_block(128 + 64, 64)
+        self.dec1 = nn.Conv2d(64, num_classes, kernel_size=1)
+
+        # Pooling and upsampling
+        self.pool = nn.MaxPool2d(2)
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+    def conv_block(self, in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        # Encoder path
+        enc1 = self.enc1(x)
+        enc2 = self.enc2(self.pool(enc1))
+        enc3 = self.enc3(self.pool(enc2))
+        enc4 = self.enc4(self.pool(enc3))
+
+        # Decoder path
+        dec4 = self.dec4(torch.cat([self.upsample(enc4), enc3], dim=1))
+        dec3 = self.dec3(torch.cat([self.upsample(dec4), enc2], dim=1))
+        dec2 = self.dec2(torch.cat([self.upsample(dec3), enc1], dim=1))
+
+        output = self.dec1(dec2)
+        return output
+```
+
+### 2.2 Instance Segmentation
+
+```python
+class InstanceSegmentation:
+    def __init__(self):
+        self.mask_rcnn = self.load_mask_rcnn()
+        self.classes = self.load_coco_classes()
+
+    def load_mask_rcnn(self):
+        """Load Mask R-CNN model for instance segmentation"""
+        # Using torchvision pretrained model
+        model = torchvision.models.detection.maskrcnn_resnet50_fpn(
+            weights='MaskRCNN_ResNet50_FPN_Weights.DEFAULT'
+        )
+        model.eval()
+        return model
+
+    def load_coco_classes(self):
+        """Load COCO class names"""
+        return [
+            'background', 'person', 'bicycle', 'car', 'motorcycle',
+            'airplane', 'bus', 'train', 'truck', 'boat',
+            'traffic light', 'fire hydrant', 'stop sign', 'parking meter',
+            'bench', 'bird', 'cat', 'dog', 'horse', 'sheep',
+            'cow', 'elephant', 'bear', 'zebra', 'giraffe',
+            'backpack', 'umbrella', 'handbag', 'tie', 'suitcase',
+            'frisbee', 'skis', 'snowboard', 'sports ball',
+            'kite', 'baseball bat', 'baseball glove', 'skateboard',
+            'surfboard', 'tennis racket', 'bottle', 'wine glass',
+            'cup', 'fork', 'knife', 'spoon', 'bowl',
+            'banana', 'apple', 'sandwich', 'orange', 'broccoli',
+            'carrot', 'hot dog', 'pizza', 'donut', 'cake',
+            'chair', 'couch', 'potted plant', 'bed',
+            'dining table', 'toilet', 'tv', 'laptop', 'mouse',
+            'remote', 'keyboard', 'cell phone', 'microwave',
+            'oven', 'toaster', 'sink', 'refrigerator', 'book',
+            'clock', 'vase', 'scissors', 'teddy bear', 'hair drier',
+            'toothbrush'
+        ]
+
+    def detect_instances(self, image, confidence_threshold=0.5):
+        """Detect object instances"""
+        # Preprocess image
+        transform = transforms.Compose([
+            transforms.ToTensor()
+        ])
+        image_tensor = transform(image)
+
+        # Run inference
+        with torch.no_grad():
+            predictions = self.mask_rcnn([image_tensor])[0]
+
+        # Filter predictions by confidence
+        confident_mask = predictions['scores'] > confidence_threshold
+        filtered_predictions = {
+            'boxes': predictions['boxes'][confident_mask].numpy(),
+            'labels': predictions['labels'][confident_mask].numpy(),
+            'scores': predictions['scores'][confident_mask].numpy(),
+            'masks': predictions['masks'][confident_mask].numpy()
+        }
+
+        return self.process_predictions(filtered_predictions)
+
+    def process_predictions(self, predictions):
+        """Process raw predictions into structured format"""
+        instances = []
+
+        for i in range(len(predictions['scores'])):
+            box = predictions['boxes'][i]
+            label = predictions['labels'][i]
+            score = predictions['scores'][i]
+            mask = predictions['masks'][i, 0]
+
+            instance = {
+                'class': self.classes[label],
+                'confidence': score,
+                'bbox': box,
+                'mask': mask.astype(np.uint8),
+                'centroid': self.compute_centroid(mask),
+                'area': np.sum(mask > 0.5)
+            }
+
+            instances.append(instance)
+
+        return instances
+
+    def compute_centroid(self, mask):
+        """Compute centroid of mask"""
+        y_indices, x_indices = np.where(mask > 0.5)
+        if len(x_indices) > 0:
+            return [np.mean(x_indices), np.mean(y_indices)]
+        return [0, 0]
+
+    def track_instances(self, instances_prev, instances_curr, max_distance=50):
+        """Track instances across frames"""
+        tracked_instances = []
+        used_indices = set()
+
+        for i, inst_curr in enumerate(instances_curr):
+            best_match = None
+            best_distance = float('inf')
+
+            for j, inst_prev in enumerate(instances_prev):
+                if j in used_indices:
+                    continue
+
+                # Compute distance between centroids
+                dist = np.linalg.norm(
+                    np.array(inst_curr['centroid']) - np.array(inst_prev['centroid'])
+                )
+
+                if dist < best_distance and dist < max_distance:
+                    # Check class match
+                    if inst_curr['class'] == inst_prev['class']:
+                        best_distance = dist
+                        best_match = j
+
+            if best_match is not None:
+                # Track existing instance
+                tracked_instance = inst_curr.copy()
+                tracked_instance['id'] = instances_prev[best_match].get('id', len(tracked_instances))
+                tracked_instance['velocity'] = self.compute_velocity(
+                    instances_prev[best_match], inst_curr
+                )
+                used_indices.add(best_match)
+            else:
+                # New instance
+                tracked_instance = inst_curr.copy()
+                tracked_instance['id'] = len(tracked_instances) + len(instances_curr)
+                tracked_instance['velocity'] = [0, 0]
+
+            tracked_instances.append(tracked_instance)
+
+        return tracked_instances
+
+    def compute_velocity(self, inst_prev, inst_curr):
+        """Compute velocity of tracked instance"""
+        dt = 0.033  # Assuming 30 FPS
+        dx = (inst_curr['centroid'][0] - inst_prev['centroid'][0]) / dt
+        dy = (inst_curr['centroid'][1] - inst_prev['centroid'][1]) / dt
+
+        return [dx, dy]
+```
+
+## 3. Object Recognition and Tracking
+
+### 3.1 Feature Extraction and Matching
+
+```python
+class FeatureExtractor:
+    def __init__(self, feature_type='orb'):
+        self.feature_type = feature_type
+        self.detector = self.create_detector()
+        self.matcher = self.create_matcher()
+
+    def create_detector(self):
+        """Create feature detector"""
+        if self.feature_type == 'sift':
+            return cv2.SIFT_create()
+        elif self.feature_type == 'orb':
+            return cv2.ORB_create(nfeatures=1000)
+        elif self.feature_type == 'akaze':
+            return cv2.AKAZE_create()
+        else:
+            raise ValueError(f"Unknown feature type: {self.feature_type}")
+
+    def create_matcher(self):
+        """Create feature matcher"""
+        if self.feature_type == 'orb':
+            return cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        else:
+            return cv2.BFMatcher()
+
+    def detect_and_compute(self, image):
+        """Detect keypoints and compute descriptors"""
+        # Convert to grayscale if needed
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+
+        keypoints, descriptors = self.detector.detectAndCompute(gray, None)
+
+        return keypoints, descriptors
+
+    def match_features(self, desc1, desc2, ratio_threshold=0.75):
+        """Match features between two images"""
+        if self.feature_type == 'orb':
+            matches = self.matcher.match(desc1, desc2)
+        else:
+            # For SIFT/SURF, use ratio test
+            matches = self.matcher.knnMatch(desc1, desc2, k=2)
+            good_matches = []
+
+            for match_pair in matches:
+                if len(match_pair) == 2:
+                    m, n = match_pair
+                    if m.distance < ratio_threshold * n.distance:
+                        good_matches.append(m)
+
+            matches = good_matches
+
+        return matches
+
+    def filter_matches(self, matches, kp1, kp2, ransac_threshold=3.0):
+        """Filter matches using RANSAC"""
+        if len(matches) < 4:
+            return matches, None
+
+        # Extract matched keypoints
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+
+        # Find homography with RANSAC
+        M, mask = cv2.findHomography(
+            src_pts, dst_pts, cv2.RANSAC, ransac_threshold
+        )
+
+        if mask is not None:
+            inlier_matches = [matches[i] for i in range(len(matches)) if mask[i]]
+            return inlier_matches, M
+
+        return matches, None
+
+    def draw_matches(self, img1, kp1, img2, kp2, matches):
+        """Draw matches between images"""
+        return cv2.drawMatches(
+            img1, kp1, img2, kp2, matches, None,
+            flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS
+        )
+```
+
+### 3.2 Object Tracking
+
+```python
+class ObjectTracker:
+    def __init__(self, tracker_type='csrt'):
+        self.trackers = {}
+        self.next_id = 0
+        self.tracker_type = tracker_type
+
+    def create_tracker(self):
+        """Create tracker instance"""
+        if self.tracker_type == 'csrt':
+            return cv2.TrackerCSRT_create()
+        elif self.tracker_type == 'kcf':
+            return cv2.TrackerKCF_create()
+        elif self.tracker_type == 'mosse':
+            return cv2.TrackerMOSSE_create()
+        else:
+            raise ValueError(f"Unknown tracker type: {self.tracker_type}")
+
+    def add_object(self, frame, bbox, class_name):
+        """Add new object to track"""
+        tracker = self.create_tracker()
+        tracker.init(frame, bbox)
+
+        self.trackers[self.next_id] = {
+            'tracker': tracker,
+            'bbox': bbox,
+            'class': class_name,
+            'id': self.next_id,
+            'frames_since_update': 0,
+            'confidence': 1.0
+        }
+
+        self.next_id += 1
+        return self.next_id - 1
+
+    def update(self, frame):
+        """Update all trackers"""
+        active_trackers = {}
+
+        for obj_id, tracker_info in self.trackers.items():
+            success, bbox = tracker_info['tracker'].update(frame)
+
+            if success:
+                # Check if bbox is reasonable
+                x, y, w, h = [int(v) for v in bbox]
+                if w > 0 and h > 0 and x >= 0 and y >= 0:
+                    active_trackers[obj_id] = {
+                        'bbox': bbox,
+                        'class': tracker_info['class'],
+                        'id': obj_id,
+                        'confidence': tracker_info['confidence']
+                    }
+
+        self.trackers = active_trackers
+        return list(self.trackers.values())
+
+    def associate_with_detections(self, detections, iou_threshold=0.3):
+        """Associate tracked objects with new detections"""
+        matched_ids = set()
+
+        # IoU matching
+        for obj_id, tracker_info in self.trackers.items():
+            best_iou = 0
+            best_detection = None
+
+            for detection in detections:
+                iou = self.compute_iou(tracker_info['bbox'], detection['bbox'])
+                if iou > best_iou and iou > iou_threshold:
+                    best_iou = iou
+                    best_detection = detection
+
+            if best_detection and best_detection['class'] == tracker_info['class']:
+                # Update tracker with detection
+                tracker = self.tracker_type
+                matched_ids.add(detections.index(best_detection))
+
+        return [det for i, det in enumerate(detections) if i not in matched_ids]
+
+    def compute_iou(self, bbox1, bbox2):
+        """Compute Intersection over Union"""
+        x1_1, y1_1, w1, h1 = bbox1
+        x2_1 = x1_1 + w1
+        y2_1 = y1_1 + h1
+
+        x1_2, y1_2, w2, h2 = bbox2
+        x2_2 = x1_2 + w2
+        y2_2 = y1_2 + h2
+
+        # Intersection
+        x1_i = max(x1_1, x1_2)
+        y1_i = max(y1_1, y1_2)
+        x2_i = min(x2_1, x2_2)
+        y2_i = min(y2_1, y2_2)
+
+        if x2_i <= x1_i or y2_i <= y1_i:
+            return 0
+
+        intersection = (x2_i - x1_i) * (y2_i - y1_i)
+
+        # Union
+        area1 = w1 * h1
+        area2 = w2 * h2
+        union = area1 + area2 - intersection
+
+        return intersection / union if union > 0 else 0
+
+    def draw_tracking(self, frame, trackers):
+        """Draw tracking results"""
+        output = frame.copy()
+
+        for tracker in trackers:
+            x, y, w, h = [int(v) for v in tracker['bbox']]
+            class_name = tracker['class']
+            obj_id = tracker['id']
+
+            # Draw bounding box
+            cv2.rectangle(output, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+            # Draw label
+            label = f"{class_name} ID:{obj_id}"
+            cv2.putText(output, label, (x, y - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+        return output
+```
+
+## 4. Visual Servoing and Control
+
+### 4.1 Image-Based Visual Servoing (IBVS)
+
+```python
+class VisualServoing:
+    def __init__(self, camera_model):
+        self.camera = camera_model
+        self.lambda_gain = 0.1  # Control gain
+        self.error_threshold = 5.0  # pixels
+
+    def compute_interaction_matrix(self, feature_points, depth):
+        """Compute interaction matrix (image Jacobian)"""
+        n_points = len(feature_points)
+        L = np.zeros((2 * n_points, 6))
+
+        for i, (u, v) in enumerate(feature_points):
+            Z = depth[i] if depth.size > 1 else depth
+
+            # Normalize coordinates
+            x = (u - self.camera.cx) / self.camera.fx
+            y = (v - self.camera.cy) / self.camera.fy
+
+            # Interaction matrix rows for this point
+            L[2*i, :] = [-1/Z, 0, x/Z, x*y, -(1 + x**2), y]
+            L[2*i + 1, :] = [0, -1/Z, y/Z, 1 + y**2, -x*y, -x]
+
+        return L
+
+    def compute_control_law(self, current_features, desired_features, depth):
+        """Compute velocity command for visual servoing"""
+        # Compute error
+        error = np.array(desired_features) - np.array(current_features)
+        error = error.flatten()
+
+        # Check convergence
+        error_norm = np.linalg.norm(error)
+        if error_norm < self.error_threshold:
+            return np.zeros(6), True
+
+        # Compute interaction matrix
+        L = self.compute_interaction_matrix(current_features, depth)
+
+        # Pseudo-inverse of interaction matrix
+        try:
+            L_pinv = np.linalg.pinv(L)
+        except:
+            L_pinv = np.linalg.pinv(L + 1e-6 * np.eye(L.shape[0]))
+
+        # Compute velocity command
+        velocity = self.lambda_gain * L_pinv @ error
+
+        return velocity, False
+
+    def update_camera_pose(self, current_pose, velocity, dt):
+        """Update camera pose from velocity"""
+        # Twist: [vx, vy, vz, wx, wy, wz]
+        translational_vel = velocity[:3]
+        rotational_vel = velocity[3:]
+
+        # Current pose
+        R = current_pose[:3, :3]
+        t = current_pose[:3, 3]
+
+        # Update position
+        t += R @ translational_vel * dt
+
+        # Update orientation (using exponential map)
+        angle = np.linalg.norm(rotational_vel * dt)
+        if angle > 1e-6:
+            axis = rotational_vel / np.linalg.norm(rotational_vel)
+            R_update = self.rotation_matrix_from_axis_angle(axis, angle)
+            R = R_update @ R
+
+        # New pose
+        new_pose = np.eye(4)
+        new_pose[:3, :3] = R
+        new_pose[:3, 3] = t
+
+        return new_pose
+
+    def rotation_matrix_from_axis_angle(self, axis, angle):
+        """Create rotation matrix from axis-angle representation"""
+        axis = axis / np.linalg.norm(axis)
+        a = np.cos(angle / 2)
+        b, c, d = -axis * np.sin(angle / 2)
+
+        return np.array([
+            [a*a + b*b - c*c - d*d, 2*(b*c - a*d), 2*(b*d + a*c)],
+            [2*(b*c + a*d), a*a + c*c - b*b - d*d, 2*(c*d - a*b)],
+            [2*(b*d - a*c), 2*(c*d + a*b), a*a + d*d - b*b - c*c]
+        ])
+
+    def servo_to_features(self, initial_pose, current_features, desired_features, depth):
+        """Perform visual servoing to reach desired features"""
+        current_pose = initial_pose.copy()
+        trajectory = [current_pose.copy()]
+
+        max_iterations = 100
+        dt = 0.1
+
+        for iteration in range(max_iterations):
+            # Compute control law
+            velocity, converged = self.compute_control_law(
+                current_features, desired_features, depth
+            )
+
+            if converged:
+                print(f"Converged after {iteration} iterations")
+                break
+
+            # Update pose
+            current_pose = self.update_camera_pose(current_pose, velocity, dt)
+            trajectory.append(current_pose.copy())
+
+            # Simulate feature update (in practice, extract from image)
+            current_features = self.simulate_feature_update(
+                current_pose, initial_pose, desired_features
+            )
+
+        if not converged:
+            print("Maximum iterations reached")
+
+        return trajectory, converged
+```
+
+### 4.2 Position-Based Visual Servoing (PBVS)
+
+```python
+class PBVS:
+    def __init__(self, camera_model):
+        self.camera = camera_model
+        self.kp_linear = np.eye(3) * 1.0
+        self.kp_angular = np.eye(3) * 1.0
+
+    def estimate_pose_from_features(self, image_points, object_points):
+        """Estimate camera pose from 2D-3D correspondences"""
+        # Using PnP algorithm
+        if len(image_points) >= 4:
+            success, rvec, tvec, _ = cv2.solvePnPRansac(
+                object_points, image_points,
+                self.camera.K, self.camera.distortion,
+                iterationsCount=100, reprojectionError=8.0,
+                confidence=0.99
+            )
+
+            if success:
+                # Convert rotation vector to matrix
+                R, _ = cv2.Rodrigues(rvec)
+
+                pose = np.eye(4)
+                pose[:3, :3] = R
+                pose[:3, 3] = tvec.flatten()
+
+                return pose
+
+        return None
+
+    def compute_pose_error(self, current_pose, desired_pose):
+        """Compute error between current and desired poses"""
+        # Position error
+        pos_error = desired_pose[:3, 3] - current_pose[:3, 3]
+
+        # Orientation error
+        R_current = current_pose[:3, :3]
+        R_desired = desired_pose[:3, :3]
+
+        # Rotation error matrix
+        R_error = R_desired @ R_current.T
+
+        # Convert to axis-angle
+        angle_axis = self.rotation_matrix_to_axis_angle(R_error)
+
+        return pos_error, angle_axis
+
+    def rotation_matrix_to_axis_angle(self, R):
+        """Convert rotation matrix to axis-angle"""
+        angle = np.arccos((np.trace(R) - 1) / 2)
+
+        if angle < 1e-6:
+            return np.zeros(3)
+
+        axis = np.array([
+            R[2, 1] - R[1, 2],
+            R[0, 2] - R[2, 0],
+            R[1, 0] - R[0, 1]
+        ]) / (2 * np.sin(angle))
+
+        return angle * axis
+
+    def compute_control_law(self, current_pose, desired_pose):
+        """Compute velocity command for PBVS"""
+        # Compute pose errors
+        pos_error, rot_error = self.compute_pose_error(current_pose, desired_pose)
+
+        # Check convergence
+        pos_error_norm = np.linalg.norm(pos_error)
+        rot_error_norm = np.linalg.norm(rot_error)
+
+        if pos_error_norm < 0.01 and rot_error_norm < 0.01:
+            return np.zeros(6), True
+
+        # Compute control velocities
+        linear_vel = self.kp_linear @ pos_error
+        angular_vel = self.kp_angular @ rot_error
+
+        # Combine into velocity command
+        velocity = np.concatenate([linear_vel, angular_vel])
+
+        return velocity, False
+
+    def servo_to_pose(self, initial_pose, desired_pose, image_points, object_points):
+        """Perform PBVS to reach desired pose"""
+        current_pose = initial_pose.copy()
+        trajectory = [current_pose.copy()]
+
+        max_iterations = 100
+        dt = 0.1
+
+        for iteration in range(max_iterations):
+            # Estimate current pose from image
+            estimated_pose = self.estimate_pose_from_features(
+                image_points, object_points
+            )
+
+            if estimated_pose is None:
+                print("Pose estimation failed")
+                break
+
+            # Compute control law
+            velocity, converged = self.compute_control_law(
+                estimated_pose, desired_pose
+            )
+
+            if converged:
+                print(f"Converged after {iteration} iterations")
+                break
+
+            # Update pose
+            current_pose = self.update_pose(current_pose, velocity, dt)
+            trajectory.append(current_pose.copy())
+
+            # Simulate new image points
+            image_points = self.simulate_image_points(
+                current_pose, object_points
+            )
+
+        return trajectory, converged
+```
+
+## 5. Deep Learning for Robotics Vision
+
+### 5.1 Object Detection
+
+```python
+class YOLODetector:
+    def __init__(self, model_path='yolov8n.pt'):
+        self.model = self.load_yolo_model(model_path)
+        self.classes = self.load_coco_classes()
+
+    def load_yolo_model(self, model_path):
+        """Load YOLO model"""
+        from ultralytics import YOLO
+        model = YOLO(model_path)
+        return model
+
+    def load_coco_classes(self):
+        """Load COCO class names"""
+        return [
+            'person', 'bicycle', 'car', 'motorcycle', 'airplane',
+            'bus', 'train', 'truck', 'boat', 'traffic light',
+            'fire hydrant', 'stop sign', 'parking meter', 'bench',
+            'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+            'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
+            'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+            'skis', 'snowboard', 'sports ball', 'kite',
+            'baseball bat', 'baseball glove', 'skateboard',
+            'surfboard', 'tennis racket', 'bottle', 'wine glass',
+            'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana',
+            'apple', 'sandwich', 'orange', 'broccoli', 'carrot',
+            'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+            'potted plant', 'bed', 'dining table', 'toilet', 'tv',
+            'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+            'microwave', 'oven', 'toaster', 'sink', 'refrigerator',
+            'book', 'clock', 'vase', 'scissors', 'teddy bear',
+            'hair drier', 'toothbrush'
+        ]
+
+    def detect(self, image, confidence_threshold=0.5):
+        """Detect objects in image"""
+        results = self.model(image, conf=confidence_threshold)
+
+        detections = []
+        for result in results:
+            boxes = result.boxes
+            for box in boxes:
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                conf = box.conf[0].cpu().numpy()
+                cls = int(box.cls[0].cpu().numpy())
+
+                detection = {
+                    'bbox': [x1, y1, x2 - x1, y2 - y1],
+                    'confidence': conf,
+                    'class': self.classes[cls],
+                    'class_id': cls
+                }
+                detections.append(detection)
+
+        return detections
+
+    def track_objects(self, detections, previous_tracks=None):
+        """Simple object tracking based on IoU"""
+        if previous_tracks is None:
+            # Initialize tracks
+            tracks = []
+            for i, detection in enumerate(detections):
+                track = {
+                    'id': i,
+                    'bbox': detection['bbox'],
+                    'class': detection['class'],
+                    'confidence': detection['confidence'],
+                    'frames': 1
+                }
+                tracks.append(track)
+        else:
+            # Associate detections with existing tracks
+            tracks = self.associate_detections_to_tracks(
+                detections, previous_tracks
+            )
+
+        return tracks
+
+    def associate_detections_to_tracks(self, detections, tracks, iou_threshold=0.3):
+        """Associate detections with existing tracks using IoU"""
+        matched_tracks = []
+        unmatched_detections = list(range(len(detections)))
+
+        # Compute IoU matrix
+        iou_matrix = np.zeros((len(tracks), len(detections)))
+        for i, track in enumerate(tracks):
+            for j, detection in enumerate(detections):
+                iou_matrix[i, j] = self.compute_iou(track['bbox'], detection['bbox'])
+
+        # Hungarian algorithm for assignment (simplified greedy approach)
+        while True:
+            # Find best match
+            max_iou = 0
+            best_track_idx = None
+            best_det_idx = None
+
+            for i in range(len(tracks)):
+                if i in [t['id'] for t in matched_tracks]:
+                    continue
+                for j in unmatched_detections:
+                    if iou_matrix[i, j] > max_iou:
+                        max_iou = iou_matrix[i, j]
+                        best_track_idx = i
+                        best_det_idx = j
+
+            if max_iou < iou_threshold:
+                break
+
+            # Create matched track
+            matched_track = tracks[best_track_idx].copy()
+            matched_track['bbox'] = detections[best_det_idx]['bbox']
+            matched_track['confidence'] = detections[best_det_idx]['confidence']
+            matched_track['frames'] += 1
+
+            matched_tracks.append(matched_track)
+            unmatched_detections.remove(best_det_idx)
+
+        # Add unmatched detections as new tracks
+        max_id = max([t['id'] for t in tracks]) if tracks else -1
+        for det_idx in unmatched_detections:
+            new_track = {
+                'id': max_id + 1,
+                'bbox': detections[det_idx]['bbox'],
+                'class': detections[det_idx]['class'],
+                'confidence': detections[det_idx]['confidence'],
+                'frames': 1
+            }
+            matched_tracks.append(new_track)
+            max_id += 1
+
+        return matched_tracks
+
+    def compute_iou(self, bbox1, bbox2):
+        """Compute Intersection over Union"""
+        x1_1, y1_1, w1, h1 = bbox1
+        x2_1 = x1_1 + w1
+        y2_1 = y1_1 + h1
+
+        x1_2, y1_2, w2, h2 = bbox2
+        x2_2 = x1_2 + w2
+        y2_2 = y1_2 + h2
+
+        # Intersection
+        x1_i = max(x1_1, x1_2)
+        y1_i = max(y1_1, y1_2)
+        x2_i = min(x2_1, x2_2)
+        y2_i = min(y2_1, y2_2)
+
+        if x2_i <= x1_i or y2_i <= y1_i:
+            return 0
+
+        intersection = (x2_i - x1_i) * (y2_i - y1_i)
+
+        # Union
+        area1 = w1 * h1
+        area2 = w2 * h2
+        union = area1 + area2 - intersection
+
+        return intersection / union if union > 0 else 0
+```
+
+### 5.2 Depth Estimation with Monocular Vision
+
+```python
+class MonocularDepthEstimator:
+    def __init__(self, model_path=None):
+        self.model = self.load_depth_model(model_path)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    def load_depth_model(self, model_path):
+        """Load monocular depth estimation model"""
+        # Using MiDaS model for depth estimation
+        model_type = "DPT_Large"
+        model = torch.hub.load("intel-isl/MiDaS", model_type)
+
+        model.to(self.device)
+        model.eval()
+
+        # Load transforms
+        self.midas_transforms = torch.hub.load("intel-isl/MiDaS", "transforms")
+
+        if model_type == "DPT_Large" or model_type == "DPT_Hybrid":
+            transform = self.midas_transforms.dpt_transform
+        else:
+            transform = self.midas_transforms.small_transform
+
+        self.transform = transform
+
+        return model
+
+    def estimate_depth(self, image):
+        """Estimate depth from single image"""
+        # Apply transforms
+        input_batch = self.transform(image).to(self.device)
+
+        # Predict depth
+        with torch.no_grad():
+            prediction = self.model(input_batch)
+
+            prediction = torch.nn.functional.interpolate(
+                prediction.unsqueeze(1),
+                size=image.shape[:2],
+                mode="bicubic",
+                align_corners=False,
+            ).squeeze()
+
+        # Convert to numpy
+        depth_map = prediction.cpu().numpy()
+
+        # Normalize depth
+        depth_map = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min())
+
+        return depth_map
+
+    def depth_to_pointcloud(self, depth_map, camera_model):
+        """Convert depth map to 3D point cloud"""
+        height, width = depth_map.shape
+
+        # Create coordinate grids
+        u, v = np.meshgrid(np.arange(width), np.arange(height))
+
+        # Convert depth to 3D points
+        # X = (u - cx) * Z / fx
+        # Y = (v - cy) * Z / fy
+        # Z = depth
+
+        # Scale depth to actual metric values
+        # This requires calibration or known scene scale
+        max_depth = 10.0  # meters
+        depth_scaled = depth_map * max_depth
+
+        # Mask invalid depths
+        valid_mask = depth_scaled > 0.1  # Minimum depth threshold
+
+        # Convert to 3D coordinates
+        x = (u[valid_mask] - camera_model.cx) * depth_scaled[valid_mask] / camera_model.fx
+        y = (v[valid_mask] - camera_model.cy) * depth_scaled[valid_mask] / camera_model.fy
+        z = depth_scaled[valid_mask]
+
+        # Create point cloud
+        points = np.column_stack([x, y, z])
+
+        return points, valid_mask
+
+    def surface_normal_estimation(self, depth_map):
+        """Estimate surface normals from depth map"""
+        # Compute gradients
+        grad_x = cv2.Sobel(depth_map, cv2.CV_64F, 1, 0, ksize=3)
+        grad_y = cv2.Sobel(depth_map, cv2.CV_64F, 0, 1, ksize=3)
+
+        # Surface normal components
+        normal_x = -grad_x
+        normal_y = -grad_y
+        normal_z = np.ones_like(depth_map)
+
+        # Normalize normals
+        norm = np.sqrt(normal_x**2 + normal_y**2 + normal_z**2)
+        normal_x /= norm
+        normal_y /= norm
+        normal_z /= norm
+
+        # Stack normals
+        normals = np.stack([normal_x, normal_y, normal_z], axis=2)
+
+        return normals
+
+    def visualize_depth(self, depth_map):
+        """Visualize depth map with color coding"""
+        # Apply colormap
+        depth_colored = cv2.applyColorMap(
+            (depth_map * 255).astype(np.uint8), cv2.COLORMAP_JET
+        )
+
+        return depth_colored
+```
+
+## 6. Complete Vision System Integration
+
+### 6.1 Multimodal Perception System
+
+```python
+class MultimodalPerceptionSystem:
+    def __init__(self):
+        # Initialize all perception modules
+        self.camera_model = CameraModel(fx=800, fy=800, cx=320, cy=240)
+        self.stereo_vision = StereoVision(
+            self.camera_model, self.camera_model, baseline=0.12
+        )
+        self.segmentation = SemanticSegmentation()
+        self.instance_seg = InstanceSegmentation()
+        self.feature_extractor = FeatureExtractor()
+        self.tracker = ObjectTracker()
+        self.visual_servoing = VisualServoing(self.camera_model)
+        self.depth_estimator = MonocularDepthEstimator()
+
+        # Data storage
+        self.perception_data = {}
+        self.viz = Visualizer()
+
+    def process_stereo_pair(self, left_image, right_image):
+        """Process stereo image pair"""
+        print("\n=== Processing Stereo Vision ===")
+
+        # Compute disparity and depth
+        disparity, disparity_viz = self.stereo_vision.compute_disparity(left_image, right_image)
+        depth_map = self.stereo_vision.disparity_to_depth(disparity)
+
+        # Update perception data
+        self.perception_data['stereo'] = {
+            'left_image': left_image,
+            'right_image': right_image,
+            'disparity': disparity,
+            'disparity_viz': disparity_viz,
+            'depth_map': depth_map
+        }
+
+        return depth_map
+
+    def detect_and_segment_objects(self, image):
+        """Detect and segment objects in scene"""
+        print("\n=== Detecting and Segmenting Objects ===")
+
+        # Semantic segmentation
+        semantic_pred = self.segmentation.predict(image)
+        semantic_overlay = self.segmentation.create_overlay(image, semantic_pred)
+        object_masks = self.segmentation.extract_object_masks(semantic_pred)
+
+        # Instance segmentation
+        instances = self.instance_seg.detect_instances(image)
+
+        # Object detection
+        yolo_detector = YOLODetector()
+        detections = yolo_detector.detect(image)
+
+        # Update perception data
+        self.perception_data['objects'] = {
+            'semantic_prediction': semantic_pred,
+            'semantic_overlay': semantic_overlay,
+            'object_masks': object_masks,
+            'instances': instances,
+            'detections': detections
+        }
+
+        return {
+            'semantic': object_masks,
+            'instances': instances,
+            'detections': detections
+        }
+
+    def track_objects_continuous(self, image):
+        """Track objects across frames"""
+        print("\n=== Tracking Objects ===")
+
+        # Detect objects
+        yolo_detector = YOLODetector()
+        detections = yolo_detector.detect(image)
+
+        # Update trackers
+        tracked_objects = self.tracker.update(image)
+        new_detections = self.tracker.associate_with_detections(detections)
+
+        # Add new objects
+        for detection in new_detections:
+            obj_id = self.tracker.add_object(
+                image, detection['bbox'], detection['class']
+            )
+
+        # Get final tracked objects
+        final_tracks = self.tracker.update(image)
+
+        # Update perception data
+        self.perception_data['tracking'] = {
+            'detections': detections,
+            'tracked_objects': final_tracks
+        }
+
+        return final_tracks
+
+    def estimate_scene_3d(self, left_image, right_image):
+        """Estimate 3D scene structure"""
+        print("\n=== Estimating 3D Scene ===")
+
+        # Stereo depth
+        stereo_depth = self.process_stereo_pair(left_image, right_image)
+
+        # Monocular depth
+        mono_depth = self.depth_estimator.estimate_depth(left_image)
+
+        # Create point clouds
+        stereo_points, stereo_mask = self.stereo_vision.depth_to_pointcloud(
+            stereo_depth, self.camera_model
+        )
+        mono_points, mono_mask = self.depth_estimator.depth_to_pointcloud(
+            mono_depth, self.camera_model
+        )
+
+        # Surface normals
+        normals = self.depth_estimator.surface_normal_estimation(stereo_depth)
+
+        # Update perception data
+        self.perception_data['3d_scene'] = {
+            'stereo_depth': stereo_depth,
+            'mono_depth': mono_depth,
+            'stereo_points': stereo_points,
+            'mono_points': mono_points,
+            'normals': normals
+        }
+
+        return {
+            'stereo_points': stereo_points,
+            'mono_points': mono_points,
+            'normals': normals
+        }
+
+    def visual_servoing_demo(self, initial_image, target_features):
+        """Demonstrate visual servoing"""
+        print("\n=== Visual Servoing Demo ===")
+
+        # Extract current features
+        kp1, desc1 = self.feature_extractor.detect_and_compute(initial_image)
+        current_features = [[kp.pt[0], kp.pt[1]] for kp in kp1]
+
+        # Perform visual servoing
+        initial_pose = np.eye(4)
+        trajectory, converged = self.visual_servoing.servo_to_features(
+            initial_pose, current_features, target_features, depth=1.0
+        )
+
+        # Update perception data
+        self.perception_data['visual_servoing'] = {
+            'initial_features': current_features,
+            'target_features': target_features,
+            'trajectory': trajectory,
+            'converged': converged
+        }
+
+        return trajectory, converged
+
+    def run_perception_pipeline(self, left_image, right_image, target_features=None):
+        """Run complete perception pipeline"""
+        print("\n=== Running Complete Perception Pipeline ===")
+
+        # 1. 3D Scene Estimation
+        scene_3d = self.estimate_scene_3d(left_image, right_image)
+
+        # 2. Object Detection and Segmentation
+        objects = self.detect_and_segment_objects(left_image)
+
+        # 3. Object Tracking
+        tracked_objects = self.track_objects_continuous(left_image)
+
+        # 4. Visual Servoing (if target provided)
+        if target_features is not None:
+            trajectory, converged = self.visual_servoing_demo(left_image, target_features)
+        else:
+            trajectory = None
+            converged = None
+
+        # 5. Visualization
+        self.visualize_results()
+
+        return {
+            'scene_3d': scene_3d,
+            'objects': objects,
+            'tracking': tracked_objects,
+            'visual_servoing': {
+                'trajectory': trajectory,
+                'converged': converged
+            }
+        }
+
+    def visualize_results(self):
+        """Visualize all perception results"""
+        self.viz.create_figure(figsize=(20, 15))
+
+        # Stereo vision
+        if 'stereo' in self.perception_data:
+            self.viz.subplot(2, 3, 1)
+            self.viz.imshow(self.perception_data['stereo']['disparity_viz'])
+            self.viz.title('Disparity Map')
+
+            self.viz.subplot(2, 3, 2)
+            depth_viz = self.depth_estimator.visualize_depth(
+                self.perception_data['stereo']['depth_map']
+            )
+            self.viz.imshow(depth_viz)
+            self.viz.title('Depth Map')
+
+        # Semantic segmentation
+        if 'objects' in self.perception_data:
+            self.viz.subplot(2, 3, 3)
+            self.viz.imshow(self.perception_data['objects']['semantic_overlay'])
+            self.viz.title('Semantic Segmentation')
+
+        # Object detection
+        if 'tracking' in self.perception_data:
+            self.viz.subplot(2, 3, 4)
+            tracked_image = self.tracker.draw_tracking(
+                self.perception_data['stereo']['left_image'],
+                self.perception_data['tracking']['tracked_objects']
+            )
+            self.viz.imshow(tracked_image)
+            self.viz.title('Object Tracking')
+
+        # 3D point cloud
+        if '3d_scene' in self.perception_data:
+            self.viz.subplot(2, 3, 5)
+            points = self.perception_data['3d_scene']['stereo_points']
+            if len(points) > 0:
+                self.viz.scatter_3d(points[:, 0], points[:, 1], points[:, 2], s=0.1)
+                self.viz.title('3D Point Cloud')
+                self.viz.set_xlabel('X (m)')
+                self.viz.set_ylabel('Y (m)')
+                self.viz.set_zlabel('Z (m)')
+
+        # System status
+        self.viz.subplot(2, 3, 6)
+        status_text = self.generate_status_report()
+        self.viz.text(0.1, 0.5, status_text, fontsize=10, verticalalignment='center')
+        self.viz.title('System Status')
+        self.viz.axis('off')
+
+        self.viz.tight_layout()
+        self.viz.show()
+
+    def generate_status_report(self):
+        """Generate system status report"""
+        report = "=== Perception System Status ===\n\n"
+
+        # Stereo vision
+        if 'stereo' in self.perception_data:
+            depth = self.perception_data['stereo']['depth_map']
+            report += f"Stereo Depth:\n"
+            report += f"  - Min: {depth.min():.3f}m\n"
+            report += f"  - Max: {depth.max():.3f}m\n"
+            report += f"  - Mean: {depth.mean():.3f}m\n\n"
+
+        # Objects
+        if 'objects' in self.perception_data:
+            objects = self.perception_data['objects']
+            report += f"Objects Detected:\n"
+            report += f"  - Semantic classes: {len(objects['semantic'])}\n"
+            report += f"  - Instances: {len(objects['instances'])}\n"
+            report += f"  - Detections: {len(objects['detections'])}\n\n"
+
+        # Tracking
+        if 'tracking' in self.perception_data:
+            tracking = self.perception_data['tracking']
+            report += f"Tracking:\n"
+            report += f"  - Tracked objects: {len(tracking['tracked_objects'])}\n\n"
+
+        # Visual servoing
+        if 'visual_servoing' in self.perception_data:
+            vs = self.perception_data['visual_servoing']
+            if vs['trajectory'] is not None:
+                report += f"Visual Servoing:\n"
+                report += f"  - Converged: {'Yes' if vs['converged'] else 'No'}\n"
+                report += f"  - Steps: {len(vs['trajectory'])}\n"
+
+        return report
+
+class Visualizer:
+    def __init__(self):
+        plt.style.use('default')
+
+    def create_figure(self, figsize=(10, 8)):
+        self.fig = plt.figure(figsize=figsize)
+
+    def subplot(self, rows, cols, idx, projection=None):
+        if projection:
+            self.ax = self.fig.add_subplot(rows, cols, idx, projection=projection)
+        else:
+            self.ax = self.fig.add_subplot(rows, cols, idx)
+
+    def imshow(self, image, cmap='gray'):
+        if len(image.shape) == 3:
+            self.ax.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        else:
+            self.ax.imshow(image, cmap=cmap)
+
+    def scatter_3d(self, x, y, z, **kwargs):
+        self.ax.scatter(x, y, z, **kwargs)
+
+    def title(self, text):
+        self.ax.set_title(text)
+
+    def set_xlabel(self, text):
+        self.ax.set_xlabel(text)
+
+    def set_ylabel(self, text):
+        self.ax.set_ylabel(text)
+
+    def set_zlabel(self, text):
+        self.ax.set_zlabel(text)
+
+    def text(self, x, y, text, **kwargs):
+        self.ax.text(x, y, text, **kwargs)
+
+    def axis(self, state):
+        self.ax.axis(state)
+
+    def tight_layout(self):
+        self.fig.tight_layout()
+
+    def show(self):
+        plt.show()
+```
+
+## Conclusion
+
+This chapter explored the critical role of computer vision in humanoid robotics, covering:
+
+1. **Camera Models**: Understanding image formation and calibration
+2. **Scene Understanding**: Semantic and instance segmentation for context
+3. **Object Recognition**: Feature extraction and tracking for interaction
+4. **Visual Servoing**: Closed-loop control using visual feedback
+5. **Deep Learning**: Modern approaches to perception tasks
+6. **System Integration**: Combining multiple perception modalities
+
+Computer vision provides humanoid robots with the ability to perceive, understand, and interact with their environment in ways that approach human capabilities. The integration of traditional computer vision techniques with modern deep learning approaches continues to advance the field toward more robust and reliable perception systems.
+
+### Key Takeaways
+
+- **Multi-Modal Fusion**: Combining different visual cues improves robustness
+- **Real-Time Processing**: Efficient algorithms are essential for robot control
+- **3D Understanding**: Depth perception enables spatial reasoning
+- **Learning-Based Approaches**: Deep learning has revolutionized object recognition
+- **Closed-Loop Control**: Visual servoing enables precise manipulation
+- **System Integration**: Successful vision systems require careful coordination
+
+---
+
+**Previous: [Chapter 11 - Manipulation and Grasping](../part-3-motion-control/chapter-11-manipulation-grasping.mdx)** | **Next: [Chapter 13 - Machine Learning in Robotics](chapter-13-machine-learning.mdx)**

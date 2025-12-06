@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "name": "ai-book-rag-backend",
+  "builds": [
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "main.py"
+    }
+  ],
+  "env": {
+    "PYTHON_VERSION": "3.11"
+  },
+  "functions": {
+    "main.py": {
+      "runtime": "python3.11"
+    }
+  }
+}
