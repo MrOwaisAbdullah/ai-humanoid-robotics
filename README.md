@@ -5,7 +5,7 @@
 [![OpenAI](https://img.shields.io/badge/OpenAI-Embeddings%20%26%20GPT--4o--mini-412991.svg)](https://openai.com/)
 [![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-DC244C.svg)](https://qdrant.tech/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Deploy to Hugging Face Spaces](https://img.shields.io/badge/Deploy-HF%20Spaces-blue)](https://huggingface.co/spaces/mrowaisabdullah-ai-humanoid-robotics)
+[![Deploy to Hugging Face Spaces](https://img.shields.io/badge/Deploy-HF%20Spaces-blue)](https://huggingface.co/spaces/mrowaisabdullah/ai-humanoid-robotics)
 [![GitHub Pages](https://img.shields.io/badge/Deploy-GitHub%20Pages-blue)](https://mrowaisabdullah.github.io/ai-humanoid-robotics/)
 
 > **GIAIC Saturday Afternoon Students - AI/Spec-Driven Hackathon 1**  

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  HF_SPACE_NAME: mrowaisabdullah-ai-humanoid-robotics
+  HF_SPACE_NAME: mrowaisabdullah/ai-humanoid-robotics
 
 jobs:
   deploy:
