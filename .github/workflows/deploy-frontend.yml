@@ -1,0 +1,111 @@
+name: Deploy Frontend to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'docusaurus.config.ts'
+      - 'package.json'
+      - 'yarn.lock'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build and Deploy
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set environment variables for build
+        run: |
+          # Set production API URL for chat widget
+          echo "REACT_APP_CHAT_API_URL=https://mrowaisabdullah-ai-humanoid-robotics.hf.space/chat" >> $GITHUB_ENV
+
+      - name: Build website
+        run: |
+          npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    name: Deploy to GitHub Pages
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  verify:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/main'
+    name: Verify Deployment
+
+    steps:
+      - name: Check deployment
+        run: |
+          echo "Frontend deployed to: https://${{ github.repository_owner }}.github.io/ai-humanoid-robotics/"
+          echo "Chat API endpoint: https://mrowaisabdullah-ai-humanoid-robotics.hf.space/chat"
+
+          # Wait a moment for deployment to propagate
+          sleep 30
+
+          # Basic verification
+          curl -f "https://${{ github.repository_owner }}.github.io/ai-humanoid-robotics/" || echo "Site might still be propagating"
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [build, deploy]
+    if: always()
+    name: Notify Deployment Status
+
+    steps:
+      - name: Success notification
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "✅ Frontend deployed successfully!"
+          echo "🌐 Site URL: https://${{ github.repository_owner }}.github.io/ai-humanoid-robotics/"
+          echo "💬 Chat API: https://mrowaisabdullah-ai-humanoid-robotics.hf.space/chat"
+
+      - name: Failure notification
+        if: failure()
+        run: |
+          echo "❌ Frontend deployment failed!"
+          echo "Please check the logs for more details"

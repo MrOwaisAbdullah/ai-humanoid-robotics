@@ -1,0 +1,338 @@
+openapi: 3.0.3
+info:
+  title: RAG Backend API
+  description: Production-ready RAG backend for Physical AI & Humanoid Robotics book
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:7860
+    description: Development server
+  - url: https://your-space.hf.space
+    description: Production (Hugging Face Spaces)
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API and its dependencies
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /chat:
+    post:
+      summary: Chat with the book
+      description: Ask questions about the book content and receive streaming responses
+      tags:
+        - Chat
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Streaming chat response with Server-Sent Events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  data: {"type": "chunk", "content": "Based on the book..."}
+
+                  data: {"type": "citation", "citation": {"text": "...", "source": {"chapter": "Chapter 1", "section": "1.1"}}}
+
+                  data: {"type": "done"}
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ingest:
+    post:
+      summary: Ingest book content
+      description: Trigger ingestion of Markdown files into the vector database
+      tags:
+        - Ingestion
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestRequest'
+      responses:
+        '200':
+          description: Ingestion started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ingest/status:
+    get:
+      summary: Get ingestion status
+      description: Check the status of ongoing or completed ingestion processes
+      tags:
+        - Ingestion
+      responses:
+        '200':
+          description: Current ingestion status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestStatusResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+          description: Overall health status
+        version:
+          type: string
+          description: API version
+        uptime:
+          type: number
+          format: float
+          description: Uptime in seconds
+        qdrant_connected:
+          type: boolean
+          description: Qdrant connection status
+        openai_connected:
+          type: boolean
+          description: OpenAI API connection status
+        documents_count:
+          type: integer
+          description: Number of documents ingested
+        chunks_count:
+          type: integer
+          description: Number of chunks stored
+      required:
+        - status
+        - version
+        - uptime
+
+    ChatRequest:
+      type: object
+      properties:
+        question:
+          type: string
+          description: Question to ask about the book
+          minLength: 1
+          maxLength: 1000
+        session_id:
+          type: string
+          description: Optional session ID for conversation context
+          format: uuid
+        api_key:
+          type: string
+          description: Optional API key for higher rate limits
+        context_window:
+          type: integer
+          description: Maximum context tokens
+          minimum: 1000
+          maximum: 8000
+          default: 3000
+      required:
+        - question
+
+    ChatChunkResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [chunk, citation, done, error]
+        content:
+          type: string
+          description: Text content (for type: chunk)
+        citation:
+          $ref: '#/components/schemas/Citation'
+        error:
+          type: string
+          description: Error message (for type: error)
+      required:
+        - type
+
+    Citation:
+      type: object
+      properties:
+        text:
+          type: string
+          description: Relevant text excerpt
+        source:
+          type: object
+          properties:
+            chapter:
+              type: string
+              description: Chapter name or number
+            section:
+              type: string
+              description: Section number
+            heading:
+              type: string
+              description: Section heading
+        relevance_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+      required:
+        - text
+        - source
+
+    IngestRequest:
+      type: object
+      properties:
+        content_path:
+          type: string
+          description: Path to directory containing Markdown files
+          default: "./book_content"
+        force_reindex:
+          type: boolean
+          description: Whether to re-index all files
+          default: false
+        batch_size:
+          type: integer
+          description: Number of documents to process in each batch
+          minimum: 1
+          maximum: 1000
+          default: 100
+      required:
+        - content_path
+
+    IngestResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [started, in_progress, completed]
+        message:
+          type: string
+          description: Status message
+        task_id:
+          type: string
+          description: Task ID for tracking progress
+        estimated_files:
+          type: integer
+          description: Estimated number of files to process
+      required:
+        - status
+        - message
+
+    IngestStatusResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+          description: Task ID
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        progress:
+          type: object
+          properties:
+            files_processed:
+              type: integer
+            total_files:
+              type: integer
+            chunks_created:
+              type: integer
+            errors:
+              type: array
+              items:
+                type: string
+        started_at:
+          type: string
+          format: date-time
+        estimated_completion:
+          type: string
+          format: date-time
+      required:
+        - task_id
+        - status
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details
+      required:
+        - error
+        - code
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Optional API key for enhanced rate limits
+
+tags:
+  - name: Chat
+    description: Chat with the book content
+  - name: Ingestion
+    description: Content ingestion and management
+  - name: System
+    description: System health and monitoring

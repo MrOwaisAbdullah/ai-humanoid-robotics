@@ -10,6 +10,9 @@
 /* Import Tailwind CSS v4 */
 @import "tailwindcss";
 
+/* Import glassmorphism styles for ChatWidget */
+@import "../styles/glassmorphism.css";
+
 /* Tailwind v4 Theme Configuration */
 @theme {
   /* Overarching Monochrome/Zinc Palette for custom components */

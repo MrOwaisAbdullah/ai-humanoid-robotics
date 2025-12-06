@@ -14,9 +14,7 @@ tiktoken>=0.6.0
 qdrant-client>=1.7.3
 
 # Document Processing
-# Updated to use newer, more modular LangChain packages
-langchain>=0.1.0
-langchain-text-splitters>=0.0.1
+# No LangChain dependency - using custom recursive splitter
 python-multipart>=0.0.9
 
 # Async Support
@@ -47,9 +45,3 @@ prometheus-client>=0.19.0
 # Security
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
-
-# Optional: Advanced Features
-# sentence-transformers>=2.3.0  # For local embeddings
-# faiss-cpu>=1.7.4  # For alternative vector store
-# chromadb>=0.4.22  # For alternative vector store
-# elasticsearch>=8.12.0  # For hybrid search

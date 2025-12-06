@@ -194,10 +194,24 @@ class DocumentIngestor:
         self.qdrant = QdrantManager(config.qdrant_url, config.qdrant_api_key, config.collection_name)
 
     def find_markdown_files(self, directory: str) -> List[str]:
-        """Find all markdown files in directory recursively."""
-        path = Path(directory)
-        md_files = list(path.rglob("*.md"))
-        return [str(f) for f in md_files]
+        """
+        Find all markdown files in directory recursively, excluding build/system directories.
+        """
+        exclude_dirs = {
+            "node_modules", ".git", "build", "dist", "site", 
+            ".docusaurus", "__pycache__", ".venv", "venv"
+        }
+        
+        md_files = []
+        for root, dirs, files in os.walk(directory):
+            # Modify dirs in-place to skip excluded directories
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            
+            for file in files:
+                if file.endswith(".md") or file.endswith(".mdx"):
+                    md_files.append(os.path.join(root, file))
+                    
+        return md_files
 
     async def ingest_directory(self, directory: str) -> Dict[str, Any]:
         """

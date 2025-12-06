@@ -8,10 +8,10 @@ const config: Config = {
   favicon: 'img/logo.png',
 
   url: 'https://mrowaisabdullah.github.io',
-  baseUrl: '/ai-humanoid-robotics/',
+  baseUrl: '/ai-book/',
 
   organizationName: 'mrowaisabdullah',
-  projectName: 'ai-humanoid-robotics',
+  projectName: 'ai-book',
 
   markdown: {
     hooks: {
@@ -74,7 +74,7 @@ const config: Config = {
           label: 'Read Book',
         },
         {
-          href: 'https://github.com/mrowaisabdullah/ai-humanoid-robotics',
+          href: 'https://github.com/mrowaisabdullah/ai-book',
           label: 'GitHub',
           position: 'right',
           className: 'header-github-link', // Class to control mobile visibility
@@ -121,11 +121,11 @@ const config: Config = {
           items: [
             {
               label: 'GitHub Repo',
-              href: 'https://github.com/mrowaisabdullah/ai-humanoid-robotics',
+              href: 'https://github.com/mrowaisabdullah/ai-book',
             },
             {
               label: 'Report Issue',
-              href: 'https://github.com/mrowaisabdullah/ai-humanoid-robotics/issues',
+              href: 'https://github.com/mrowaisabdullah/ai-book/issues',
             },
           ],
         },

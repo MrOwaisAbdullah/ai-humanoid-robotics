@@ -5,6 +5,8 @@
 [![OpenAI](https://img.shields.io/badge/OpenAI-Embeddings%20%26%20GPT--4o--mini-412991.svg)](https://openai.com/)
 [![Qdrant](https://img.shields.io/badge/Qdrant-Vector%20DB-DC244C.svg)](https://qdrant.tech/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Deploy to Hugging Face Spaces](https://img.shields.io/badge/Deploy-HF%20Spaces-blue)](https://huggingface.co/spaces/mrowaisabdullah-ai-humanoid-robotics)
+[![GitHub Pages](https://img.shields.io/badge/Deploy-GitHub%20Pages-blue)](https://mrowaisabdullah.github.io/ai-humanoid-robotics/)
 
 > **GIAIC Saturday Afternoon Students - AI/Spec-Driven Hackathon 1**  
 > Submission Deadline: Sunday, Dec 7th @ 11:59 PM
@@ -46,7 +48,7 @@ A comprehensive, production-ready educational book built using **Spec-Driven Dev
                      │ HTTPS
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Render/Vercel (Backend - FastAPI)              │
+│            Hugging Face Spaces (Backend - FastAPI)         │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │                  RAG Pipeline                        │   │
 │  │  ┌────────────┐  ┌──────────┐  ┌───────────────┐  │   │
@@ -57,6 +59,12 @@ A comprehensive, production-ready educational book built using **Spec-Driven Dev
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## 🌐 **Live Demo**
+
+- **📖 Book**: https://mrowaisabdullah.github.io/ai-humanoid-robotics/
+- **💬 Chat API**: https://mrowaisabdullah-ai-humanoid-robotics.hf.space
+- **🚀 Health Check**: https://mrowaisabdullah-ai-humanoid-robotics.hf.space/health
 
 ---
 
@@ -178,6 +186,54 @@ TOP_K_RETRIEVAL=5
 
 1. **OpenAI API Key**: https://platform.openai.com/api-keys
 2. **Qdrant Cloud**: https://cloud.qdrant.io/ (Free tier available)
+
+---
+
+## 🚀 **Deployment**
+
+### **Production URLs**
+- 📖 **Frontend**: https://mrowaisabdullah.github.io/ai-humanoid-robotics/
+- 💬 **Backend API**: https://mrowaisabdullah-ai-humanoid-robotics.hf.space
+
+### **Automated Deployment**
+
+The application is configured for automatic deployment:
+
+1. **Backend to Hugging Face Spaces**
+   - Push changes to `backend/` directory
+   - GitHub Actions deploys to HF Spaces
+   - Requires `HF_TOKEN` secret in GitHub repo
+
+2. **Frontend to GitHub Pages**
+   - Push changes to `src/` or `docs/`
+   - GitHub Actions builds and deploys
+   - No additional configuration needed
+
+### **Manual Deployment**
+
+For manual deployment or local testing:
+
+1. **Backend**:
+   ```bash
+   cd backend
+   chmod +x scripts/deploy_hf.sh
+   ./scripts/deploy_hf.sh mrowaisabdullah-ai-humanoid-robotics
+   ```
+
+2. **Frontend**:
+   ```bash
+   npm run build
+   npm run deploy:gh
+   ```
+
+### **Environment Setup**
+Copy `.env.example` to `.env` and configure:
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `QDRANT_URL`: Your Qdrant instance URL
+- `REACT_APP_CHAT_API_URL`: Production backend URL
+
+### **Detailed Guide**
+See [Deployment Guide](docs/deployment.md) for complete instructions.
 
 ---
 
