@@ -2,7 +2,7 @@ name: Deploy Frontend to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'src/**'
       - 'docs/**'
@@ -64,7 +64,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     name: Deploy to GitHub Pages
 
     steps:
@@ -75,7 +75,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     needs: deploy
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     name: Verify Deployment
 
     steps:
