@@ -6,7 +6,7 @@
 set -e
 
 # Default space name
-SPACE_NAME=${1:-"mrowaisabdullah-ai-humanoid-robotics"}
+SPACE_NAME=${1:-"mrowaisabdullah/ai-humanoid-robotics"}
 
 # Colors for output
 RED='\033[0;31m'
