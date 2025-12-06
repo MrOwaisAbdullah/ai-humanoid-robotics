@@ -32,7 +32,7 @@ jobs:
             echo "Please add HF_TOKEN to repository secrets"
             exit 1
           fi
-          echo "HF_TOKEN is set (length: ${{ secrets.HF_TOKEN }})"
+          echo "HF_TOKEN is set"
 
       - name: Setup Git
         run: |
@@ -75,17 +75,18 @@ jobs:
           echo "Checking HF_TOKEN in deployment step..."
           if [ -z "$HF_TOKEN" ]; then
             echo "ERROR: HF_TOKEN not available in deployment step!"
-            echo "Secret value: $HF_TOKEN"
             exit 1
           fi
-          echo "HF_TOKEN is available (first 10 chars): ${HF_TOKEN:0:10}..."
+          echo "HF_TOKEN is available"
 
-          # Add the space as remote
-          git remote add space https://huggingface.co/spaces/${{ env.HF_SPACE_NAME }}
+          # Configure git credential helper for Hugging Face
+          git config credential.helper store
 
-          # Configure Git credentials for Hugging Face
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
+          # Create credential for huggingface.co
+          echo "https://hf:$HF_TOKEN@huggingface.co" > ~/.git-credentials
+
+          # Set the remote URL with embedded token
+          git remote set-url origin https://hf:$HF_TOKEN@huggingface.co/spaces/${{ env.HF_SPACE_NAME }}
 
           # Add all files
           git add .
@@ -103,8 +104,7 @@ jobs:
 
             # Push to Hugging Face Spaces
             echo "Pushing to Hugging Face Spaces..."
-            # Use the token for authentication
-            git push https://$HF_TOKEN@huggingface.co/spaces/${{ env.HF_SPACE_NAME }} main --force
+            git push origin main --force
 
             echo "Deployment completed successfully!"
           fi
