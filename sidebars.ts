@@ -7,13 +7,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Lab Infrastructure',
       items: [
-        {
-          type: 'category',
-          label: 'Budget Planning',
-          items: [
-            'lab-infrastructure/budget-calculator',
-          ],
-        },
+        'lab-infrastructure/budget-calculator',
         {
           type: 'category',
           label: 'Workstation Setup',
@@ -22,13 +16,7 @@ const sidebars: SidebarsConfig = {
             'lab-infrastructure/workstation-setup/gpu-optimization',
           ],
         },
-        {
-          type: 'category',
-          label: 'Cloud Alternatives',
-          items: [
-            'lab-infrastructure/cloud-alternatives/index',
-          ],
-        },
+        'lab-infrastructure/cloud-alternatives/index',
         {
           type: 'category',
           label: 'Edge AI Hardware',
