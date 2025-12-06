@@ -16,17 +16,16 @@ COPY pyproject.toml requirements.txt README.md ./
 # Install uv for faster dependency installation
 RUN pip install uv
 
-# Install Python dependencies as root (with --system)
-# We'll change user after installation
+# Install Python dependencies using uv
 RUN uv pip install --system -e .
 
 # Copy the rest of the application code
 COPY . .
 
-# Create a non-root user for security (after dependencies are installed)
+# Create a non-root user for security
 RUN useradd -m -u 1000 user && chown -R user:user /app
 
-# Switch to non-root user for running the application
+# Switch to non-root user
 USER user
 
 # Expose the port (HF Spaces default)
@@ -36,5 +35,5 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:7860/health || exit 1
 
-# Run the application with production settings
+# Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "1"]

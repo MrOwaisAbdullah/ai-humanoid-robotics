@@ -194,11 +194,15 @@ CONTEXT_WINDOW_SIZE=4000
 ### Hugging Face Spaces
 
 1. Create a new Space with Docker template
-2. Add secrets:
-   - `OPENAI_API_KEY`
-   - `QDRANT_URL`
-   - `QDRANT_API_KEY` (if using cloud)
+2. Add secrets in Space Settings > Variables and secrets:
+   ```env
+   OPENAI_API_KEY=your_openai_api_key
+   QDRANT_URL=https://your-cluster.qdrant.io
+   QDRANT_API_KEY=your_qdrant_api_key  # If using Qdrant Cloud
+   ```
 3. Push code to Space
+
+**Required for Qdrant Cloud**: You must have the `QDRANT_URL` pointing to your Qdrant Cloud cluster URL. The API key is optional for public clusters but recommended for production.
 
 ### Docker
 
