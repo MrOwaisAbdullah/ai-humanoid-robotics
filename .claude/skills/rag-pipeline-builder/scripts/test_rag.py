@@ -33,7 +33,7 @@ class RAGTestConfig:
     qdrant_api_key: Optional[str] = None
     collection_name: str = "document_chunks"
     embedding_model: str = "text-embedding-3-small"
-    generation_model: str = "gpt-4o-mini"
+    generation_model: str = "gpt-4.1-nano"
 
 
 @dataclass

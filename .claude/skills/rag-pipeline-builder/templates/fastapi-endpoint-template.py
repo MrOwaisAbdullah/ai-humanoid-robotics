@@ -222,7 +222,7 @@ Question: {query}
 Answer:"""
 
         response = await rag_components.generator.chat.completions.create(
-            model=os.getenv("OPENAI_GENERATION_MODEL", "gpt-4o-mini"),
+            model=os.getenv("OPENAI_GENERATION_MODEL", "gpt-4.1-nano"),
             messages=[
                 {
                     "role": "system",

@@ -54,7 +54,7 @@ A comprehensive, production-ready educational book built using **Spec-Driven Dev
 │  │  ┌────────────┐  ┌──────────┐  ┌───────────────┐  │   │
 │  │  │  Embedder  │→ │ Qdrant   │→ │   Generator   │  │   │
 │  │  │  (OpenAI)  │  │ (Vector  │  │   (OpenAI     │  │   │
-│  │  │            │  │  Search) │  │   GPT-4o-mini)│  │   │
+│  │  │            │  │  Search) │  │   gpt-4.1-nano)│  │   │
 │  │  └────────────┘  └──────────┘  └───────────────┘  │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
@@ -171,7 +171,7 @@ REACT_APP_CHATBOT_API_URL=https://your-backend.vercel.app
 # OpenAI Configuration
 OPENAI_API_KEY=sk-your-openai-api-key-here
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-OPENAI_COMPLETION_MODEL=gpt-4o-mini
+OPENAI_COMPLETION_MODEL=gpt-4.1-nano
 
 # Qdrant Configuration
 QDRANT_URL=https://your-cluster.qdrant.io
@@ -318,7 +318,7 @@ Tech Stack:
 - Backend: FastAPI + Python 3.11
 - Vector DB: Qdrant Cloud (free tier)
 - Embeddings: OpenAI text-embedding-3-small
-- LLM: OpenAI GPT-4o-mini
+- LLM: OpenAI gpt-4.1-nano
 - Deployment: GitHub Pages (frontend) + Render/Vercel (backend)
 ```
 
