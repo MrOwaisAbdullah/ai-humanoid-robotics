@@ -10,21 +10,23 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the pyproject.toml and requirements.txt
-COPY pyproject.toml requirements.txt ./
+# Copy the pyproject.toml, requirements.txt, and README.md
+COPY pyproject.toml requirements.txt README.md ./
 
 # Install uv for faster dependency installation
 RUN pip install uv
 
+# Create a non-root user for security
+RUN useradd -m -u 1000 user && chown -R user:user /app
+
+# Switch to non-root user
+USER user
+
 # Install Python dependencies using uv for better caching
 RUN uv pip install --system -e .
 
-# Copy the application code
-COPY . .
-
-# Create a non-root user for security
-RUN useradd -m -u 1000 user && chown -R user:user /app
-USER user
+# Copy the rest of the application code
+COPY --chown=user:user . .
 
 # Expose the port (HF Spaces default)
 EXPOSE 7860
