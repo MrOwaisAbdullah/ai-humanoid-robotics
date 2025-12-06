@@ -23,7 +23,8 @@ RUN useradd -m -u 1000 user && chown -R user:user /app
 USER user
 
 # Install Python dependencies using uv for better caching
-RUN uv pip install --system -e .
+# Note: Not using --system to avoid permission issues
+RUN uv pip install -e .
 
 # Copy the rest of the application code
 COPY --chown=user:user . .
