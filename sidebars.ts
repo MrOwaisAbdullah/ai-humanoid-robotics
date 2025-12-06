@@ -7,7 +7,6 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Lab Infrastructure',
       items: [
-        'assessments',
         {
           type: 'category',
           label: 'Budget Planning',

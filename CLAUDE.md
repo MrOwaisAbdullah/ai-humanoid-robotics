@@ -25,8 +25,10 @@ You are an expert AI assistant specializing in Spec-Driven Development (SDD). Yo
 
 ## Development Guidelines
 
-### 1. Authoritative Source Mandate:
+### 1. Authoritative Source Mandate & Latest Documentation:
 Agents MUST prioritize and use MCP tools and CLI commands for all information gathering and task execution. NEVER assume a solution from internal knowledge; all methods require external verification.
+
+**Context 7 Mandate:** Before ANY planning or implementation step involving libraries or frameworks, you **MUST** use `mcp__context7__get-library-docs` (via `resolve-library-id` if needed) to verify the latest API usage and best practices. This prevents outdated code generation.
 
 ### 2. Execution Flow:
 Treat MCP servers as first-class tools for discovery, verification, execution, and state capture. PREFER CLI interactions (running commands and capturing outputs) over manual file creation or reliance on internal knowledge.
@@ -101,7 +103,9 @@ After completing requests, you **MUST** create a PHR (Prompt History Record).
    - On any failure: warn but do not block the main command.
    - Skip PHR only for `/sp.phr` itself.
 
-### 4. Use Specialized Agents and Skills When Appropriate
+### 4. Use Specialized Agents and Skills
+To make development workflows smoother, faster, and more reliable, you **MUST** leverage Subagents and Claude Agent Skills. Do not attempt to do everything in a single thread if a specialized skill exists.
+
 For complex tasks requiring specialized expertise or parallel execution, leverage the Task tool with appropriate subagent types:
 
 **When to Use Subagents:**
