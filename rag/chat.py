@@ -113,6 +113,48 @@ class ChatHandler:
             if not session_id:
                 session_id = str(uuid.uuid4())
 
+            # Handle greetings and very short queries
+            query_lower = query.strip().lower()
+            greetings = ['hi', 'hello', 'hey', 'yo', 'sup', 'greetings', 'good morning', 'good afternoon', 'good evening', 'assalamualikum', 'salam', 'assalam o alaikum']
+
+            if query_lower in greetings or len(query.strip()) <= 2:
+                # For greetings, provide a friendly response without searching
+                greeting_responses = [
+                    "Hello! I'm here to help you learn about Physical AI and Humanoid Robotics. What would you like to know?",
+                    "Hi there! I can help you with questions about humanoid robots and physical AI. What topic interests you?",
+                    "Hey! I'm your AI assistant for the Physical AI & Humanoid Robotics book. How can I assist you today?",
+                    "Greetings! Feel free to ask me anything about humanoid robotics, AI, or the content of this book.",
+                    "Wa Alaikum Assalam! I'm happy to help you with Physical AI and Humanoid Robotics topics. What would you like to explore?"
+                ]
+
+                import random
+                response_text = random.choice(greeting_responses)
+
+                # Send the greeting response
+                yield self._format_sse_message({
+                    "type": "start",
+                    "session_id": session_id,
+                    "sources": [],
+                    "retrieved_docs": 0
+                })
+
+                # Stream the response word by word for consistency
+                words = response_text.split()
+                for word in words:
+                    yield self._format_sse_message({
+                        "type": "chunk",
+                        "content": word + " "
+                    })
+                    await asyncio.sleep(0.05)  # Small delay for natural effect
+
+                yield self._format_sse_message({
+                    "type": "done",
+                    "session_id": session_id,
+                    "response_time": 0.1,
+                    "tokens_used": self.count_tokens(response_text)
+                })
+                return
+
             # Get or create conversation context
             context = self._get_or_create_context(session_id)
 
@@ -289,6 +331,35 @@ class ChatHandler:
             # Generate or retrieve session ID
             if not session_id:
                 session_id = str(uuid.uuid4())
+
+            # Handle greetings and very short queries
+            query_lower = query.strip().lower()
+            greetings = ['hi', 'hello', 'hey', 'yo', 'sup', 'greetings', 'good morning', 'good afternoon', 'good evening', 'assalamualikum', 'salam', 'assalam o alaikum']
+
+            if query_lower in greetings or len(query.strip()) <= 2:
+                # For greetings, provide a friendly response without searching
+                greeting_responses = [
+                    "Hello! I'm here to help you learn about Physical AI and Humanoid Robotics. What would you like to know?",
+                    "Hi there! I can help you with questions about humanoid robots and physical AI. What topic interests you?",
+                    "Hey! I'm your AI assistant for the Physical AI & Humanoid Robotics book. How can I assist you today?",
+                    "Greetings! Feel free to ask me anything about humanoid robotics, AI, or the content of this book.",
+                    "Wa Alaikum Assalam! I'm happy to help you with Physical AI and Humanoid Robotics topics. What would you like to explore?"
+                ]
+
+                import random
+                answer = random.choice(greeting_responses)
+
+                response_time = (datetime.utcnow() - start_time).total_seconds()
+
+                return ChatResponse(
+                    answer=answer,
+                    sources=[],
+                    session_id=session_id,
+                    query=query,
+                    response_time=response_time,
+                    tokens_used=self.count_tokens(answer),
+                    model=self.model
+                )
 
             # Get or create conversation context
             context = self._get_or_create_context(session_id)
