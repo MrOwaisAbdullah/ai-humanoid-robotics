@@ -16,18 +16,18 @@ COPY pyproject.toml requirements.txt README.md ./
 # Install uv for faster dependency installation
 RUN pip install uv
 
-# Create a non-root user for security
-RUN useradd -m -u 1000 user && chown -R user:user /app
-
-# Switch to non-root user
-USER user
-
-# Install Python dependencies using uv for better caching
-# Note: Not using --system to avoid permission issues
-RUN uv pip install -e .
+# Install Python dependencies as root (with --system)
+# We'll change user after installation
+RUN uv pip install --system -e .
 
 # Copy the rest of the application code
-COPY --chown=user:user . .
+COPY . .
+
+# Create a non-root user for security (after dependencies are installed)
+RUN useradd -m -u 1000 user && chown -R user:user /app
+
+# Switch to non-root user for running the application
+USER user
 
 # Expose the port (HF Spaces default)
 EXPOSE 7860
