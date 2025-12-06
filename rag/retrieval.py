@@ -80,8 +80,8 @@ class RetrievalEngine:
         lambda_param = mmr_lambda if mmr_lambda is not None else self.mmr_lambda
 
         # Validate query
-        if not query or len(query.strip()) < 3:
-            raise ValueError("Query must be at least 3 characters long")
+        if not query or len(query.strip()) < 1:
+            raise ValueError("Query must be at least 1 character long")
 
         # Adaptive threshold for very generic queries
         query_words = query.strip().lower().split()
