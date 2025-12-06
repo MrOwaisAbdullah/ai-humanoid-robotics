@@ -46,7 +46,7 @@ async def test_chat():
         chat_handler = ChatHandler(
             qdrant_manager=qdrant_manager,
             openai_api_key=os.getenv("OPENAI_API_KEY"),
-            model=os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview"),
+            model=os.getenv("OPENAI_MODEL", "gpt-5-nano"),
             embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
         )
 

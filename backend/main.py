@@ -58,7 +58,7 @@ class Settings(BaseSettings):
 
     # OpenAI Configuration
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-5-nano")
     openai_embedding_model: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
     # Qdrant Configuration
