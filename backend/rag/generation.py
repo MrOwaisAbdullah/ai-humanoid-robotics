@@ -23,7 +23,7 @@ class ResponseGenerator:
     def __init__(
         self,
         openai_api_key: str,
-        model: str = "gpt-5-nano",
+        model: str = "gpt-4.1-nano",
         max_tokens: int = 1000,
         temperature: float = 0.7
     ):

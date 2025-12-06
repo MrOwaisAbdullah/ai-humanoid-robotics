@@ -33,7 +33,7 @@ class ChatHandler:
         self,
         qdrant_manager: QdrantManager,
         openai_api_key: str,
-        model: str = "gpt-5-nano",
+        model: str = "gpt-4.1-nano",
         embedding_model: str = "text-embedding-3-small",
         max_context_messages: int = 3,
         context_window_size: int = 4000,

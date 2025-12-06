@@ -137,7 +137,7 @@ Environment variables:
 ```env
 # OpenAI
 OPENAI_API_KEY=your_api_key_here
-OPENAI_MODEL=gpt-5-nano
+OPENAI_MODEL=gpt-4.1-nano
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 
 # Qdrant
