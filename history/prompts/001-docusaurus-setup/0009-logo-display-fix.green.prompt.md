@@ -34,7 +34,7 @@ Fixed logo display issue by updating all static asset paths to include the new b
 
 ## Outcome
 
-- ✅ Impact: Successfully resolved logo display issue caused by baseUrl change from '/ai-book/' to '/ai-humanoid-robotics/'
+- ✅ Impact: Successfully resolved logo display issue caused by baseUrl change from '/ai-humanoid-robotics/' to '/ai-humanoid-robotics/'
 - 🧪 Tests: Build process completed successfully, confirming all asset paths are correctly configured
 - 📁 Files: Updated docusaurus.config.ts with corrected asset paths, temporarily disabled problematic module file for build success
 - 🔁 Next prompts: Fix remaining broken links in site configuration and restore temporarily disabled modules

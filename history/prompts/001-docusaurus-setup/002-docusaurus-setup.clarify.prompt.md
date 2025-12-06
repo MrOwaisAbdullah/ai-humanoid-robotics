@@ -9,7 +9,7 @@ feature: 001-docusaurus-setup
 branch: 001-docusaurus-setup
 user: user
 command: /sp.clarify
-labels: ["docusaurus","clarification","requirements"]
+labels: ["docusaurus", "clarification", "requirements"]
 links:
   spec: ../../specs/001-docusaurus-setup/spec.md
   ticket: null
@@ -28,8 +28,9 @@ $ARGUMENTS
 ## Response snapshot
 
 Successfully completed clarification phase with 4 questions answered:
+
 - Module structure clarified: 4 modules are book development phases, not course content
-- GitHub Pages deployment: username.github.io/ai-book (repository-based)
+- GitHub Pages deployment: username.github.io/ai-humanoid-robotics (repository-based)
 - Default theme: Dark mode as default (fits AI-native aesthetic)
 - Content authoring: Markdown files in Git repository workflow
 

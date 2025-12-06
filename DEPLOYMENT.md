@@ -12,20 +12,21 @@
 
 ```typescript
 const config: Config = {
-  title: 'Physical AI & Humanoid Robotics',
-  tagline: 'A Comprehensive Guide to Embodied Intelligence',
+  title: "Physical AI & Humanoid Robotics",
+  tagline: "A Comprehensive Guide to Embodied Intelligence",
 
   // URL Configuration
-  url: 'https://mrowaisabdullah.github.io',
-  baseUrl: '/ai-humanoid-robotics/',
+  url: "https://mrowaisabdullah.github.io",
+  baseUrl: "/ai-humanoid-robotics/",
 
   // Repository Information
-  organizationName: 'mrowaisabdullah',
-  projectName: 'ai-humanoid-robotics',
+  organizationName: "mrowaisabdullah",
+  projectName: "ai-humanoid-robotics",
 
   // Edit URL for documentation
   docs: {
-    editUrl: 'https://github.com/mrowaisabdullah/ai-humanoid-robotics/tree/main/',
+    editUrl:
+      "https://github.com/mrowaisabdullah/ai-humanoid-robotics/tree/main/",
   },
 
   // GitHub Links
@@ -33,23 +34,23 @@ const config: Config = {
     navbar: {
       items: [
         {
-          href: 'https://github.com/mrowaisabdullah/ai-humanoid-robotics',
-          label: 'GitHub',
+          href: "https://github.com/mrowaisabdullah/ai-humanoid-robotics",
+          label: "GitHub",
         },
       ],
     },
     footer: {
       links: [
         {
-          title: 'More',
+          title: "More",
           items: [
             {
-              label: 'GitHub Repo',
-              href: 'https://github.com/mrowaisabdullah/ai-humanoid-robotics',
+              label: "GitHub Repo",
+              href: "https://github.com/mrowaisabdullah/ai-humanoid-robotics",
             },
             {
-              label: 'Report Issue',
-              href: 'https://github.com/mrowaisabdullah/ai-humanoid-robotics/issues',
+              label: "Report Issue",
+              href: "https://github.com/mrowaisabdullah/ai-humanoid-robotics/issues",
             },
           ],
         },
@@ -101,7 +102,7 @@ npm start
 ## Important Notes
 
 1. **Repository Name Change**: All references to `ai-book` have been updated to `ai-humanoid-robotics`
-2. **Base URL**: The site now serves from `/ai-humanoid-robotics/` instead of `/ai-book/`
+2. **Base URL**: The site now serves from `/ai-humanoid-robotics/` instead of `/ai-humanoid-robotics/`
 3. **GitHub Integration**: All GitHub links point to the new repository name
 4. **Search Index**: Search functionality will work correctly with the new URL structure
 5. **Asset Paths**: All static assets are properly configured for the new base URL

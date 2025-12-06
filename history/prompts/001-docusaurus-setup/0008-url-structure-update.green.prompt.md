@@ -36,7 +36,7 @@ Updated all configuration files to use the new repository name 'ai-humanoid-robo
 
 ## Outcome
 
-- ✅ Impact: Successfully updated URL structure from /ai-book/ to /ai-humanoid-robotics/ for better descriptiveness and branding
+- ✅ Impact: Successfully updated URL structure from /ai-humanoid-robotics/ to /ai-humanoid-robotics/ for better descriptiveness and branding
 - 🧪 Tests: Configuration updated to ensure proper deployment and local development with new URL structure
 - 📁 Files: Updated docusaurus.config.ts with new baseUrl and repository links, modified specifications, and created DEPLOYMENT.md documentation
 - 🔁 Next prompts: Verify deployment works correctly with new repository name and URL structure

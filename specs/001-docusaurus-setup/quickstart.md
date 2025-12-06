@@ -7,12 +7,14 @@
 ## Prerequisites
 
 ### System Requirements
+
 - Node.js 18+ (for Docusaurus 3.9)
 - npm or yarn package manager
 - Git for version control
 - GitHub account (for Pages deployment)
 
 ### Required Knowledge
+
 - Basic command line familiarity
 - Understanding of Markdown for content authoring
 - Basic knowledge of CSS (for customizations)
@@ -41,20 +43,20 @@ Edit `docusaurus.config.ts`:
 
 ```typescript
 export default {
-  title: 'Physical AI & Humanoid Robotics - Comprehensive Guide',
-  tagline: 'Production-ready educational content',
-  url: 'https://[username].github.io',
-  baseUrl: '/ai-book/',
+  title: "Physical AI & Humanoid Robotics - Comprehensive Guide",
+  tagline: "Production-ready educational content",
+  url: "https://[username].github.io",
+  baseUrl: "/ai-humanoid-robotics/",
 
   // GitHub Pages configuration
-  organizationName: '[username]',
-  projectName: 'ai-book',
-  deploymentBranch: 'gh-pages',
+  organizationName: "[username]",
+  projectName: "ai-book",
+  deploymentBranch: "gh-pages",
 
   // Default theme configuration
   themeConfig: {
     colorMode: {
-      defaultMode: 'dark', // As per specification
+      defaultMode: "dark", // As per specification
       disableSwitch: false,
       respectPrefersColorScheme: true,
     },
@@ -70,7 +72,7 @@ Create `postcss.config.js`:
 ```javascript
 module.exports = {
   plugins: {
-    '@tailwindcss/postcss': {},
+    "@tailwindcss/postcss": {},
   },
 };
 ```
@@ -79,25 +81,22 @@ Create `tailwind.config.js`:
 
 ```javascript
 module.exports = {
-  content: [
-    './src/**/*.{js,jsx,ts,tsx}',
-    './docs/**/*.{md,mdx}',
-  ],
+  content: ["./src/**/*.{js,jsx,ts,tsx}", "./docs/**/*.{md,mdx}"],
   theme: {
     extend: {
       colors: {
         primary: {
-          light: '#7033ff',
-          dark: '#8c5cff',
+          light: "#7033ff",
+          dark: "#8c5cff",
         },
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'sans-serif'],
-        serif: ['Lora', 'serif'],
-        mono: ['IBM Plex Mono', 'monospace'],
+        sans: ["Plus Jakarta Sans", "sans-serif"],
+        serif: ["Lora", "serif"],
+        mono: ["IBM Plex Mono", "monospace"],
       },
       borderRadius: {
-        'DEFAULT': '1.4rem',
+        DEFAULT: "1.4rem",
       },
     },
   },
@@ -129,33 +128,33 @@ Create `docs/sidebar.js`:
 module.exports = {
   tutorialSidebar: [
     {
-      type: 'category',
-      label: 'Getting Started',
-      items: ['intro'],
+      type: "category",
+      label: "Getting Started",
+      items: ["intro"],
     },
     {
-      type: 'category',
-      label: 'Book Development Modules',
+      type: "category",
+      label: "Book Development Modules",
       items: [
         {
-          type: 'category',
-          label: 'Module 1: Docusaurus Setup',
-          items: ['modules/module-1-overview'],
+          type: "category",
+          label: "Module 1: Docusaurus Setup",
+          items: ["modules/module-1-overview"],
         },
         {
-          type: 'category',
-          label: 'Module 2: Content Planning',
-          items: ['modules/module-2-planning'],
+          type: "category",
+          label: "Module 2: Content Planning",
+          items: ["modules/module-2-planning"],
         },
         {
-          type: 'category',
-          label: 'Module 3: Content Creation',
-          items: ['modules/module-3-content'],
+          type: "category",
+          label: "Module 3: Content Creation",
+          items: ["modules/module-3-content"],
         },
         {
-          type: 'category',
-          label: 'Module 4: Publishing',
-          items: ['modules/module-4-publish'],
+          type: "category",
+          label: "Module 4: Publishing",
+          items: ["modules/module-4-publish"],
         },
       ],
     },
@@ -200,7 +199,7 @@ body {
 }
 
 /* Custom theme styling */
-[data-theme='dark'] {
+[data-theme="dark"] {
   /* Dark mode specific styles */
 }
 ```
@@ -210,9 +209,9 @@ body {
 Replace `src/pages/index.tsx`:
 
 ```tsx
-import React from 'react';
-import Layout from '@theme/Layout';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import React from "react";
+import Layout from "@theme/Layout";
+import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 
 export default function Home() {
   const { siteConfig } = useDocusaurusContext();
@@ -224,10 +223,7 @@ export default function Home() {
           <h1 className="hero__title">{siteConfig.title}</h1>
           <p className="hero__subtitle">{siteConfig.tagline}</p>
           <div className="hero__buttons">
-            <a
-              className="button button--primary button--lg"
-              href="/docs/intro"
-            >
+            <a className="button button--primary button--lg" href="/docs/intro">
               Start Reading
             </a>
           </div>
@@ -235,7 +231,10 @@ export default function Home() {
 
         <div className="margin-vert--lg">
           <h2>Course Overview</h2>
-          <p>Learn Physical AI & Humanoid Robotics through our comprehensive guide...</p>
+          <p>
+            Learn Physical AI & Humanoid Robotics through our comprehensive
+            guide...
+          </p>
         </div>
       </main>
     </Layout>
@@ -265,8 +264,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: "18"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -347,10 +346,12 @@ git push origin main
 ### Common Issues
 
 1. **Build fails with baseUrl errors**
+
    - Verify baseUrl in config matches repository name
    - Ensure baseUrl starts and ends with "/"
 
 2. **Styles not loading**
+
    - Check Tailwind configuration
    - Verify PostCSS setup
    - Clear browser cache

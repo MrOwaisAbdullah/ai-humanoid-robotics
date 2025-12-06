@@ -81,12 +81,14 @@ A comprehensive, production-ready educational book built using **Spec-Driven Dev
 ### **Installation**
 
 1. **Clone the repository**
+
    ```bash
-   git clone https://github.com/mrowaisabdullah/ai-book.git
+   git clone https://github.com/mrowaisabdullah/ai-humanoid-robotics.git
    cd ai-book
    ```
 
 2. **Install Spec-Kit Plus**
+
    ```bash
    pip install specifyplus
    # or
@@ -94,25 +96,28 @@ A comprehensive, production-ready educational book built using **Spec-Driven Dev
    ```
 
 3. **Initialize Project**
+
    ```bash
    # Verify installation
    specifyplus check
-   
+
    # Initialize (if starting fresh)
    specifyplus init . --ai claude --force
    ```
 
 4. **Install Frontend Dependencies**
+
    ```bash
    npm install
-   
+
    # Install Tailwind CSS v4
    npm install --save-dev tailwindcss @tailwindcss/postcss postcss
    ```
 
 5. **Configure Tailwind v4**
-   
-   *Create `src/plugins/tailwind-config.js`:*
+
+   _Create `src/plugins/tailwind-config.js`:_
+
    ```javascript
    module.exports = function tailwindPlugin(context, options) {
      return {
@@ -125,18 +130,18 @@ A comprehensive, production-ready educational book built using **Spec-Driven Dev
    };
    ```
 
-   *Update `docusaurus.config.js` to register the plugin:*
+   _Update `docusaurus.config.js` to register the plugin:_
+
    ```javascript
    export default {
      // ...
-     plugins: [
-       './src/plugins/tailwind-config.js',
-     ],
+     plugins: ["./src/plugins/tailwind-config.js"],
      // ...
    };
    ```
 
-   *Update `src/css/custom.css`:*
+   _Update `src/css/custom.css`:_
+
    ```css
    @import "tailwindcss";
    ```
@@ -192,6 +197,7 @@ TOP_K_RETRIEVAL=5
 ## 🚀 **Deployment**
 
 ### **Production URLs**
+
 - 📖 **Frontend**: https://mrowaisabdullah.github.io/ai-humanoid-robotics/
 - 💬 **Backend API**: https://mrowaisabdullah-ai-humanoid-robotics.hf.space
 
@@ -200,6 +206,7 @@ TOP_K_RETRIEVAL=5
 The application is configured for automatic deployment:
 
 1. **Backend to Hugging Face Spaces**
+
    - Push changes to `backend/` directory
    - GitHub Actions deploys to HF Spaces
    - Requires `HF_TOKEN` secret in GitHub repo
@@ -214,6 +221,7 @@ The application is configured for automatic deployment:
 For manual deployment or local testing:
 
 1. **Backend**:
+
    ```bash
    cd backend
    chmod +x scripts/deploy_hf.sh
@@ -227,12 +235,15 @@ For manual deployment or local testing:
    ```
 
 ### **Environment Setup**
+
 Copy `.env.example` to `.env` and configure:
+
 - `OPENAI_API_KEY`: Your OpenAI API key
 - `QDRANT_URL`: Your Qdrant instance URL
 - `REACT_APP_CHAT_API_URL`: Production backend URL
 
 ### **Detailed Guide**
+
 See [Deployment Guide](docs/deployment.md) for complete instructions.
 
 ---
@@ -461,6 +472,7 @@ python scripts/ingest_documents.py
 ```
 
 This will:
+
 1. Read all `.md` files from `docs/`
 2. Chunk documents intelligently
 3. Generate embeddings via OpenAI
@@ -481,11 +493,13 @@ git push origin main
 ```
 
 GitHub Actions will:
+
 1. Build Docusaurus site
 2. Deploy to `gh-pages` branch
-3. Available at: `https://mrowaisabdullah.github.io/ai-book`
+3. Available at: `https://mrowaisabdullah.github.io/ai-humanoid-robotics`
 
 **Manual deployment:**
+
 ```bash
 npm run deploy
 ```
@@ -493,11 +507,13 @@ npm run deploy
 ### **Backend (Render)**
 
 1. **Connect Repository**
+
    - Go to https://render.com
    - Create new Web Service
    - Connect GitHub repo
 
 2. **Configure Service**
+
    - Build Command: `pip install -r chatbot/requirements.txt`
    - Start Command: `cd chatbot && uvicorn api.main:app --host 0.0.0.0 --port $PORT`
    - Add environment variables (see Configuration)
@@ -506,6 +522,7 @@ npm run deploy
    - Render auto-deploys on push to `main`
 
 **Alternative: Vercel**
+
 ```bash
 cd chatbot
 vercel --prod
@@ -536,6 +553,7 @@ python scripts/test_rag.py
 ```
 
 Expected output:
+
 ```
 ✓ Document ingestion: 150 chunks created
 ✓ Query retrieval: Top 5 relevant chunks retrieved
@@ -549,24 +567,24 @@ Expected output:
 
 ### **Target Metrics**
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| Lighthouse Performance | 90+ | TBD |
-| Lighthouse Accessibility | 90+ | TBD |
-| First Contentful Paint | < 1.5s | TBD |
-| RAG Retrieval Latency | < 500ms | TBD |
-| First Token Latency | < 1s | TBD |
-| Streaming Token Latency | < 100ms | TBD |
+| Metric                   | Target  | Current |
+| ------------------------ | ------- | ------- |
+| Lighthouse Performance   | 90+     | TBD     |
+| Lighthouse Accessibility | 90+     | TBD     |
+| First Contentful Paint   | < 1.5s  | TBD     |
+| RAG Retrieval Latency    | < 500ms | TBD     |
+| First Token Latency      | < 1s    | TBD     |
+| Streaming Token Latency  | < 100ms | TBD     |
 
 ### **Cost Estimates**
 
-| Service | Usage | Cost (Monthly) |
-|---------|-------|----------------|
-| OpenAI Embeddings | ~30K words | ~$0.05 |
-| OpenAI Completions | ~1K queries | ~$0.50 |
-| Qdrant Cloud | Free tier | $0 |
-| Vercel/Render | Free tier | $0 |
-| **Total** | | **~$0.55/month** |
+| Service            | Usage       | Cost (Monthly)   |
+| ------------------ | ----------- | ---------------- |
+| OpenAI Embeddings  | ~30K words  | ~$0.05           |
+| OpenAI Completions | ~1K queries | ~$0.50           |
+| Qdrant Cloud       | Free tier   | $0               |
+| Vercel/Render      | Free tier   | $0               |
+| **Total**          |             | **~$0.55/month** |
 
 ---
 
@@ -606,7 +624,7 @@ python scripts/ingest_documents.py
 
 ```javascript
 // Check baseUrl in docusaurus.config.js
-baseUrl: '/ai-book/',  // Must match repository name
+baseUrl: '/ai-humanoid-robotics/',  // Must match repository name
 ```
 
 ---
@@ -649,14 +667,14 @@ baseUrl: '/ai-book/',  // Must match repository name
 
 ## 📈 **Project Timeline**
 
-| Day | Date | Tasks |
-|-----|------|-------|
-| **Day 0** | Dec 2 | Setup, subagents/skills creation, practice |
+| Day       | Date  | Tasks                                              |
+| --------- | ----- | -------------------------------------------------- |
+| **Day 0** | Dec 2 | Setup, subagents/skills creation, practice         |
 | **Day 1** | Dec 3 | Constitution, specification, planning (after 8 PM) |
-| **Day 2** | Dec 4 | Book content creation (10 chapters) |
-| **Day 3** | Dec 5 | RAG backend development |
-| **Day 4** | Dec 6 | Frontend integration, deployment |
-| **Day 5** | Dec 7 | Testing, polish, submission |
+| **Day 2** | Dec 4 | Book content creation (10 chapters)                |
+| **Day 3** | Dec 5 | RAG backend development                            |
+| **Day 4** | Dec 6 | Frontend integration, deployment                   |
+| **Day 5** | Dec 7 | Testing, polish, submission                        |
 
 ---
 
@@ -688,9 +706,9 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ## 🔗 **Links**
 
-- **Live Demo**: https://mrowaisabdullah.github.io/ai-book
+- **Live Demo**: https://mrowaisabdullah.github.io/ai-humanoid-robotics
 - **API Documentation**: https://[backend-url]/docs
-- **GitHub Repository**: https://github.com/mrowaisabdullah/ai-book
+- **GitHub Repository**: https://github.com/mrowaisabdullah/ai-humanoid-robotics
 - **Hackathon Submission**: [Form Link]
 
 ---

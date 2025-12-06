@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ai-book.com/schemas/chapter",
+  "$id": "https://ai-humanoid-robotics.com/schemas/chapter",
   "title": "Physical AI Chapter Schema",
   "description": "Schema for Physical AI & Humanoid Robotics textbook chapter metadata",
   "type": "object",
@@ -133,6 +133,21 @@
       "description": "Last modification timestamp"
     }
   },
-  "required": ["id", "title", "description", "slug", "module_id", "module_number", "chapter_number", "week_number", "difficulty", "hardware_tiers", "cloud_alternative", "tags", "authors", "hardware_requirements"],
+  "required": [
+    "id",
+    "title",
+    "description",
+    "slug",
+    "module_id",
+    "module_number",
+    "chapter_number",
+    "week_number",
+    "difficulty",
+    "hardware_tiers",
+    "cloud_alternative",
+    "tags",
+    "authors",
+    "hardware_requirements"
+  ],
   "additionalProperties": false
 }

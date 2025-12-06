@@ -21,7 +21,7 @@ This plan establishes a production-ready Docusaurus 3.9 website for the "Physica
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 ✅ **Specification-First Development**: Complete spec with clear acceptance criteria
 ✅ **Production-First Mindset**: GitHub Pages deployment, performance optimizations, error handling
@@ -130,7 +130,7 @@ GitHub Pages (Deployment)
         docs: {
           path: 'docs',
           sidebarPath: 'docs/sidebar.js',
-          editUrl: 'https://github.com/[username]/ai-book/edit/main/',
+          editUrl: 'https://github.com/[username]/ai-humanoid-robotics/edit/main/',
         },
         theme: {
           customCss: ['src/css/custom.css'],
@@ -169,31 +169,37 @@ GitHub Pages (Deployment)
 ### Phase 2: Task Breakdown (Next)
 
 1. **Project Setup**
+
    - Initialize Docusaurus with TypeScript
    - Configure Tailwind CSS v4 integration
    - Set up development environment
 
 2. **Configuration Implementation**
+
    - Configure `docusaurus.config.ts`
    - Set up GitHub Pages deployment
    - Implement performance optimizations
 
 3. **Design System Implementation**
+
    - Create custom CSS with design tokens
    - Implement dark/light theme support
    - Add AI-native aesthetic styling
 
 4. **Content Structure**
+
    - Create documentation structure
    - Configure sidebar navigation
    - Set up module-based organization
 
 5. **Custom Components**
+
    - Implement chapter layout with bonus buttons
    - Create theme toggle component
    - Add landing page hero section
 
 6. **Deployment Setup**
+
    - Configure GitHub Actions workflow
    - Set up GitHub Pages settings
    - Test deployment pipeline
@@ -242,18 +248,21 @@ GitHub Pages (Deployment)
 ## Monitoring & Observability
 
 ### Build Metrics
+
 - Build time tracking
 - Bundle size analysis
 - Error rate monitoring
 - Asset optimization verification
 
 ### Performance Metrics
+
 - Lighthouse scores (performance, accessibility, SEO)
 - Core Web Vitals (LCP, FID, CLS)
 - Page load times by geography
 - Mobile vs desktop performance
 
 ### User Experience Metrics
+
 - Search functionality success rate
 - Theme switching usage patterns
 - Content engagement analytics
@@ -262,18 +271,21 @@ GitHub Pages (Deployment)
 ## Dependencies & External Services
 
 ### Core Dependencies
+
 - Docusaurus 3.9.2 (static site generator)
 - React 18 (UI framework)
 - TypeScript 5.0+ (type safety)
 - Tailwind CSS v4 (styling)
 
 ### Development Dependencies
+
 - @docusaurus/faster (performance optimizations)
 - Jest (testing framework)
 - Playwright (E2E testing)
 - ESLint/Prettier (code quality)
 
 ### External Services
+
 - GitHub Pages (hosting)
 - GitHub Actions (CI/CD)
 - Google Fonts (font delivery)
