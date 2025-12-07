@@ -70,9 +70,15 @@ async def google_callback(
 
         # Get user info from Google
         user_info = token.get('userinfo')
+
+        # Debug: Print what we got from the token
+        print(f"Token keys: {list(token.keys()) if token else 'None'}")
+        print(f"Userinfo: {user_info}")
+
         if not user_info:
             # Fallback: fetch user info manually
             user_info = await oauth.google.parse_id_token(request, token)
+            print(f"ID token user_info: {user_info}")
 
         if not user_info.get('email'):
             raise HTTPException(
@@ -83,8 +89,8 @@ async def google_callback(
         # Get or create user
         user = get_or_create_user(db, user_info)
 
-        # Create or update OAuth account
-        create_or_update_account(db, user, 'google', token)
+        # Create or update OAuth account - pass user_info instead of token
+        create_or_update_account(db, user, 'google', user_info)
 
         # Create user session and JWT token
         session_token = create_user_session(db, user)
