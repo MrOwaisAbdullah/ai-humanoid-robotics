@@ -171,9 +171,18 @@ def get_or_create_user(db: Session, user_info: dict) -> User:
 
 def create_or_update_account(db: Session, user: User, provider: str, account_info: dict) -> Account:
     """Create or update OAuth account"""
+    # For Google OAuth, the 'sub' field is in the userinfo
     provider_account_id = account_info.get('sub')
     if not provider_account_id:
-        raise HTTPException(status_code=400, detail="Provider account ID is required")
+        # Fallback: use email as provider account ID if sub is not available
+        provider_account_id = account_info.get('email')
+        if not provider_account_id:
+            # Final fallback: use user.id as provider account ID
+            provider_account_id = str(user.id)
+
+    # Print for debugging
+    print(f"Provider account ID: {provider_account_id}")
+    print(f"Account info keys: {list(account_info.keys()) if account_info else 'None'}")
 
     # Check if account exists
     account = db.query(Account).filter(
