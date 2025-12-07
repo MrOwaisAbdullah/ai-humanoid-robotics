@@ -1,8 +1,19 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import axios from 'axios';
 
+// Determine API base URL
+export const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') return 'http://localhost:7860';
+  
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:7860';
+  }
+  return 'https://mrowaisabdullah-ai-humanoid-robotics.hf.space';
+};
+
 // Configure axios defaults
-axios.defaults.baseURL = 'http://localhost:7860';
+axios.defaults.baseURL = getApiBaseUrl();
 axios.defaults.withCredentials = true; // Important for cookies
 
 interface User {
@@ -57,8 +68,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const login = () => {
-    // Redirect to Google OAuth login
-    window.location.href = '/auth/login/google';
+    // Redirect to Google OAuth login on the backend
+    const baseUrl = getApiBaseUrl();
+    window.location.href = `${baseUrl}/auth/login/google`;
   };
 
   const logout = async () => {

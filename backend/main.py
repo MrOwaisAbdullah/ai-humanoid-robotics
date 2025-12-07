@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -91,6 +92,9 @@ class Settings(BaseSettings):
         "ALLOWED_ORIGINS",
         "http://localhost:3000,http://localhost:8080,https://mrowaisabdullah.github.io,https://huggingface.co"
     )
+
+    # JWT Configuration
+    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key")
 
     # Conversation Context
     max_context_messages: int = int(os.getenv("MAX_CONTEXT_MESSAGES", "3"))
@@ -200,6 +204,16 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Add session middleware for OAuth
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.jwt_secret_key,
+    session_cookie="session_id",
+    max_age=3600,  # 1 hour
+    same_site="lax",
+    https_only=False,  # Set to True in production with HTTPS
 )
 
 # Add security middleware (order matters: CSRF before Auth)

@@ -1,158 +1,60 @@
 ---
-title: Introduction
-description: Welcome to Physical AI & Humanoid Robotics - A comprehensive guide to building modern educational content with Docusaurus
-authors:
-  - name: AI Book Author
-    url: https://github.com/mrowaisabdullah
-  - name: Technical Contributors
-    url: https://github.com/mrowaisabdullah/ai-humanoid-robotics/graphs/contributors
-tags: [introduction, docusaurus, web-development, educational-content]
-date: 2025-12-04
+title: Welcome
+description: Welcome to Physical AI & Humanoid Robotics - A comprehensive guide to embodied intelligence.
+slug: /intro
+sidebar_position: 1
 ---
-
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
-import Link from '@docusaurus/Link';
 
 # Welcome to Physical AI & Humanoid Robotics
 
-<div className="ai-gradient-text text-4xl md:text-5xl font-bold mb-6">
-  Building Modern Educational Content
-</div>
+Welcome to the comprehensive textbook on **Physical AI**, a revolutionary field where artificial intelligence meets robotic embodiment.
 
-This comprehensive guide walks you through creating production-ready educational content using modern web technologies. Whether you're building technical documentation, educational books, or interactive learning materials, this book provides the tools and techniques you need.
+Unlike traditional AI that exists purely in digital realms, Physical AI embodies intelligence in physical form, enabling machines to perceive, reason, and act in the real world. This book bridges the gap between abstract algorithms and tangible robotic systems.
 
-## 🎯 What You'll Learn
+## 📖 What This Book Covers
 
-This book is organized into **four comprehensive modules** that take you from initial setup to production deployment:
+This course is structured into five distinct parts, taking you from the fundamentals of embodied intelligence to advanced applications in humanoid robotics.
 
-### Module 1: Docusaurus Setup
-⚙️ **Current Module** - You are here!
+### [Part 1: Foundations](/docs/category/part-1-foundations)
+Establish the core concepts of Physical AI.
+- **Chapter 1**: Introduction to Physical AI & Embodied Intelligence
+- **Chapter 2**: Sensors & Perception (LiDAR, Cameras, IMU)
+- **Chapter 3**: State Estimation & Localization
+- **Chapter 4**: Motion Planning
+- **Chapter 5**: System Integration
 
-- Initialize a modern Docusaurus project with TypeScript
-- Implement AI-native aesthetics with Tailwind CSS v4
-- Set up GitHub Pages deployment with automated workflows
-- Configure performance optimizations and accessibility features
+### [Part 2: The Nervous System](/docs/category/part-2-nervous-system)
+Dive into the software architecture that powers modern robots.
+- **Chapter 6**: ROS 2 Architecture & Core Concepts
+- **Chapter 7**: Building ROS 2 Nodes with Python
+- **Chapter 8**: Launch Systems & Parameter Management
 
-### Module 2: Content Planning
-📋 **Coming Soon**
+### [Part 3: Motion and Control](/docs/category/part-3-motion-and-control)
+Master the physics and control strategies for movement.
+- **Chapter 9**: Kinematics & Dynamics
+- **Chapter 10**: Balance & Locomotion
+- **Chapter 11**: Manipulation & Grasping
 
-- Design effective content architecture
-- Plan chapter organization and navigation
-- Create reusable content templates
-- Set up collaborative writing workflows
+### [Part 4: Applications & Advanced Topics](/docs/category/part-4-applications-and-advanced-topics)
+Explore cutting-edge applications and future trends.
+- **Chapter 12**: Computer Vision for Robotics
+- **Chapter 13**: Machine Learning & Reinforcement Learning
+- **Chapter 14**: Human-Robot Interaction (HRI)
+- **Chapter 15**: The Future of Physical AI
 
-### Module 3: Content Development
-✍️ **Coming Soon**
+## 🎯 Who Is This For?
 
-- Write engaging educational content
-- Implement interactive examples and exercises
-- Add multimedia elements and assessments
-- Optimize for different learning styles
+This book is designed for students, engineers, and researchers who want to understand the complete stack of a modern robotic system. Whether you are a software engineer looking to enter robotics or a mechanical engineer wanting to understand AI control, this book provides the interdisciplinary knowledge required.
 
-### Module 4: Publishing & Maintenance
-🚀 **Coming Soon**
+## 🛠️ Prerequisites
 
-- Deploy to production environments
-- Set up analytics and monitoring
-- Maintain and update content over time
-- Scale for growing audiences
+To get the most out of this course, you should have:
+- Basic programming knowledge (Python & C++)
+- Understanding of linear algebra and basic calculus
+- Familiarity with Linux/Ubuntu environments
 
-## 🚀 Quick Start
+## 🚀 Get Started
 
-Ready to dive in? The easiest way to get started is to follow the current module step-by-step:
+Ready to begin your journey into Embodied Intelligence?
 
-<div className="glass-card p-6 my-8">
-  <h3 className="text-xl font-semibold mb-4">Module 1 Prerequisites</h3>
-  <ul className="space-y-2">
-    <li>✅ Node.js 20+ installed</li>
-    <li>✅ Git and GitHub account</li>
-    <li>✅ Basic knowledge of React/TypeScript</li>
-    <li>✅ Text editor (VS Code recommended)</li>
-  </ul>
-</div>
-
-<Link
-  to="/docs/part-1-foundations/chapter-1-introduction"
-  className="button button--primary button--lg hover-glow">
-  Start Reading →
-</Link>
-
-## 🎨 AI-Native Design Philosophy
-
-This book isn't just about technology—it's about creating **beautiful, accessible, and effective** learning experiences. We'll implement:
-
-- **Glassmorphism effects** for modern visual depth
-- **Dark-first design** that's easy on the eyes
-- **Responsive layouts** that work everywhere
-- **Accessibility-first** development (WCAG AA compliance)
-- **Performance optimization** for global audiences
-
-## 🛠️ Technology Stack
-
-We'll use modern, production-ready tools throughout this book:
-
-### Core Technologies
-- **Docusaurus 3.9** - Modern static site generator
-- **TypeScript** - Type-safe JavaScript development
-- **React 19** - Component-based UI framework
-- **Tailwind CSS v4** - Utility-first CSS framework
-
-### Development Tools
-- **ESLint & Prettier** - Code quality and formatting
-- **Jest & Playwright** - Testing framework
-- **GitHub Actions** - Automated deployment workflows
-
-### Performance & Deployment
-- **@docusaurus/faster** - Experimental build optimizations
-- **GitHub Pages** - Free static hosting
-- **SWC & Rspack** - Fast build tools
-
-## 📚 How to Use This Book
-
-### For Self-Learners
-Follow each module sequentially, completing the hands-on exercises and building your own project alongside the examples.
-
-### For Teams
-Use the modular structure to divide work among team members, with clear separation between setup, content creation, and deployment.
-
-### For Educators
-Adapt the content structure and examples for your own courses, using the provided templates and exercises.
-
-## 🤝 Contributing
-
-This book is open source and community-driven! If you find errors, have suggestions, or want to contribute content:
-
-1. **Report Issues**: [GitHub Issues](https://github.com/mrowaisabdullah/ai-humanoid-robotics/issues)
-2. **Submit Changes**: Fork, edit, and submit a pull request
-3. **Suggest Topics**: Open an issue with your idea
-
-<div className="glass-card p-6 my-8 bg-gradient-to-r from-purple-500/10 to-blue-500/10">
-  <h3 className="text-xl font-semibold mb-4">🎓 Learning Outcomes</h3>
-  <p className="mb-4">
-    By the end of this book, you'll be able to:
-  </p>
-  <ul className="space-y-2 list-disc list-inside">
-    <li>Create production-ready documentation sites</li>
-    <li>Implement modern design systems with AI-native aesthetics</li>
-    <li>Set up automated deployment workflows</li>
-    <li>Optimize for performance and accessibility</li>
-    <li>Maintain and scale content projects</li>
-  </ul>
-</div>
-
-## 🔗 Next Steps
-
-Ready to begin your journey? Let's start with Module 1 by understanding what we'll build and why these choices matter.
-
-<div className="flex flex-col sm:flex-row gap-4 mt-8">
-  <Link
-    to="/docs/part-1-foundations/chapter-1-introduction"
-    className="button button--primary button--lg flex-1 hover-glow">
-    Continue Reading
-  </Link>
-  <Link
-    to="https://github.com/mrowaisabdullah/ai-humanoid-robotics"
-    className="button button--secondary button--lg flex-1">
-    View on GitHub
-  </Link>
-</div>
+[**Start reading Chapter 1 →**](/docs/part-1-foundations/chapter-1-introduction)

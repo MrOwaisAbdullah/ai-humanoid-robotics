@@ -440,47 +440,46 @@
   margin-bottom: 1.5rem;
 }
 
-.suggestions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-}
-
-.suggestion {
-  background: transparent;
-  border: none;
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  color: #ececf1;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-}
-
-.suggestion:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.suggestionText {
-  flex: 1;
-  text-align: left;
-}
-
-.suggestionIcon {
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-  flex-shrink: 0;
-  color: #9ca3af;
-}
-
+  .suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .suggestion {
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    color: var(--ifm-font-color-base); /* Ensure visible text in light mode */
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+  }
+  
+  .suggestion:hover {
+    background: var(--ifm-hover-background-color);
+  }
+  
+  .suggestionText {
+    flex: 1;
+    text-align: left;
+  }
+  
+  .suggestionIcon {
+    opacity: 1; /* Ensure icon is fully visible in light mode */
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+    color: var(--ifm-font-color-base); /* Ensure icon color matches text */
+  }
 .refreshButton {
   background: transparent;
   border: 1px solid transparent;
@@ -1255,43 +1254,56 @@
 }
 
 /* Dark mode support for system preferences */
-@media (prefers-color-scheme: light) {
-  .widget,
-  .header,
-  .messageContainer,
+:global(html[data-theme='light']) {
+  .widget {
+    background: #ffffff;
+    color: #1f2937;
+    border: 1px solid #e5e7eb;
+  }
+
+  .header {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .messageContainer {
+    background: #ffffff;
+  }
+
   .inputContainer {
     background: #ffffff;
-    color: #18181b;
+    border-top: 1px solid #e5e7eb;
   }
 
   .selectionTooltip {
     background: #ffffff;
-    border-color: #e4e4e7;
+    border-color: #e5e7eb;
   }
 
   .aiAvatar {
-    background: #f4f4f5;
-    color: #71717a;
-    border-color: #e4e4e7;
+    background: transparent;
+    border: none;
   }
 
   .messageBubble {
-    color: #18181b;
+    color: #1f2937;
   }
 
-  .aiMessage .messageBubble {
+  /* User message bubble remains primary color */
+
+  .aiMessageBubble {
     background: #f9fafb;
-    border-color: #e4e4e7;
-    color: #18181b;
+    border: 1px solid #e5e7eb;
+    color: #1f2937;
   }
 
   .inputArea {
-    background: #f9fafb;
-    border-color: #e4e4e7;
+    background: #ffffff;
+    border-color: #e5e7eb;
   }
 
   .inputField {
-    color: #18181b;
+    color: #1f2937;
   }
 
   .inputField::placeholder {
@@ -1307,11 +1319,11 @@
   }
 
   .title {
-    color: #18181b;
+    color: #111827;
   }
 
   .welcomeScreen {
-    color: #18181b;
+    color: #111827;
   }
 
   .welcomeSubtitle {
@@ -1320,14 +1332,73 @@
 
   .sourceBadge {
     background: #f3f4f6;
-    border-color: #d1d5db;
-    color: #6b7280;
+    border-color: #e5e7eb;
+    color: #4b5563;
   }
 
   .sourceBadge:hover {
     background: #e5e7eb;
-    color: #18181b;
-    border-color: #9ca3af;
+    color: #1f2937;
+    border-color: #d1d5db;
+  }
+  
+  .codeBlockContainer {
+    border: 1px solid #e5e7eb;
+  }
+  .codeBlockHeader {
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .codeLanguage {
+    color: #4b5563;
+  }
+  .copyButton {
+    color: #6b7280;
+  }
+  .copyButton:hover {
+    background: #e5e7eb;
+    color: #1f2937;
+  }
+  
+  .suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .suggestion {
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+  }
+  
+  .suggestion:hover {
+    background: #f3f4f6;
+  }
+  
+  .suggestionText {
+    flex: 1;
+    text-align: left;
+  }
+  
+  .suggestionIcon {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+    color: #6b7280;
   }
 }
 

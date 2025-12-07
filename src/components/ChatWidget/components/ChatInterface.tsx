@@ -7,6 +7,8 @@ import InputArea from './InputArea';
 import ThinkingIndicator from './ThinkingIndicator';
 import { getOptimizedMotionProps, widgetVariants } from '../utils/animations';
 import styles from '../styles/ChatWidget.module.css';
+import { useAuth } from '../../../contexts/AuthContext';
+import { AuthenticationBanner, AnonymousLimitBanner } from '../../../components/Auth/AuthenticationBanner';
 
 interface ChatInterfaceProps {
   messages: ChatMessageType[];
@@ -91,6 +93,9 @@ export default function ChatInterface({
   onDismissError,
 }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { isAuthenticated } = useAuth();
+  const [showLimitBanner, setShowLimitBanner] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
 
   // Auto-scroll to bottom when new messages are added
   const scrollToBottom = () => {
@@ -99,6 +104,13 @@ export default function ChatInterface({
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  // Track message count for anonymous users
+  useEffect(() => {
+    const userMessages = messages.filter(m => m.role === 'user').length;
+    setMessageCount(userMessages);
+    setShowLimitBanner(userMessages >= 2); // Show banner at 2 messages (limit is 3)
   }, [messages]);
 
   return (
@@ -122,7 +134,7 @@ export default function ChatInterface({
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1, duration: 0.3 }}
         >
-          Chat
+          Chat With Book
         </motion.h2>
         <motion.button
           onClick={onClose}
@@ -134,7 +146,6 @@ export default function ChatInterface({
           transition={{ delay: 0.1, duration: 0.3 }}
           whileHover={{ scale: 1.1, rotate: 90 }}
           whileTap={{ scale: 0.9 }}
-          transition={{ duration: 0.1 }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M18 6L6 18M6 6l12 12"/>
@@ -159,6 +170,8 @@ export default function ChatInterface({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
           >
+            {/* Show authentication banner for anonymous users */}
+            {!isAuthenticated && <AuthenticationBanner />}
             <WelcomeScreen onSuggestionClick={onSendMessage} />
           </motion.div>
         ) : (
@@ -209,10 +222,24 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </motion.div>
 
+      {/* Anonymous user limit banner */}
+      <AnimatePresence>
+        {showLimitBanner && !isAuthenticated && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            <AnonymousLimitBanner onUpgrade={() => window.location.href = '/auth/login'} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input Area */}
       <InputArea
         onSendMessage={onSendMessage}
-        disabled={isThinking}
+        disabled={isThinking || (!isAuthenticated && messageCount >= 3)}
       />
     </motion.div>
   );

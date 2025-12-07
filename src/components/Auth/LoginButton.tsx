@@ -15,7 +15,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
   return (
     <button
       onClick={login}
-      className={`flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${className}`}
+      className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1b1b1d] border border-gray-300 dark:border-[#303030] rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-[#252526] text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${className}`}
     >
       {/* Google Icon */}
       <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -50,7 +50,7 @@ export const CompactLoginButton: React.FC<LoginButtonProps> = ({
   return (
     <button
       onClick={login}
-      className={`text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors ${className}`}
+      className={`text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors ${className}`}
     >
       Sign In
     </button>
