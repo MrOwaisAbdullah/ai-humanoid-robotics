@@ -223,7 +223,7 @@
 
 .userMessageBubble {
   background: var(--ifm-color-primary, #0969da);
-  color: #ffffff;
+  color: #ffffff !important;
   border-bottom-right-radius: 0.375rem;
   margin-left: auto;
   box-shadow: none;
