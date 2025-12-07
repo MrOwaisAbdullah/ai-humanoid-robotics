@@ -34,6 +34,7 @@ const sidebars: SidebarsConfig = {
         {
           type: 'category',
           label: 'Part 1: Foundations',
+          collapsed: true,
           items: [
             'part-1-foundations/chapter-1-introduction',
             'part-1-foundations/chapter-2-sensors-perception',
