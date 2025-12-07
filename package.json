@@ -21,6 +21,7 @@
     "@docusaurus/preset-classic": "3.9.2",
     "@mdx-js/react": "^3.0.0",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "axios": "^1.6.0",
     "clsx": "^2.0.0",
     "framer-motion": "^12.23.25",
     "lucide-react": "^0.556.0",

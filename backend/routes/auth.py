@@ -12,6 +12,11 @@ from auth.auth import (
     invalidate_user_sessions, get_current_active_user
 )
 from models.auth import User, UserPreferences
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Initialize rate limiter for auth endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -45,6 +50,7 @@ class PreferencesResponse(BaseModel):
 
 
 @router.get("/login/google")
+@limiter.limit("10/minute")  # Limit OAuth initiation attempts
 async def login_via_google(request: Request):
     """Initiate Google OAuth login"""
     redirect_uri = os.getenv("AUTH_REDIRECT_URI", "http://localhost:3000/auth/google/callback")
@@ -52,6 +58,7 @@ async def login_via_google(request: Request):
 
 
 @router.get("/google/callback")
+@limiter.limit("10/minute")  # Limit OAuth callback attempts
 async def google_callback(
     request: Request,
     db: Session = Depends(get_db)
@@ -111,7 +118,9 @@ async def get_current_user_info(
 
 
 @router.post("/logout")
+@limiter.limit("20/minute")  # Limit logout attempts
 async def logout(
+    request: Request,
     response: Response,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -184,7 +193,9 @@ async def update_user_preferences(
 
 
 @router.post("/refresh")
+@limiter.limit("30/minute")  # Limit token refresh attempts
 async def refresh_token(
+    request: Request,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
