@@ -25,6 +25,13 @@ from rag.qdrant_client import QdrantManager
 from rag.tasks import TaskManager
 from api.exceptions import ContentNotFoundError, RAGException
 
+# Import security middleware
+from middleware.csrf import CSRFMiddleware
+from middleware.auth import AuthMiddleware
+
+# Import auth routes
+from routes import auth
+
 # Import ChatKit server
 # from chatkit_server import get_chatkit_server
 
@@ -119,6 +126,10 @@ async def lifespan(app: FastAPI):
     """Lifespan manager for FastAPI application."""
     global chat_handler, qdrant_manager, document_ingestor, task_manager
 
+    # Create database tables on startup
+    from database.config import create_tables
+    create_tables()
+
     logger.info("Starting up RAG backend...",
                 openai_configured=bool(settings.openai_api_key),
                 qdrant_url=settings.qdrant_url)
@@ -190,6 +201,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add security middleware (order matters: CSRF before Auth)
+app.add_middleware(
+    CSRFMiddleware,
+    cookie_name="csrf_token",
+    header_name="X-CSRF-Token",
+    secure=False,  # Set to True in production with HTTPS
+    httponly=False,
+    samesite="lax",
+    max_age=3600,
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections"],
+)
+
+app.add_middleware(
+    AuthMiddleware,
+    anonymous_limit=3,
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth"],
+    anonymous_header="X-Anonymous-Session-ID",
+)
+
+# Include auth routes
+app.include_router(auth.router)
 
 
 # Optional API key security for higher rate limits
