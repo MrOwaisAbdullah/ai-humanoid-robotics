@@ -1,3 +1,7 @@
+---
+liquid: false
+---
+
 # Implementing a ChatGPT-Style Chatbot UI in React
 
 A comprehensive guide for building a modern chatbot interface using React, react-markdown, framer-motion, and react-syntax-highlighter.
