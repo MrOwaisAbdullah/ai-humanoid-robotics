@@ -42,15 +42,26 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
       {showAvatar && (
         <div className={`${styles.avatar} ${isUser ? styles.userAvatar : styles.aiAvatar}`}>
           {isUser ? (
-            // User avatar - could be user's profile picture/initials
+            // User avatar - default icon
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
             </svg>
           ) : (
-            // AI avatar - could be custom AI icon
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
+            // AI avatar - using project logo
+            <img 
+              src="/ai-humanoid-robotics/img/logo.png" 
+              alt="AI" 
+              className={styles.avatarImage}
+              onError={(e) => {
+                // Fallback to SVG if image fails to load
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML = `
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                `;
+              }}
+            />
           )}
         </div>
       )}
@@ -87,55 +98,10 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
               )}
             </div>
           )}
-
-          {/* Read receipt or status indicator for user messages */}
-          {isUser && (
-            <div className={styles.messageStatus} aria-hidden="true">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-              </svg>
-            </div>
-          )}
-        </div>
-
-        {/* Timestamp with relative time display */}
-        <div className={styles.timestamp}>
-          <time
-            dateTime={message.timestamp.toISOString()}
-            title={message.timestamp.toLocaleString()}
-          >
-            {formatRelativeTime(message.timestamp)}
-          </time>
         </div>
       </div>
     </motion.div>
   );
-}
-
-// Helper function to format relative time (e.g., "2 minutes ago")
-function formatRelativeTime(date: Date): string {
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffInSeconds < 60) {
-    return 'Just now';
-  }
-
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) {
-    return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
-  }
-
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) {
-    return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
-  }
-
-  // For older messages, show the actual time
-  return date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
 }
 
 export default React.memo(MessageBubble);

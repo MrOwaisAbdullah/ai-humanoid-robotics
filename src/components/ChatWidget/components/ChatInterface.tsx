@@ -122,7 +122,7 @@ export default function ChatInterface({
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1, duration: 0.3 }}
         >
-          Ask BC
+          Chat
         </motion.h2>
         <motion.button
           onClick={onClose}
