@@ -178,7 +178,7 @@ class QdrantManager:
         self,
         query_embedding: List[float],
         limit: int = 5,
-        score_threshold: float = 0.7,
+        score_threshold: float = 0.5,
         filters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """Search for similar chunks using vector similarity."""

@@ -329,7 +329,7 @@ async def health_check(request: Request):
     return health_status
 
 
-@app.post("/chat")
+@app.post("/api/chat")
 @limiter.limit(f"{settings.rate_limit_requests}/{settings.rate_limit_window}minute")
 async def chat_endpoint(
     request: Request,

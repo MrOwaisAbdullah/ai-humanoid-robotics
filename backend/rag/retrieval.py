@@ -36,7 +36,7 @@ class RetrievalEngine:
         qdrant_manager: QdrantManager,
         embedder: EmbeddingGenerator,
         default_k: int = 5,
-        score_threshold: float = 0.7,  # Updated to 0.7 for better precision
+        score_threshold: float = 0.5,  # Lowered to 0.5 to better match document scores
         max_context_tokens: int = 4000,
         enable_mmr: bool = True,
         mmr_lambda: float = 0.5
@@ -177,6 +177,9 @@ class RetrievalEngine:
 
             # Apply similarity threshold filtering
             logger.info(f"Applying threshold filter: {len(chunks)} chunks before filtering, threshold={threshold}")
+            # Debug: Log scores of first few chunks
+            for i, chunk in enumerate(chunks[:5]):
+                logger.info(f"Chunk {i} score: {chunk.score}, content preview: {chunk.content[:100]}...")
             initial_count = len(chunks)
             chunks = [
                 chunk for chunk in chunks
@@ -184,9 +187,11 @@ class RetrievalEngine:
             ]
             logger.info(f"After threshold filter: {len(chunks)} chunks remaining (filtered out {initial_count - len(chunks)} chunks)")
 
-            # Apply MMR if enabled and we have enough results
-            if use_mmr and len(chunks) > 1:
+            # Apply MMR if enabled and we have enough results (but not for very few results)
+            if use_mmr and len(chunks) > 3:
                 chunks = await self._apply_mmr(query_embedding, chunks, max_results, lambda_param)
+            elif use_mmr and len(chunks) <= 3:
+                logger.info(f"Skipping MMR due to low result count: {len(chunks)} chunks")
 
             # Sort by score and limit
             chunks.sort(key=lambda x: x.score, reverse=True)

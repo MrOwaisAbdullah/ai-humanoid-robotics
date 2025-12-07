@@ -58,7 +58,7 @@ class ChatHandler:
         self.retrieval_engine = RetrievalEngine(
             qdrant_manager=qdrant_manager,
             embedder=self.embedder,
-            score_threshold=0.7,  # Updated to 0.7 for better precision
+            score_threshold=0.5,  # Lowered to 0.5 to better match document scores
             enable_mmr=True,
             mmr_lambda=0.5
         )
@@ -77,7 +77,7 @@ class ChatHandler:
         Returns:
             Adaptive threshold value
         """
-        base_threshold = 0.7
+        base_threshold = 0.5
 
         # Lower threshold for very specific queries (longer)
         if query_length > 100:
@@ -196,14 +196,38 @@ class ChatHandler:
                     )
                     retrieved_docs = retrieved_docs[:k]
 
-                # If still no results, handle appropriately
+                # If still no results, handle gracefully
                 if not retrieved_docs:
                     logger.info(f"No content found for query: {query[:100]}...")
-                    from api.exceptions import ContentNotFoundError
-                    raise ContentNotFoundError(
-                        query=query,
-                        threshold=self.retrieval_engine.score_threshold
+
+                    # Provide a helpful response when no content is found
+                    no_content_response = (
+                        "I couldn't find specific information about that topic in the book. "
+                        "This book covers Physical AI & Humanoid Robotics. Try asking about:\n"
+                        "• Introduction to physical AI\n"
+                        "• Types of humanoid robots\n"
+                        "• AI control systems\n"
+                        "• Robot locomotion\n"
+                        "• Specific chapters or sections"
                     )
+
+                    # Stream the helpful response
+                    words = no_content_response.split()
+                    for word in words:
+                        yield self._format_sse_message({
+                            "type": "chunk",
+                            "content": word + " "
+                        })
+                        await asyncio.sleep(0.05)
+
+                    yield self._format_sse_message({
+                        "type": "done",
+                        "session_id": session_id,
+                        "response_time": 0.1,
+                        "tokens_used": self.count_tokens(no_content_response),
+                        "no_results": True
+                    })
+                    return
 
             # Log monitoring metrics
             logger.info(
@@ -351,15 +375,22 @@ class ChatHandler:
 
                 response_time = (datetime.utcnow() - start_time).total_seconds()
 
-                return ChatResponse(
-                    answer=answer,
-                    sources=[],
-                    session_id=session_id,
-                    query=query,
-                    response_time=response_time,
-                    tokens_used=self.count_tokens(answer),
-                    model=self.model
-                )
+                # Return greeting as JSON response
+                greeting_response = {
+                    "type": "final",
+                    "answer": answer,
+                    "sources": [],
+                    "session_id": session_id,
+                    "query": query,
+                    "response_time": response_time,
+                    "tokens_used": self.count_tokens(answer),
+                    "context_used": False,
+                    "model": self.model,
+                    "has_context": False
+                }
+                yield f"data: {json.dumps(greeting_response)}\n\n"
+                yield f"data: [DONE]\n\n"
+                return
 
             # Get or create conversation context
             context = self._get_or_create_context(session_id)
@@ -400,14 +431,38 @@ class ChatHandler:
                     )
                     retrieved_docs = retrieved_docs[:k]
 
-                # If still no results, handle appropriately
+                # If still no results, handle gracefully
                 if not retrieved_docs:
                     logger.info(f"No content found for query: {query[:100]}...")
-                    from api.exceptions import ContentNotFoundError
-                    raise ContentNotFoundError(
-                        query=query,
-                        threshold=self.retrieval_engine.score_threshold
+
+                    # Provide a helpful response when no content is found
+                    no_content_response = (
+                        "I couldn't find specific information about that topic in the book. "
+                        "This book covers Physical AI & Humanoid Robotics. Try asking about:\n"
+                        "• Introduction to physical AI\n"
+                        "• Types of humanoid robots\n"
+                        "• AI control systems\n"
+                        "• Robot locomotion\n"
+                        "• Specific chapters or sections"
                     )
+
+                    # Stream the helpful response
+                    words = no_content_response.split()
+                    for word in words:
+                        yield self._format_sse_message({
+                            "type": "chunk",
+                            "content": word + " "
+                        })
+                        await asyncio.sleep(0.05)
+
+                    yield self._format_sse_message({
+                        "type": "done",
+                        "session_id": session_id,
+                        "response_time": 0.1,
+                        "tokens_used": self.count_tokens(no_content_response),
+                        "no_results": True
+                    })
+                    return
 
             # Log monitoring metrics
             logger.info(
@@ -485,15 +540,19 @@ class ChatHandler:
             # Calculate response time
             response_time = (datetime.utcnow() - start_time).total_seconds()
 
-            return ChatResponse(
-                answer=answer,
-                sources=citations,
-                session_id=session_id,
-                query=query,
-                response_time=response_time,
-                tokens_used=tokens_used,
-                model=self.model
-            )
+            # Final response
+            final_response = {
+                "type": "final",
+                "answer": answer,
+                "sources": [citation.to_dict() if hasattr(citation, 'to_dict') else citation for citation in citations],
+                "session_id": session_id,
+                "query": query,
+                "response_time": response_time,
+                "tokens_used": tokens_used,
+                "model": self.model
+            }
+            yield f"data: {json.dumps(final_response)}\n\n"
+            yield f"data: [DONE]\n\n"
 
         except Exception as e:
             logger.error(f"Chat failed: {str(e)}", exc_info=True)

@@ -7,7 +7,6 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Lab Infrastructure',
       items: [
-        'lab-infrastructure/budget-calculator',
         {
           type: 'category',
           label: 'Workstation Setup',
@@ -16,7 +15,6 @@ const sidebars: SidebarsConfig = {
             'lab-infrastructure/workstation-setup/gpu-optimization',
           ],
         },
-        'lab-infrastructure/cloud-alternatives/index',
         {
           type: 'category',
           label: 'Edge AI Hardware',
@@ -25,6 +23,8 @@ const sidebars: SidebarsConfig = {
             'lab-infrastructure/realsense-setup/index',
           ],
         },
+        'lab-infrastructure/budget-calculator',
+        'lab-infrastructure/cloud-alternatives/index',
       ],
     },
     {
