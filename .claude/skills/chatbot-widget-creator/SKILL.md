@@ -2,7 +2,7 @@
 name: chatbot-widget-creator
 description: Creates a battle-tested ChatGPT-style chatbot widget that solves real-world production issues. Features infinite re-render protection, text selection "Ask AI", RAG backend integration, streaming SSE, and comprehensive performance monitoring.
 category: frontend
-version: 3.1.0
+version: 3.2.0
 date_updated: 2025-12-07
 ---
 
@@ -11,6 +11,7 @@ date_updated: 2025-12-07
 ## Purpose
 
 Creates a **production-ready ChatGPT-style chatbot widget** with advanced features:
+- **Custom Portrait Layout**: Compact 380px x 700px styling matching ChatGPT aesthetics
 - **Infinite re-render protection** using useReducer and split context pattern
 - **Text selection "Ask AI"** functionality with smart tooltips
 - **Streaming responses** with Server-Sent Events (SSE)
@@ -20,20 +21,27 @@ Creates a **production-ready ChatGPT-style chatbot widget** with advanced featur
 
 ## Key Improvements Based on Real Implementation
 
-### 1. **State Management Architecture**
+### 1. **Refined UI/UX**
+- **Compact Dimensions**: 380px width x 700px height for optimal sidebar integration
+- **Clean Message UI**: Removed timestamps, read receipts, and file uploads for a cleaner reading experience
+- **Themed Integration**: Dynamically uses `var(--ifm-color-primary)` to match host site branding
+- **Bottom Alignment**: Message bubbles and avatars are bottom-aligned for a modern chat look
+- **Minimalist Indicators**: Simplified 3-dot pulsing animation for thinking state
+
+### 2. **State Management Architecture**
 - **useReducer pattern** instead of multiple useState hooks
 - **Split context** (StateContext + ActionsContext) to prevent unnecessary re-renders
 - **Stable callbacks** with proper dependencies to avoid circular references
 - **AbortController** for proper cleanup of streaming connections
 
-### 2. **Performance Optimizations**
-- **React.memo** wrapping for expensive components
+### 3. **Performance Optimizations**
+- **React.memo** wrapping for expensive components like `MessageBubble`
 - **useMemo** for computed values and complex operations
 - **useCallback** with stable dependencies
 - **Render counter utilities** for debugging
 - **Virtualization** support for long conversations (50+ messages)
 
-### 3. **Text Selection Feature**
+### 4. **Text Selection Feature**
 - **useTextSelection** hook for detecting text selections
 - **Smart positioning tooltip** with edge detection
 - **Context-aware prompts** when asking about selected text
@@ -49,7 +57,7 @@ Creates a **production-ready ChatGPT-style chatbot widget** with advanced featur
 
 2. **Frontend Dependencies**:
    ```bash
-   npm install react framer-motion
+   npm install react framer-motion react-markdown react-syntax-highlighter remark-gfm lucide-react clsx tailwind-merge
    # Note: No ChatKit dependency - this is a custom implementation
    ```
 
@@ -62,7 +70,7 @@ Creates a **production-ready ChatGPT-style chatbot widget** with advanced featur
 mkdir -p src/components/ChatWidget/{components,hooks,contexts,utils,styles}
 
 # Copy all template files
-cp .claude/skills/chatbot-widget-creator/templates/* src/components/ChatWidget/
+cp -r .claude/skills/chatbot-widget-creator/templates/* src/components/ChatWidget/
 ```
 
 ### 2. Backend API Requirements
@@ -97,7 +105,7 @@ Add to your site root (e.g., `src/theme/Root.tsx`):
 
 ```tsx
 import React from 'react';
-import ChatWidgetContainer from '../components/ChatWidget/ChatWidgetContainer';
+import AnimatedChatWidget from '../components/ChatWidget/components/AnimatedChatWidget';
 
 export default function Root({ children }) {
   const getChatEndpoint = () => {
@@ -111,7 +119,7 @@ export default function Root({ children }) {
   return (
     <>
       {children}
-      <ChatWidgetContainer
+      <AnimatedChatWidget
         apiUrl={getChatEndpoint()}
         maxTextSelectionLength={2000}
         fallbackTextLength={5000}
@@ -211,68 +219,46 @@ Edit `src/components/ChatWidget/styles/ChatWidget.module.css`:
 ```css
 /* Primary colors */
 .widget {
-  background: var(--ifm-color-emphasis-300);
-  border: 1px solid var(--ifm-color-emphasis-600);
+  background: #171717; /* Dark mode background */
+  width: 380px;
+  height: 700px;
 }
 
 /* Message bubbles */
-.userMessage {
-  background: var(--ifm-color-primary);
+.userMessageBubble {
+  background: var(--ifm-color-primary); /* Theme integration */
+  color: white;
 }
 
-.assistantMessage {
-  background: var(--ifm-color-emphasis-200);
-}
-```
-
-### Adding New Message Types
-
-```typescript
-// Extend ChatMessage interface
-interface ChatMessage {
-  id: string;
-  content: string;
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  timestamp: Date;
-  sources?: SourceCitation[];
-  code?: boolean;
-  metadata?: Record<string, any>;
+.aiMessageBubble {
+  background: #21262d;
+  border: 1px solid #30363d;
 }
 ```
 
-### Performance Monitoring
+## Component Reference
 
-Enable in development:
+### Core Components
 
-```typescript
-import { usePerformanceMonitor } from '../utils/performanceMonitor';
+1. **AnimatedChatWidget**: Main entry point with animations
+2. **ChatInterface**: ChatGPT-style UI container
+3. **MessageBubble**: Individual message display (React.memo optimized)
+4. **InputArea**: Message input (No file upload)
+5. **SelectionTooltip**: Text selection "Ask AI" tooltip
+6. **ThinkingIndicator**: Minimalist 3-dot pulsing animation
 
-function MyComponent() {
-  const { renderCount } = usePerformanceMonitor('MyComponent');
+### Hooks
 
-  useEffect(() => {
-    if (renderCount > 50) {
-      console.warn(`Component re-rendered ${renderCount} times`);
-    }
-  });
-}
-```
+1. **useChatSession**: Access chat state and actions
+2. **useStreamingResponse**: Handle SSE connections
+3. **useTextSelection**: Detect and handle text selection
+4. **useErrorHandler**: Centralized error management
 
-## Production Deployment Checklist
+### Utilities
 
-### Frontend
-- [ ] Remove performance monitoring in production build
-- [ ] Enable React.memo for expensive components
-- [ ] Implement virtualization for long conversations
-- [ ] Add error boundaries for graceful failures
-- [ ] Configure proper CSP headers for streaming
-
-### Backend
-- [ ] Implement rate limiting
-- [ ] Add CORS configuration for your domain
-- [ ] Set up monitoring for SSE connections
-- [ ] Configure proper timeout handling
-- [ ] Add health check endpoints
+1. **chatReducer**: State transitions
+2. **api.ts**: API request/response formatting
+3. **animations.ts**: Framer Motion configs
 
 ## Troubleshooting
 
@@ -298,73 +284,22 @@ function MyComponent() {
    - Check for CSS `user-select: none` conflicts
    - Ensure z-index is high enough for tooltip
 
-## Advanced Features
+## Production Checklist
 
-### Message Persistence
+- [ ] Remove console.log statements in production
+- [ ] Add proper error tracking (Sentry, etc.)
+- [ ] Implement rate limiting on backend
+- [ ] Add CORS configuration
+- [ ] Test on slow networks
+- [ ] Verify memory leak prevention
+- [ ] Test with long conversations (100+ messages)
 
-```typescript
-// Add to ChatState
-interface ChatState {
-  // ...existing fields
-  sessionId: string;
-  persistedAt?: Date;
-}
+## Result
 
-// In reducer
-case 'PERSIST_CHAT':
-  localStorage.setItem(`chat_${action.payload.sessionId}`, JSON.stringify(state.messages));
-```
-
-### File Attachments
-
-```typescript
-// Extend ChatRequest
-interface ChatRequest {
-  question: string;
-  stream: boolean;
-  attachments?: File[];
-}
-
-// Handle in UI
-const handleFileUpload = (files: File[]) => {
-  // Validate and prepare for upload
-  const formData = new FormData();
-  files.forEach(file => formData.append('files', file));
-};
-```
-
-## Component Reference
-
-### Core Components
-
-1. **ChatWidgetContainer**: Main wrapper with provider
-2. **ChatInterface**: ChatGPT-style UI
-3. **ChatButton**: Floating action button
-4. **SelectionTooltip**: Text selection "Ask AI" tooltip
-5. **MessageBubble**: Individual message display
-6. **InputArea**: Message input with file support
-
-### Hooks
-
-1. **useChatState**: Access chat state
-2. **useChatActions**: Access chat actions
-3. **useChatSelector**: Select specific state slices
-4. **useTextSelection**: Text selection detection
-5. **usePerformanceMonitor**: Development debugging
-
-### Utilities
-
-1. **chatReducer**: State transitions
-2. **formatChatRequest**: API formatting
-3. **renderCounter**: Debugging utility
-4. **performanceMonitor**: Performance tracking
-
-## Best Practices
-
-1. **Always use the split context pattern** for complex state
-2. **Stabilize callbacks** with useRef for frequently changing values
-3. **Implement proper cleanup** for all async operations
-4. **Monitor performance** in development
-5. **Test edge cases** (empty state, errors, long messages)
-6. **Use TypeScript strictly** for type safety
-7. **Implement error boundaries** for graceful failures
+A production-ready chat widget that:
+- Matches the ChatGPT visual aesthetic
+- Never crashes from infinite re-renders
+- Provides smooth text selection interactions
+- Streams responses efficiently
+- Maintains performance over time
+- Handles all edge cases gracefully

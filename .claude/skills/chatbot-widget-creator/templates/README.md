@@ -1,62 +1,120 @@
-# Chat Widget Templates
+# ChatWidget Component
 
-This directory contains all the template files for creating a production-ready ChatGPT-style chatbot widget.
+A modern, glassmorphic chat widget powered by OpenAI ChatKit for the Physical AI & Humanoid Robotics book.
 
-## Template Files
+## Features
 
-### Core Components
-- `ChatWidgetContainer.tsx` - Main widget container with state management
-- `ChatInterface.tsx` - ChatGPT-style UI component
-- `ChatButton.tsx` - Floating action button
-- `SelectionTooltip.tsx` - Text selection "Ask AI" tooltip
-- `ErrorBoundary.tsx` - Error handling component
+- ✅ **Glassmorphism Design**: Modern frosted glass effect with backdrop blur
+- ✅ **Theme Adaptive**: Automatically adapts to light/dark mode
+- ✅ **Mobile Responsive**: Full-screen overlay on mobile devices
+- ✅ **Text Selection**: "Ask AI about this" functionality for highlighted text
+- ✅ **Session Persistence**: Chat history saved in LocalStorage
+- ✅ **Streaming Responses**: Real-time AI responses via ChatKit
 
-### Hooks
-- `useChatSession.tsx` - Chat session management
-- `useTextSelection.tsx` - Text selection detection
-- `useErrorHandler.tsx` - Error handling utilities
-- `useStreamingResponse.tsx` - SSE streaming management
+## Architecture
 
-### State Management
-- `contexts/index.ts` - Split context implementation
-- `hooks/chatReducer.ts` - State reducer
-- `types/index.ts` - TypeScript type definitions
-
-### Utilities
-- `utils/api.ts` - API request/response formatting
-- `utils/animations.ts` - Framer Motion animation configs
-- `utils/renderCounter.ts` - Debug render counter
-- `utils/performanceMonitor.ts` - Performance monitoring
-
-### Styles
-- `styles/ChatWidget.module.css` - Component styles
-
-## Usage
-
-```bash
-# Create the widget directory
-mkdir -p src/components/ChatWidget/{components,hooks,contexts,utils,styles}
-
-# Copy all templates
-cp -r .claude/skills/chatbot-widget-creator/templates/* src/components/ChatWidget/
+```
+src/components/ChatWidget/
+├── index.tsx                 # Main ChatWidget component
+├── ChatButton.tsx           # Floating action button
+├── hooks/
+│   ├── useSessionPersistence.ts  # LocalStorage management
+│   ├── useChatKitSession.ts      # ChatKit session handling
+│   └── useTextSelection.ts       # Text selection detection (future)
+├── types/
+│   └── index.ts               # TypeScript interfaces
+└── README.md                 # This file
 ```
 
-## Integration
+## Setup Instructions
 
-Add to your site root:
+### 1. Environment Variables
 
-```tsx
-import ChatWidgetContainer from '../components/ChatWidget/ChatWidgetContainer';
+Create a `.env.local` file in the project root:
 
-export default function Root({ children }) {
-  return (
-    <>
-      {children}
-      <ChatWidgetContainer
-        apiUrl="http://localhost:7860/api/chat"
-        maxTextSelectionLength={2000}
-      />
-    </>
-  );
-}
+```env
+# OpenAI API Key (required)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# ChatKit Session Endpoint
+NEXT_PUBLIC_CHATKIT_SESSION_ENDPOINT=http://localhost:7860/api/chatkit/session
+
+# RAG Backend Endpoint (for book content)
+CHAT_API_ENDPOINT=http://localhost:7860
+```
+
+### 2. Backend Setup
+
+Ensure the FastAPI backend is running with the `/api/chatkit/session` endpoint:
+
+```bash
+cd backend
+uv run uvicorn main:app --host 0.0.0.0 --port 7860 --reload
+```
+
+### 3. Frontend Development
+
+Start the Docusaurus development server:
+
+```bash
+npm start
+```
+
+The chat widget will appear in the bottom-right corner of all pages.
+
+## Customization
+
+### Theming
+
+The widget automatically uses Docusaurus CSS variables:
+
+```css
+--ifm-color-primary: #0d9488; /* Primary accent color */
+--ifm-background-surface-color: #ffffff; /* Panel background */
+--ifm-border-color: #e5e7eb; /* Border color */
+--ifm-font-family-base: system-ui, sans-serif; /* Font */
+```
+
+### Glassmorphism Effect
+
+The glassmorphism styles are defined in `src/styles/glassmorphism.css`:
+
+- `backdrop-filter: blur(20px)` - Frosted glass effect
+- `background: rgba(255, 255, 255, 0.08)` - Semi-transparent background
+- `border: 1px solid rgba(255, 255, 255, 0.2)` - Glass border
+
+## Future Enhancements
+
+- [ ] Text selection with "Ask AI about this" popover
+- [ ] Voice input/output support
+- [ ] File upload for code analysis
+- [ ] Multi-language support
+- [ ] Custom prompt templates
+- [ ] Chat history export
+
+## Troubleshooting
+
+### ChatKit Authentication Error
+
+Ensure:
+1. OpenAI API key is set in backend `.env`
+2. Backend server is running on port 7860
+3. CORS is properly configured for your domain
+
+### Glassmorphism Not Working
+
+Check browser compatibility:
+- Chrome 76+
+- Firefox 103+
+- Safari 14+
+- Edge 79+
+
+Fallback styles are provided for unsupported browsers.
+
+### Mobile Issues
+
+The widget automatically switches to full-screen mode on devices < 768px width. Ensure viewport meta tag is set:
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 ```

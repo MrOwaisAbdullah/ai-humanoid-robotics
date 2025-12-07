@@ -77,6 +77,17 @@ As an authenticated user, I want to securely sign out so that my account is prot
 - How does system handle expired authentication tokens?
 - What happens if Google OAuth configuration is invalid?
 - How does system handle network failures during authentication?
+- How to handle anonymous users who have used chat before signing in?
+
+## Clarifications
+
+### Session 2025-12-07
+
+- Q: How should the system handle users who have used the chat anonymously before signing in? → A: Migration on sign-in - Anonymous chat history is migrated when user signs in with Google
+- Q: Should users be allowed to have multiple active sessions simultaneously (e.g., logged in on both phone and desktop)? → A: Single active session - New login invalidates previous sessions
+- Q: How should chat history be organized for users? → A: Thread-based with auto-titles - Create separate chat sessions with auto-generated titles based on first message
+- Q: How should authentication tokens be persisted in the browser? → A: HTTP-only cookies - Secure, HttpOnly cookies with JWT
+- Q: Should anonymous users be able to use the chat without signing in? → A: Limited access with prompt - Allow few messages then prompt to sign in
 
 ## Requirements *(mandatory)*
 
@@ -92,6 +103,11 @@ As an authenticated user, I want to securely sign out so that my account is prot
 - **FR-008**: System MUST verify user email status from Google
 - **FR-009**: System MUST store user data in SQLite database
 - **FR-010**: System MUST use JWT tokens for session management
+- **FR-011**: System MUST migrate anonymous chat history when user signs in with Google
+- **FR-012**: System MUST enforce single active session per user, invalidating previous sessions on new login
+- **FR-013**: System MUST organize chat history as thread-based sessions with auto-generated titles based on first message
+- **FR-014**: System MUST store authentication tokens in secure HTTP-only cookies
+- **FR-015**: System MUST allow limited anonymous chat access with prompt to sign in after few messages
 
 ### Key Entities
 
