@@ -68,17 +68,26 @@ async def google_callback(
         # Get access token from Google
         token = await oauth.google.authorize_access_token(request)
 
+        # Debug: Print the entire token structure
+        import sys
+        print(f"Full token: {token}", file=sys.stderr)
+        print(f"Token type: {type(token)}", file=sys.stderr)
+        if hasattr(token, 'keys'):
+            print(f"Token keys: {list(token.keys())}", file=sys.stderr)
+
         # Get user info from Google
-        user_info = token.get('userinfo')
+        # For Google OAuth, we need to make an additional API call to get user info
+        resp = await oauth.google.get('https://www.googleapis.com/oauth2/v3/userinfo', token=token)
+        user_info = resp.json()
+        print(f"Userinfo from API: {user_info}", file=sys.stderr)
 
-        # Debug: Print what we got from the token
-        print(f"Token keys: {list(token.keys()) if token else 'None'}")
-        print(f"Userinfo: {user_info}")
-
-        if not user_info:
-            # Fallback: fetch user info manually
-            user_info = await oauth.google.parse_id_token(request, token)
-            print(f"ID token user_info: {user_info}")
+        # If we can't get user info from API, try parsing ID token
+        if not user_info or not user_info.get('email'):
+            try:
+                user_info = await oauth.google.parse_id_token(request, token)
+                print(f"ID token user_info: {user_info}", file=sys.stderr)
+            except Exception as e:
+                print(f"Error parsing ID token: {e}", file=sys.stderr)
 
         if not user_info.get('email'):
             raise HTTPException(
@@ -89,16 +98,25 @@ async def google_callback(
         # Get or create user
         user = get_or_create_user(db, user_info)
 
-        # Create or update OAuth account - pass user_info instead of token
-        create_or_update_account(db, user, 'google', user_info)
+        # Create or update OAuth account
+        # Pass both user_info and token info
+        account_data = {
+            **user_info,  # Contains 'sub', 'email', 'name', etc.
+            'access_token': token.get('access_token'),
+            'refresh_token': token.get('refresh_token'),
+            'expires_at': token.get('expires_at'),
+            'token_type': token.get('token_type'),
+            'scope': token.get('scope')
+        }
+        create_or_update_account(db, user, 'google', account_data)
 
         # Create user session and JWT token
         session_token = create_user_session(db, user)
-        access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+        jwt_token = create_access_token(data={"sub": str(user.id), "email": user.email})
 
         # Redirect to frontend with token
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-        redirect_url = f"{frontend_url}/auth/callback?token={access_token}"
+        redirect_url = f"{frontend_url}/auth/callback?token={jwt_token}"
 
         return RedirectResponse(url=redirect_url)
 
