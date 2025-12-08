@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "M. Owais Abdullah", email = "mrowaisabdullah@example.com"},
+    {name = "M. Owais Abdullah", email = "mrowaisabdullah@gmail.com"},
 ]
 keywords = ["rag", "retrieval", "openai", "qdrant", "fastapi", "robotics"]
 classifiers = [
@@ -62,6 +62,8 @@ dependencies = [
     # Monitoring and Performance
     "psutil>=5.9.6",
     "openai-chatkit>=1.4.0",
+    "email-validator>=2.3.0",
+    "bcrypt==4.2.0",
 ]
 
 [project.optional-dependencies]
