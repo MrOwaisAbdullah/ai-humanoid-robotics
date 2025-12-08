@@ -30,6 +30,6 @@ def get_db():
 
 def create_tables():
     """Create all database tables"""
-    from src.models.auth import Base as AuthBase
+    from models.auth import Base as AuthBase
     AuthBase.metadata.create_all(bind=engine)
     print("Database tables created successfully")

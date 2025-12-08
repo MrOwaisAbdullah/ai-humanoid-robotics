@@ -147,3 +147,11 @@ venv.bak/
 # Testing
 playwright-report/
 test-results/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+backend/database/*.db
+backend/database/*.sqlite
+backend/database/*.sqlite3
