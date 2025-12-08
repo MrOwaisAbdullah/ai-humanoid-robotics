@@ -32,6 +32,12 @@ class UserCreate(BaseSchema):
     password: str
     name: Optional[str] = None
 
+    # Optional background fields for knowledge collection
+    software_experience: Optional[str] = None
+    hardware_expertise: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    primary_interest: Optional[str] = None
+
     @validator('password')
     def validate_password(cls, v):
         if len(v) < 8:
@@ -40,6 +46,34 @@ class UserCreate(BaseSchema):
             raise ValueError('Password must contain at least one letter')
         if not any(c.isdigit() for c in v):
             raise ValueError('Password must contain at least one number')
+        return v
+
+    @validator('software_experience')
+    def validate_software_experience(cls, v):
+        if v is not None and v not in ['Beginner', 'Intermediate', 'Advanced']:
+            raise ValueError('Software experience must be one of: Beginner, Intermediate, Advanced')
+        return v
+
+    @validator('hardware_expertise')
+    def validate_hardware_expertise(cls, v):
+        if v is not None and v not in ['None', 'Arduino', 'ROS-Pro']:
+            raise ValueError('Hardware expertise must be one of: None, Arduino, ROS-Pro')
+        return v
+
+    @validator('years_of_experience')
+    def validate_years_of_experience(cls, v):
+        if v is not None and (v < 0 or v > 50):
+            raise ValueError('Years of experience must be between 0 and 50')
+        return v
+
+    @validator('primary_interest')
+    def validate_primary_interest(cls, v):
+        if v is not None and v not in [
+            'Computer Vision', 'Machine Learning', 'Control Systems',
+            'Path Planning', 'State Estimation', 'Sensors & Perception',
+            'Hardware Integration', 'Human-Robot Interaction', 'All of the Above'
+        ]:
+            raise ValueError('Primary interest must be one of: Computer Vision, Machine Learning, Control Systems, Path Planning, State Estimation, Sensors & Perception, Hardware Integration, Human-Robot Interaction, or All of the Above')
         return v
 
 

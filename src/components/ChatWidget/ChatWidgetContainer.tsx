@@ -8,6 +8,7 @@ import { ChatWidgetContainerProps, ChatMessage } from './types';
 import { formatChatRequest, APIError } from './utils/api';
 import { withPerformanceMonitoring, usePerformanceMonitor } from './utils/performanceMonitor';
 import { useAuth } from '../../contexts/AuthContext';
+import { sessionStorage } from '../../utils/sessionStorage';
 
 interface ChatWidgetContainerInnerProps extends ChatWidgetContainerProps {
   apiUrl?: string;
@@ -169,13 +170,7 @@ function ChatWidgetContainerInner({
       };
 
       // Add anonymous session header if not authenticated
-      if (!isAuthenticated) {
-        if (!anonymousSessionIdRef.current) {
-          // Generate anonymous session ID
-          anonymousSessionIdRef.current = 'anon_' + Math.random().toString(36).substring(7) + Date.now().toString(36);
-          // Store in localStorage for potential migration
-          localStorage.setItem('anonymous_session_id', anonymousSessionIdRef.current);
-        }
+      if (!isAuthenticated && anonymousSessionIdRef.current) {
         headers['X-Anonymous-Session-ID'] = anonymousSessionIdRef.current;
       }
 
@@ -300,6 +295,66 @@ function ChatWidgetContainerInner({
       handleSendMessage(contextualPrompt);
     }, 300);
   }, [isOpen, chatContext.setIsOpen, handleSendMessage]);
+
+  /**
+   * Initialize anonymous session on mount
+   */
+  useEffect(() => {
+    // Only initialize if not authenticated
+    if (!isAuthenticated) {
+      const initializeAnonymousSession = async () => {
+        try {
+          // Get or create session ID with fallback
+          const sessionResult = sessionStorage.getOrCreateSessionId();
+
+          // Store session ID in ref for use in messages
+          anonymousSessionIdRef.current = sessionResult.id;
+
+          // Fetch session data from backend to get current message count
+          const response = await fetch(`/api/auth/anonymous-session/${sessionResult.id}`);
+
+          if (response.ok) {
+            const sessionData = await response.json();
+
+            // Update chat context with message count if needed
+            if (chatContext.setMessageCount && sessionData.message_count > 0) {
+              chatContext.setMessageCount(sessionData.message_count);
+            }
+
+            console.log('Anonymous session initialized:', {
+              sessionId: sessionData.id,
+              messageCount: sessionData.message_count,
+              existed: sessionData.exists,
+              source: sessionResult.source
+            });
+          } else {
+            // Session fetch failed, but we can continue with a new session
+            console.warn('Failed to fetch anonymous session data, creating new session');
+            // Set default message count for new session
+            if (chatContext.setMessageCount) {
+              chatContext.setMessageCount(0);
+            }
+          }
+        } catch (error) {
+          console.error('Error initializing anonymous session:', error);
+          // Continue with default values even if session initialization fails
+          if (chatContext.setMessageCount) {
+            chatContext.setMessageCount(0);
+          }
+          // Log additional error details for debugging
+          if (error instanceof Error) {
+            console.error('Session initialization error details:', {
+              name: error.name,
+              message: error.message,
+              stack: error.stack
+            });
+          }
+        }
+      };
+
+      initializeAnonymousSession();
+    }
+  }, [isAuthenticated, chatContext.setMessageCount]);
 
   /**
    * Cleanup on unmount

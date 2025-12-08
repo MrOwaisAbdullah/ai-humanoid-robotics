@@ -5,6 +5,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { RegistrationBackground } from '../../contexts/AuthContext';
+import { RegistrationForm } from './RegistrationForm';
+import { PasswordInput } from './PasswordInput';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -109,11 +112,16 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
     }
   };
 
-  const handleRegister = async (data: RegisterFormData) => {
+  const handleRegister = async (data: RegisterFormData & { background?: RegistrationBackground }) => {
     try {
       setError(null);
       setSuccess(null);
-      const migrationInfo = await register(data.email, data.password, data.name);
+      const migrationInfo = await register(
+        data.email,
+        data.password,
+        data.name,
+        data.background
+      );
       setIsModalOpen(false);
       registerForm.reset();
 
@@ -146,8 +154,8 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
 
   // Modal content with portal
   const modalContent = isModalOpen && mounted ? (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4">
+    <div className="fixed inset-0 z-[60] overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-2 sm:px-4 py-4">
         {/* Background overlay */}
         <div
           className="fixed inset-0 bg-black opacity-50"
@@ -155,7 +163,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         />
 
         {/* Modal */}
-        <div className="relative bg-white dark:bg-zinc-900 rounded-lg max-w-md w-full p-6">
+        <div className={`relative bg-white dark:bg-zinc-900 rounded-lg w-full ${!isLoginMode ? 'py-6 px-3 sm:px-6' : 'p-6'} ${!isLoginMode ? 'max-w-4xl' : 'max-w-md'}`}>
           <button
             onClick={closeModal}
             className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
@@ -165,9 +173,12 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
             </svg>
           </button>
 
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
-            {isLoginMode ? 'Sign In' : 'Create Account'}
-          </h2>
+          {/* Only show title for login mode - RegistrationForm has its own title */}
+          {isLoginMode && (
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
+              Sign In
+            </h2>
+          )}
 
           {/* Error/Success messages */}
           {error && (
@@ -203,14 +214,12 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                  Password
-                </label>
-                <input
+                <PasswordInput
                   {...loginForm.register('password')}
-                  type="password"
                   id="password"
-                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
+                  value={loginForm.watch('password')}
+                  onChange={(e) => loginForm.setValue('password', e.target.value)}
+                  className="px-3 py-2"
                   placeholder="••••••••"
                 />
                 {loginForm.formState.errors.password && (
@@ -249,99 +258,14 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
             </form>
           ) : (
             /* Register Form */
-            <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
-              <div>
-                <label htmlFor="reg-email" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                  Email
-                </label>
-                <input
-                  {...registerForm.register('email')}
-                  type="email"
-                  id="reg-email"
-                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
-                  placeholder="your@email.com"
-                />
-                {registerForm.formState.errors.email && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {registerForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="reg-name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                  Name (optional)
-                </label>
-                <input
-                  {...registerForm.register('name')}
-                  type="text"
-                  id="reg-name"
-                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
-                  placeholder="Your name"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="reg-password" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                  Password
-                </label>
-                <input
-                  {...registerForm.register('password')}
-                  type="password"
-                  id="reg-password"
-                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
-                  placeholder="••••••••"
-                />
-                {registerForm.formState.errors.password && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {registerForm.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="reg-confirm-password" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                  Confirm Password
-                </label>
-                <input
-                  {...registerForm.register('confirmPassword')}
-                  type="password"
-                  id="reg-confirm-password"
-                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
-                  placeholder="••••••••"
-                />
-                {registerForm.formState.errors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {registerForm.formState.errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                Password must be at least 8 characters with letters and numbers
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium ${primaryButtonClass} ${buttonClass}`}
-              >
-                {isLoading ? 'Creating account...' : 'Create Account'}
-              </button>
-
-              <div className="text-center">
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Already have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={switchMode}
-                    className="text-[#10a37f] hover:text-[#0d8f6c] dark:text-[#10a37f] font-medium"
-                  >
-                    Sign in
-                  </button>
-                </span>
-              </div>
-            </form>
+            <RegistrationForm
+              onSubmit={async (data) => {
+                await handleRegister({ ...data, background: data });
+              }}
+              onCancel={switchMode}
+              isLoading={isLoading}
+              error={error || undefined}
+            />
           )}
         </div>
       </div>

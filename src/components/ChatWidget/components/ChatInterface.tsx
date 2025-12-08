@@ -153,6 +153,16 @@ export default function ChatInterface({
         >
           Chat With Book
         </motion.h2>
+        {!isAuthenticated && (
+          <motion.span
+            className="text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-full"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+          >
+            {messageCount}/3 messages
+          </motion.span>
+        )}
         <motion.button
           onClick={onClose}
           className={styles.closeButton}
@@ -270,7 +280,7 @@ export default function ChatInterface({
             exit={{ opacity: 0, scale: 0.9, y: -10 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            <AnonymousLimitBanner />
+            <AnonymousLimitBanner messageCount={messageCount} />
           </motion.div>
         )}
       </AnimatePresence>

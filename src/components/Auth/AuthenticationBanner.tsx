@@ -41,7 +41,14 @@ export const AuthenticationBanner: React.FC = () => {
   );
 };
 
-export const AnonymousLimitBanner: React.FC = () => {
+interface AnonymousLimitBannerProps {
+  messageCount?: number;
+}
+
+export const AnonymousLimitBanner: React.FC<AnonymousLimitBannerProps> = ({ messageCount = 3 }) => {
+  const remainingMessages = Math.max(0, 3 - messageCount);
+  const isLimitReached = messageCount >= 3;
+
   return (
     <div className="bg-[#10a37f]/10 dark:bg-[#10a37f]/20 border-l-4 border-[#10a37f] p-4 mb-4">
       <div className="flex">
@@ -60,12 +67,20 @@ export const AnonymousLimitBanner: React.FC = () => {
         </div>
         <div className="ml-3 flex-1">
           <p className="text-sm text-zinc-900 dark:text-[#5eead4]">
-            <strong>Message limit reached</strong> - You've used your 3 free messages as a guest.
-            Sign in to continue chatting and save your conversation history.
+            <strong>
+              {isLimitReached
+                ? "Message limit reached"
+                : `You have ${remainingMessages} message${remainingMessages === 1 ? '' : 's'} remaining`
+              }
+            </strong> -
+            {isLimitReached
+              ? " You've used your 3 free messages as a guest. Sign in to continue chatting and save your conversation history."
+              : " Sign in to get unlimited access and save your conversations."
+            }
           </p>
           <div className="mt-2">
             <LoginButton className="text-sm bg-[#10a37f] hover:bg-[#0d8f6c] text-white px-3 py-1 rounded">
-              Sign in now
+              {isLimitReached ? "Sign in now" : "Sign in"}
             </LoginButton>
           </div>
         </div>

@@ -71,16 +71,21 @@ class UserBackground(Base):
     __tablename__ = "user_backgrounds"
 
     class ExperienceLevel(str, Enum):
-        BEGINNER = "beginner"
-        INTERMEDIATE = "intermediate"
-        ADVANCED = "advanced"
+        BEGINNER = "Beginner"
+        INTERMEDIATE = "Intermediate"
+        ADVANCED = "Advanced"
+
+    class HardwareExpertise(str, Enum):
+        NONE = "None"
+        ARDUINO = "Arduino"
+        ROS_PRO = "ROS-Pro"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, unique=True)
     experience_level = Column(SQLEnum(ExperienceLevel), nullable=False)
-    years_experience = Column(Integer, nullable=False, default=0)
+    years_of_experience = Column(Integer, nullable=False, default=0)
     preferred_languages = Column(JSON, nullable=False, default=list)
-    hardware_expertise = Column(JSON, nullable=False, default=dict)
+    hardware_expertise = Column(SQLEnum(HardwareExpertise), nullable=False, default=HardwareExpertise.NONE)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

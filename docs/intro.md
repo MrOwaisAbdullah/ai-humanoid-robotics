@@ -13,9 +13,9 @@ Unlike traditional AI that exists purely in digital realms, Physical AI embodies
 
 ## 📖 What This Book Covers
 
-This course is structured into five distinct parts, taking you from the fundamentals of embodied intelligence to advanced applications in humanoid robotics.
+This course is structured into five distinct modules, taking you from the fundamentals of embodied intelligence to advanced applications in humanoid robotics.
 
-### [Part 1: Foundations](/docs/category/part-1-foundations)
+### [Module 1: Foundations](/docs/category/module-1-foundations)
 Establish the core concepts of Physical AI.
 - **Chapter 1**: Introduction to Physical AI & Embodied Intelligence
 - **Chapter 2**: Sensors & Perception (LiDAR, Cameras, IMU)
@@ -23,19 +23,19 @@ Establish the core concepts of Physical AI.
 - **Chapter 4**: Motion Planning
 - **Chapter 5**: System Integration
 
-### [Part 2: The Nervous System](/docs/category/part-2-nervous-system)
+### [Module 2: The Nervous System](/docs/category/module-2-nervous-system)
 Dive into the software architecture that powers modern robots.
 - **Chapter 6**: ROS 2 Architecture & Core Concepts
 - **Chapter 7**: Building ROS 2 Nodes with Python
 - **Chapter 8**: Launch Systems & Parameter Management
 
-### [Part 3: Motion and Control](/docs/category/part-3-motion-and-control)
+### [Module 3: Motion and Control](/docs/category/module-3-motion-control)
 Master the physics and control strategies for movement.
 - **Chapter 9**: Kinematics & Dynamics
 - **Chapter 10**: Balance & Locomotion
 - **Chapter 11**: Manipulation & Grasping
 
-### [Part 4: Applications & Advanced Topics](/docs/category/part-4-applications-and-advanced-topics)
+### [Module 4: Applications & Advanced Topics](/docs/category/module-4-applications)
 Explore cutting-edge applications and future trends.
 - **Chapter 12**: Computer Vision for Robotics
 - **Chapter 13**: Machine Learning & Reinforcement Learning
@@ -57,4 +57,4 @@ To get the most out of this course, you should have:
 
 Ready to begin your journey into Embodied Intelligence?
 
-[**Start reading Chapter 1 →**](/docs/part-1-foundations/chapter-1-introduction)
+[**Start reading Chapter 1 →**](/docs/module-1-foundations/chapter-1-introduction)

@@ -12,7 +12,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from src.database.config import get_db
-from src.models.auth import User, Session as UserSession
+from src.models.auth import User, Session as UserSession, AnonymousSession
 from src.schemas.auth import (
     User as UserSchema,
     UserCreate,
@@ -86,6 +86,18 @@ async def register(
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    # Create user background if provided
+    if user_data.software_experience or user_data.hardware_expertise or user_data.years_of_experience is not None:
+        from src.models.auth import UserBackground
+        background = UserBackground(
+            user_id=db_user.id,
+            experience_level=user_data.software_experience or "Beginner",
+            hardware_expertise=user_data.hardware_expertise or "None",
+            years_of_experience=user_data.years_of_experience or 0
+        )
+        db.add(background)
+        db.commit()
 
     # Create access token
     access_token_expires = timedelta(minutes=10080)  # 7 days
@@ -238,6 +250,81 @@ async def get_current_user_info(
         Current user data
     """
     return current_user
+
+
+@router.post("/refresh")
+async def refresh_token(
+    current_user: UserSchema = Depends(get_current_active_user),
+    response: Response = None
+) -> Any:
+    """
+    Refresh authentication token.
+
+    Args:
+        current_user: Currently authenticated user
+        response: FastAPI response object for setting cookies
+
+    Returns:
+        New access token
+
+    Raises:
+        HTTPException: If refresh fails
+    """
+    # Create new access token
+    access_token_expires = timedelta(minutes=10080)  # 7 days
+    access_token = create_access_token(
+        data={"sub": str(current_user.id)},
+        expires_delta=access_token_expires
+    )
+
+    # Set HTTP-only cookie if response is provided
+    if response:
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            max_age=access_token_expires.total_seconds(),
+            httponly=True,
+            samesite="lax",
+            secure=False  # Set to True in production with HTTPS
+        )
+
+    return {"token": access_token}
+
+
+@router.get("/anonymous-session/{session_id}")
+async def get_anonymous_session(
+    session_id: str,
+    db: Session = Depends(get_db)
+) -> Any:
+    """
+    Get anonymous session data including message count.
+
+    Args:
+        session_id: Anonymous session ID from localStorage
+        db: Database session
+
+    Returns:
+        Anonymous session data with message count and existence flag
+    """
+    # Query for existing session
+    session = db.query(AnonymousSession).filter(
+        AnonymousSession.id == session_id
+    ).first()
+
+    if not session:
+        # Return new session data if not found
+        return {
+            "id": session_id,
+            "message_count": 0,
+            "exists": False
+        }
+
+    # Return existing session data
+    return {
+        "id": session.id,
+        "message_count": session.message_count,
+        "exists": True
+    }
 
 
 @router.post("/password-reset/request", response_model=SuccessResponse)

@@ -2,7 +2,7 @@
  * Authentication context for managing user authentication state.
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import axios from 'axios';
 
 // Types
@@ -19,11 +19,20 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
+// Background data interface for registration
+export interface RegistrationBackground {
+  software_experience?: 'Beginner' | 'Intermediate' | 'Advanced';
+  hardware_expertise?: 'None' | 'Arduino' | 'ROS-Pro';
+  years_of_experience?: number;
+  primary_interest?: 'Computer Vision' | 'Machine Learning' | 'Control Systems' | 'Path Planning' | 'State Estimation' | 'Sensors & Perception' | 'Hardware Integration' | 'Human-Robot Interaction' | 'All of the Above';
+}
+
 export interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<{ migratedSessions?: number; migratedMessages?: number }>;
-  register: (email: string, password: string, name?: string) => Promise<{ migratedSessions?: number; migratedMessages?: number }>;
+  register: (email: string, password: string, name?: string, background?: RegistrationBackground) => Promise<{ migratedSessions?: number; migratedMessages?: number }>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  refreshToken: () => Promise<boolean>;
 }
 
 // Create context
@@ -66,9 +75,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: false,
   });
 
+  // Token refresh timer ref
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Check authentication on mount
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  // Cleanup refresh timer on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+      }
+    };
   }, []);
 
   // Check authentication status
@@ -93,6 +114,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           isLoading: false,
           isAuthenticated: true,
         });
+        // Start token refresh timer when authenticated
+        startTokenRefreshTimer();
       } else {
         setState({
           user: null,
@@ -177,7 +200,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Register function
-  const register = async (email: string, password: string, name?: string) => {
+  const register = async (
+    email: string,
+    password: string,
+    name?: string,
+    background?: RegistrationBackground
+  ) => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
 
@@ -206,6 +234,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           email,
           password,
           name,
+          software_experience: background?.software_experience,
+          hardware_expertise: background?.hardware_expertise,
+          years_of_experience: background?.years_of_experience,
+          primary_interest: background?.primary_interest,
         },
         { headers }
       );
@@ -237,6 +269,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Refresh token function
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      const response = await axios.post('/auth/refresh');
+
+      if (response.data && response.data.token) {
+        // Store new token
+        localStorage.setItem('access_token', response.data.token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      return false;
+    }
+  };
+
+  // Start token refresh timer
+  const startTokenRefreshTimer = () => {
+    // Clear any existing timer
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+    }
+
+    // Check token every 5 minutes
+    refreshTimerRef.current = setInterval(async () => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          // Decode JWT to check expiration
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const expiresAt = payload.exp * 1000; // Convert to milliseconds
+          const now = Date.now();
+
+          // Refresh if expiring within 5 minutes
+          if (expiresAt - now < 5 * 60 * 1000) {
+            const refreshed = await refreshToken();
+            if (!refreshed) {
+              // Token refresh failed, logout
+              logout();
+            }
+          }
+        } catch (error) {
+          console.error('Error checking token expiration:', error);
+          logout();
+        }
+      }
+    }, 60000); // Check every minute
+  };
+
   // Logout function
   const logout = async () => {
     try {
@@ -247,6 +330,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Even if logout request fails, clear local state
       console.error('Logout error:', error);
     } finally {
+      // Clear refresh timer
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
       // Clear token from localStorage
       localStorage.removeItem('access_token');
       // Clear authorization header
@@ -267,6 +355,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     checkAuth,
+    refreshToken,
   };
 
   return (

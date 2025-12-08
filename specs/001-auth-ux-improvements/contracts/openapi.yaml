@@ -1,0 +1,481 @@
+openapi: 3.0.0
+info:
+  title: Authentication and UX API
+  description: API endpoints for guest sessions, authentication, and user management
+  version: 1.0.0
+
+paths:
+  /auth/anonymous-session/{session_id}:
+    get:
+      summary: Get anonymous session data
+      description: Retrieve message count and session validity for guest users
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session data retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                  type: string
+                  format: uuid
+                  message_count:
+                  type: integer
+                  minimum: 0
+                  maximum: 3
+                  exists:
+                  type: boolean
+                  expires_at:
+                  type: string
+                  format: date-time
+        '404':
+          description: Session not found or expired
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                  type: string
+                example: Session not found
+
+  /auth/register:
+    post:
+      summary: Register new user with background
+      description: Create a new user account with software and hardware experience
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  minLength: 8
+                  example: SecurePassword123!
+                name:
+                  type: string
+                  example: John Doe
+                software_experience:
+                  type: string
+                  enum: [Beginner, Intermediate, Advanced]
+                  example: Intermediate
+                hardware_expertise:
+                  type: string
+                  enum: [None, Arduino, ROS-Pro]
+                  example: Arduino
+                years_of_experience:
+                  type: integer
+                  minimum: 0
+                  maximum: 50
+                  example: 5
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      email:
+                        type: string
+                        example: user@example.com
+                      name:
+                        type: string
+                        example: John Doe
+                      email_verified:
+                        type: boolean
+                        example: false
+                      created_at:
+                        type: string
+                        format: date-time
+          headers:
+            Set-Cookie:
+              description: Authentication token cookie
+              schema:
+                type: string
+                example: auth_token=eyJhbGciOiJIUzI1NiIs...; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Email already registered
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        loc:
+                          type: array
+                          items:
+                            type: string
+                        msg:
+                          type: string
+                        type:
+                          type: string
+
+  /auth/me:
+    get:
+      summary: Get current user
+      description: Get information about the currently authenticated user
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  email:
+                    type: string
+                    example: user@example.com
+                  name:
+                    type: string
+                    example: John Doe
+                  email_verified:
+                    type: boolean
+                    example: false
+                  background:
+                    type: object
+                    properties:
+                      software_experience:
+                        type: string
+                        enum: [Beginner, Intermediate, Advanced]
+                      hardware_expertise:
+                        type: string
+                        enum: [None, Arduino, ROS-Pro]
+                      years_of_experience:
+                        type: integer
+                        example: 5
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Authentication required
+
+  /auth/refresh:
+    post:
+      summary: Refresh authentication token
+      description: Get a new access token using refresh token
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIs...
+                  expires_at:
+                  type: string
+                  format: date-time
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Invalid refresh token
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      description: Clear authentication cookies and invalidate session
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+          headers:
+            Set-Cookie:
+              description: Clear authentication cookie
+              schema:
+                type: string
+                example: auth_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0
+
+  /auth/preferences:
+    get:
+      summary: Get user preferences
+      description: Retrieve user's background and preferences
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  software_experience:
+                    type: string
+                    enum: [Beginner, Intermediate, Advanced]
+                  hardware_expertise:
+                    type: string
+                    enum: [None, Arduino, ROS-Pro]
+                  years_of_experience:
+                    type: integer
+                    minimum: 0
+                    maximum: 50
+                  theme:
+                    type: string
+                    enum: [light, dark, auto]
+                  language:
+                    type: string
+                    example: en
+
+    put:
+      summary: Update user preferences
+      description: Update user's background information and preferences
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                software_experience:
+                  type: string
+                  enum: [Beginner, Intermediate, Advanced]
+                hardware_expertise:
+                  type: string
+                  enum: [None, Arduino, ROS-Pro]
+                years_of_experience:
+                  type: integer
+                  minimum: 0
+                  maximum: 50
+                theme:
+                  type: string
+                  enum: [light, dark, auto]
+                language:
+                  type: string
+                  example: en
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Invalid years_of_experience value
+
+securitySchemes:
+  cookieAuth:
+    type: apiKey
+    in: cookie
+    name: auth_token
+    description: Authentication token cookie
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        name:
+          type: string
+          example: John Doe
+        email_verified:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_login:
+          type: string
+          format: date-time
+
+    UserBackground:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          example: 1
+        software_experience:
+          type: string
+          enum: [Beginner, Intermediate, Advanced]
+        hardware_expertise:
+          type: string
+          enum: [None, Arduino, ROS-Pro]
+        years_of_experience:
+          type: integer
+          minimum: 0
+          maximum: 50
+          example: 5
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AnonymousSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        message_count:
+          type: integer
+          minimum: 0
+          maximum: 3
+          example: 2
+        created_at:
+          type: string
+          format: date-time
+        last_activity:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        ip_address:
+          type: string
+          example: 192.168.1.1
+        user_agent:
+          type: string
+          example: Mozilla/5.0 (Windows NT 10.0; Win64; x64)...
+        fingerprint:
+          type: string
+          example: abc123def456
+
+    RegistrationData:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          example: SecurePassword123!
+        name:
+          type: string
+          example: John Doe
+        software_experience:
+          type: string
+          enum: [Beginner, Intermediate, Advanced]
+        hardware_expertise:
+          type: string
+          enum: [None, Arduino, ROS-Pro]
+        years_of_experience:
+          type: integer
+          minimum: 0
+          maximum: 50
+          example: 5
+
+    Error:
+      type: object
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+                properties:
+                  loc:
+                  type: array
+                  items:
+                    type: string
+                msg:
+                  type: string
+                type:
+                  type: string
+          example: Validation error
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Users
+    description: User profile and preferences management
