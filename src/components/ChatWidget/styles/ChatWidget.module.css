@@ -996,6 +996,393 @@
   gap: 0.5rem;
 }
 
+.successMessage {
+  padding: 1rem;
+  background: #14532d;
+  border: 1px solid #166534;
+  border-radius: 0.5rem;
+  color: #dcfce7;
+  margin: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Message Edit Styles */
+.messageEdit {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.editTimeWarning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.editMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.editTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.editTextarea:focus {
+  outline: none;
+  border-color: #10a37f;
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+}
+
+.editTextarea:disabled {
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.editReason {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.editReason:focus {
+  outline: none;
+  border-color: #d1d5db;
+}
+
+.editReason:disabled {
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.editActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  gap: 0.75rem;
+}
+
+.rightActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cancelButton {
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.cancelButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.historyButton {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.historyButton:hover:not(:disabled) {
+  background: #f9fafb;
+  color: #374151;
+}
+
+.historyButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.saveButton {
+  padding: 0.5rem 1rem;
+  background: #10a37f;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: #0d8f6c;
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.editHistory {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.editHistory h4 {
+  margin: 0 0 0.75rem 0;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.versionList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.versionItem {
+  padding: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.versionItem:hover:not(.currentVersion) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.currentVersion {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
+.versionInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.versionNumber {
+  font-weight: 500;
+  color: #374151;
+}
+
+.currentVersion .versionNumber {
+  color: #047857;
+}
+
+.versionDate {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.versionContent {
+  color: #4b5563;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.versionReason {
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: #fffbeb;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  color: #92400e;
+}
+
+/* Dark mode support */
+.dark .messageEdit {
+  background: rgba(31, 41, 55, 0.95);
+  border-color: #475569;
+}
+
+.dark .editTextarea {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.dark .editTextarea:focus {
+  border-color: #10b981;
+}
+
+.dark .editReason {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.dark .cancelButton {
+  background: #374151;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.dark .cancelButton:hover:not(:disabled) {
+  background: #4b5563;
+}
+
+.dark .historyButton {
+  color: #9ca3af;
+  border-color: #475569;
+}
+
+.dark .historyButton:hover:not(:disabled) {
+  background: #374151;
+  color: #e2e8f0;
+}
+
+.dark .editHistory {
+  border-top-color: #475569;
+}
+
+.dark .editHistory h4 {
+  color: #e2e8f0;
+}
+
+.dark .versionItem {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.dark .versionItem:hover:not(.currentVersion) {
+  background: #374151;
+}
+
+.dark .versionInfo {
+  color: #e2e8f0;
+}
+
+.dark .versionContent {
+  color: #cbd5e1;
+}
+
+.dark .versionReason {
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+}
+
+/* Edit Button Styles */
+.messageTextWrapper {
+  position: relative;
+  padding-right: 40px;
+}
+
+.editButton {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  padding: 0.375rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.messageTextWrapper:hover .editButton {
+  opacity: 1;
+}
+
+.editButton:hover {
+  background: #ffffff;
+  color: #374151;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.editButton svg {
+  flex-shrink: 0;
+}
+
+.editIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: #6b7280;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.editIndicator svg {
+  flex-shrink: 0;
+}
+
+/* Dark mode for edit button */
+.dark .editButton {
+  background: rgba(31, 41, 55, 0.9);
+  color: #9ca3af;
+  border-color: #475569;
+}
+
+.dark .editButton:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dark .editIndicator {
+  color: #9ca3af;
+}
+
 .retryButton {
   background: #10a37f;
   border: none;

@@ -9,6 +9,7 @@ import { getOptimizedMotionProps, widgetVariants } from '../utils/animations';
 import styles from '../styles/ChatWidget.module.css';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AuthenticationBanner, AnonymousLimitBanner } from '../../../components/Auth/AuthenticationBanner';
+import { useChatActions } from '../contexts/index';
 
 interface ChatInterfaceProps {
   messages: ChatMessageType[];
@@ -23,6 +24,7 @@ interface ChatInterfaceProps {
   };
   onRetry?: () => void;
   onDismissError?: () => void;
+  migrationMessage?: string | null;
 }
 
 // Error display component
@@ -91,11 +93,14 @@ export default function ChatInterface({
   error,
   onRetry,
   onDismissError,
+  migrationMessage,
 }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useAuth();
+  const { updateMessage } = useChatActions();
   const [showLimitBanner, setShowLimitBanner] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const [showMigrationMessage, setShowMigrationMessage] = useState(false);
 
   // Auto-scroll to bottom when new messages are added
   const scrollToBottom = () => {
@@ -112,6 +117,18 @@ export default function ChatInterface({
     setMessageCount(userMessages);
     setShowLimitBanner(userMessages >= 2); // Show banner at 2 messages (limit is 3)
   }, [messages]);
+
+  // Show migration message when provided
+  useEffect(() => {
+    if (migrationMessage) {
+      setShowMigrationMessage(true);
+      // Auto-hide after 5 seconds
+      const timer = setTimeout(() => {
+        setShowMigrationMessage(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [migrationMessage]);
 
   return (
     <motion.div
@@ -181,6 +198,10 @@ export default function ChatInterface({
                 key={message.id}
                 message={message}
                 isStreaming={message.isStreaming}
+                onUpdateMessage={(messageId, newContent) => {
+                  // Update message in the chat context
+                  updateMessage(messageId, newContent);
+                }}
               />
             ))}
           </>
@@ -196,6 +217,24 @@ export default function ChatInterface({
               transition={{ duration: 0.3 }}
             >
               <ThinkingIndicator />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Migration success message */}
+        <AnimatePresence>
+          {showMigrationMessage && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -10 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className={styles.successMessage}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              <span>{migrationMessage}</span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -231,7 +270,7 @@ export default function ChatInterface({
             exit={{ opacity: 0, scale: 0.9, y: -10 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            <AnonymousLimitBanner onUpgrade={() => window.location.href = '/auth/login'} />
+            <AnonymousLimitBanner />
           </motion.div>
         )}
       </AnimatePresence>

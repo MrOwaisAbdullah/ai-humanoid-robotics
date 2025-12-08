@@ -1,3 +1,4 @@
+
 from datetime import datetime
 from typing import Optional, Dict, Any
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, JSON
@@ -13,6 +14,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
     name = Column(String, nullable=False)
     image_url = Column(String, nullable=True)
     email_verified = Column(Boolean, default=False, nullable=False)

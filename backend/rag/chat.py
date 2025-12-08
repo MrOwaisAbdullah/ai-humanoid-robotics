@@ -540,11 +540,25 @@ class ChatHandler:
             # Calculate response time
             response_time = (datetime.utcnow() - start_time).total_seconds()
 
+            # Helper function to serialize citations
+            def serialize_citation(citation):
+                """Convert Citation object to JSON-serializable dict."""
+                return {
+                    "id": getattr(citation, 'id', ''),
+                    "chunk_id": getattr(citation, 'chunk_id', ''),
+                    "document_id": getattr(citation, 'document_id', ''),
+                    "text_snippet": getattr(citation, 'text_snippet', ''),
+                    "relevance_score": getattr(citation, 'relevance_score', 0),
+                    "chapter": getattr(citation, 'chapter', ''),
+                    "section": getattr(citation, 'section', ''),
+                    "confidence": getattr(citation, 'confidence', 0)
+                }
+
             # Final response
             final_response = {
                 "type": "final",
                 "answer": answer,
-                "sources": [citation.to_dict() if hasattr(citation, 'to_dict') else citation for citation in citations],
+                "sources": [serialize_citation(citation) for citation in citations],
                 "session_id": session_id,
                 "query": query,
                 "response_time": response_time,

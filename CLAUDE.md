@@ -238,3 +238,10 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+
+## Active Technologies
+- Python 3.11+ (backend), TypeScript/React 18+ (frontend) + FastAPI (backend), React/Docusaurus (frontend), SQLAlchemy (ORM), python-jose (JWT), passlib (password hashing) (002-auth-modify)
+- SQLite database with SQLAlchemy ORM (002-auth-modify)
+
+## Recent Changes
+- 002-auth-modify: Added Python 3.11+ (backend), TypeScript/React 18+ (frontend) + FastAPI (backend), React/Docusaurus (frontend), SQLAlchemy (ORM), python-jose (JWT), passlib (password hashing)

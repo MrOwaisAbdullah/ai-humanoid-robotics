@@ -6,7 +6,7 @@ import { AuthProvider } from '../contexts/AuthContext';
 import { useAuth } from '../contexts/AuthContext';
 import { LoginButton } from '../components/Auth/LoginButton';
 import { UserProfile } from '../components/Auth/UserProfile';
-import { OAuthCallbackHandler } from '../contexts/AuthContext';
+import { OAuthCallbackHandler } from '../components/Auth/OAuthCallbackHandler';
 import { OnboardingManager } from '../components/Auth/OnboardingManager';
 import { NavbarAuth } from '../components/Auth/NavbarAuth';
 

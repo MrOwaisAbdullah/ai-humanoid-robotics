@@ -1,0 +1,518 @@
+openapi: 3.0.3
+info:
+  title: Authentication API
+  description: Email/password authentication and user management API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+
+paths:
+  /auth/register:
+    post:
+      summary: Register new user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      summary: Authenticate user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      tags:
+        - Authentication
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+        '401':
+          description: Not authenticated
+
+  /auth/refresh:
+    post:
+      summary: Refresh authentication token
+      tags:
+        - Authentication
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid or expired token
+
+  /auth/me:
+    get:
+      summary: Get current user info
+      tags:
+        - Authentication
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Not authenticated
+
+  /auth/password-reset/request:
+    post:
+      summary: Request password reset
+      tags:
+        - Password Reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Reset email sent
+        '404':
+          description: Email not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/password-reset/validate:
+    post:
+      summary: Validate reset token
+      tags:
+        - Password Reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateResetTokenRequest'
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/password-reset/reset:
+    post:
+      summary: Reset password with token
+      tags:
+        - Password Reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          description: Invalid token or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/onboarding:
+    post:
+      summary: Save onboarding responses
+      tags:
+        - User Profile
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingRequest'
+      responses:
+        '200':
+          description: Onboarding saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBackgroundResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/background:
+    get:
+      summary: Get user background
+      tags:
+        - User Profile
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User background
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBackgroundResponse'
+        '404':
+          description: Background not found
+
+    put:
+      summary: Update user background
+      tags:
+        - User Profile
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBackgroundRequest'
+      responses:
+        '200':
+          description: Background updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserBackgroundResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/preferences:
+    get:
+      summary: Get user preferences
+      tags:
+        - User Profile
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesResponse'
+
+    put:
+      summary: Update user preferences
+      tags:
+        - User Profile
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferencesRequest'
+      responses:
+        '200':
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+        password:
+          type: string
+          minLength: 8
+          pattern: '^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$'
+          description: Password (min 8 chars, letters and numbers)
+        name:
+          type: string
+          maxLength: 100
+          description: Optional display name
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        requires_onboarding:
+          type: boolean
+          description: Whether user needs to complete onboarding
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        email_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        has_background:
+          type: boolean
+          description: Whether user has completed onboarding
+
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+
+    ValidateResetTokenRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Password reset token
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - password
+      properties:
+        token:
+          type: string
+          description: Password reset token
+        password:
+          type: string
+          minLength: 8
+          pattern: '^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$'
+
+    OnboardingRequest:
+      type: object
+      properties:
+        experience_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        years_experience:
+          type: integer
+          minimum: 0
+          maximum: 50
+        preferred_languages:
+          type: array
+          items:
+            type: string
+            enum: [python, javascript, java, cpp, rust, go, typescript, php, ruby, swift, kotlin, other]
+          maxItems: 10
+        hardware_expertise:
+          $ref: '#/components/schemas/HardwareExpertise'
+
+    HardwareExpertise:
+      type: object
+      required:
+        - cpu
+        - gpu
+        - networking
+      properties:
+        cpu:
+          type: string
+          enum: [none, basic, intermediate, advanced]
+        gpu:
+          type: string
+          enum: [none, basic, intermediate, advanced]
+        networking:
+          type: string
+          enum: [none, basic, intermediate, advanced]
+
+    UserBackgroundResponse:
+      type: object
+      properties:
+        experience_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        years_experience:
+          type: integer
+        preferred_languages:
+          type: array
+          items:
+            type: string
+        hardware_expertise:
+          $ref: '#/components/schemas/HardwareExpertise'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpdateBackgroundRequest:
+      type: object
+      properties:
+        experience_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        years_experience:
+          type: integer
+          minimum: 0
+          maximum: 50
+        preferred_languages:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        hardware_expertise:
+          $ref: '#/components/schemas/HardwareExpertise'
+
+    UserPreferencesResponse:
+      type: object
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, auto]
+        language:
+          type: string
+          pattern: '^[a-z]{2}(-[A-Z]{2})?$'
+        notification_settings:
+          $ref: '#/components/schemas/NotificationSettings'
+
+    NotificationSettings:
+      type: object
+      properties:
+        email_responses:
+          type: boolean
+        browser_notifications:
+          type: boolean
+        marketing_emails:
+          type: boolean
+
+    UpdatePreferencesRequest:
+      type: object
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, auto]
+        language:
+          type: string
+          pattern: '^[a-z]{2}(-[A-Z]{2})?$'
+        notification_settings:
+          $ref: '#/components/schemas/NotificationSettings'
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details

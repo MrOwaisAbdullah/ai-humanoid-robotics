@@ -1,4 +1,5 @@
-from typing import Optional
+
+from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -9,9 +10,11 @@ from database.config import get_db
 from auth.auth import (
     oauth, create_access_token, get_or_create_user,
     create_or_update_account, create_user_session,
-    invalidate_user_sessions, get_current_active_user
+    invalidate_user_sessions, get_current_active_user,
+    verify_password, get_password_hash
 )
-from models.auth import User, UserPreferences
+from src.models.auth import User, UserPreferences
+from src.services.session_migration import SessionMigrationService, migrate_anonymous_session_on_auth
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -23,7 +26,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 # Pydantic models
 class UserResponse(BaseModel):
-    id: int
+    id: str
     email: str
     name: str
     image_url: Optional[str] = None
@@ -37,6 +40,8 @@ class LoginResponse(BaseModel):
     user: UserResponse
     access_token: str
     token_type: str = "bearer"
+    migrated_sessions: Optional[int] = 0
+    migrated_messages: Optional[int] = 0
 
 
 class PreferencesResponse(BaseModel):
@@ -48,6 +53,129 @@ class PreferencesResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@router.post("/register")
+@limiter.limit("5/minute")
+async def register(request: Request, register_data: RegisterRequest, db: Session = Depends(get_db)):
+    """Register a new user"""
+    # Check if user already exists
+    existing_user = db.query(User).filter(User.email == register_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+
+    # Hash password
+    hashed_password = get_password_hash(register_data.password)
+
+    # Create user
+    new_user = User(
+        email=register_data.email,
+        password_hash=hashed_password,
+        name=register_data.name,
+        email_verified=False
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    # Create default preferences
+    preferences = UserPreferences(user_id=new_user.id)
+    db.add(preferences)
+    db.commit()
+
+    # Check for anonymous session to migrate
+    anonymous_session_id = request.headers.get("X-Anonymous-Session-ID")
+    migrated_sessions = 0
+    migrated_messages = 0
+
+    if anonymous_session_id:
+        try:
+            migration_service = SessionMigrationService(db)
+            migration_result = migration_service.migrate_anonymous_session(
+                anonymous_session_id=anonymous_session_id,
+                authenticated_user_id=str(new_user.id)
+            )
+            if migration_result["success"]:
+                migrated_sessions = migration_result["migrated_sessions_count"]
+                migrated_messages = migration_result["migrated_messages_count"]
+        except Exception as e:
+            # Log error but don't fail registration
+            print(f"Session migration failed during registration: {e}")
+
+    # Create session
+    session_token = create_user_session(db, new_user)
+    access_token = create_access_token(data={"sub": str(new_user.id), "email": new_user.email})
+
+    return LoginResponse(
+        user=UserResponse(
+            id=new_user.id,
+            email=new_user.email,
+            name=new_user.name,
+            image_url=new_user.image_url,
+            email_verified=new_user.email_verified
+        ),
+        access_token=access_token,
+        migrated_sessions=migrated_sessions,
+        migrated_messages=migrated_messages
+    )
+
+@router.post("/login")
+@limiter.limit("10/minute")
+async def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
+    """Login with email and password"""
+    user = db.query(User).filter(User.email == login_data.email).first()
+    if not user or not verify_password(login_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Check for anonymous session to migrate
+    anonymous_session_id = request.headers.get("X-Anonymous-Session-ID")
+    migrated_sessions = 0
+    migrated_messages = 0
+
+    if anonymous_session_id:
+        try:
+            migration_service = SessionMigrationService(db)
+            migration_result = migration_service.migrate_anonymous_session(
+                anonymous_session_id=anonymous_session_id,
+                authenticated_user_id=str(user.id)
+            )
+            if migration_result["success"]:
+                migrated_sessions = migration_result["migrated_sessions_count"]
+                migrated_messages = migration_result["migrated_messages_count"]
+        except Exception as e:
+            # Log error but don't fail login
+            print(f"Session migration failed during login: {e}")
+
+    # Create session
+    session_token = create_user_session(db, user)
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+
+    return LoginResponse(
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            image_url=user.image_url,
+            email_verified=user.email_verified
+        ),
+        access_token=access_token,
+        migrated_sessions=migrated_sessions,
+        migrated_messages=migrated_messages
+    )
 
 @router.get("/login/google")
 @limiter.limit("10/minute")  # Limit OAuth initiation attempts

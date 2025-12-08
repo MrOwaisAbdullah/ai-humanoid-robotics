@@ -58,6 +58,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         messages: updateMessageInArray(state.messages, id, {
           content,
           sources: sources || undefined,
+          // Track edit metadata
+          edited_at: new Date(),
+          edit_count: ((state.messages.find(m => m.id === id)?.edit_count) || 0) + 1,
           // Mark as complete if updating streaming message
           ...(state.currentStreamingId === id ? { isStreaming: false } : {})
         }),
