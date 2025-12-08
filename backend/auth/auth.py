@@ -13,7 +13,7 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 
 from database.config import get_db
-from models.auth import User, Session, Account, UserPreferences
+from src.models.auth import User, Session, Account, UserPreferences
 
 # JWT Settings
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
@@ -44,11 +44,17 @@ oauth.register(
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
+    # Truncate password to 72 bytes maximum for bcrypt
+    if len(plain_password.encode('utf-8')) > 72:
+        plain_password = plain_password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
     """Generate password hash"""
+    # Truncate password to 72 bytes maximum for bcrypt
+    if len(password.encode('utf-8')) > 72:
+        password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
     return pwd_context.hash(password)
 
 
@@ -89,7 +95,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id: int = payload.get("sub")
+    user_id: str = payload.get("sub")
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -124,7 +130,7 @@ def create_user_session(db: Session, user: User) -> str:
 
     db_session = Session(
         user_id=user.id,
-        token=session_token,
+        token_hash=get_password_hash(session_token),
         expires_at=expires_at
     )
     db.add(db_session)

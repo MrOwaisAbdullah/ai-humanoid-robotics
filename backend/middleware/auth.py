@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 
 from database.config import get_db
-from models.auth import Session as AuthSession
+from src.models.auth import Session as AuthSession
 from auth.auth import verify_token
 
 

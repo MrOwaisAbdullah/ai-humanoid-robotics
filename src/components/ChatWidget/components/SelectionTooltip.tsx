@@ -116,7 +116,7 @@ export default function SelectionTooltip({
         )}
 
         <motion.div
-          className="p-3 text-gray-900 dark:text-blue-200"
+          className="p-3 text-black dark:text-blue-200"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1, duration: 0.2 }}

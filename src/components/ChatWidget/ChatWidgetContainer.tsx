@@ -7,6 +7,8 @@ import { ChatProvider, useChat, useChatSelector } from './contexts/index';
 import { ChatWidgetContainerProps, ChatMessage } from './types';
 import { formatChatRequest, APIError } from './utils/api';
 import { withPerformanceMonitoring, usePerformanceMonitor } from './utils/performanceMonitor';
+import { useAuth } from '../../contexts/AuthContext';
+import { sessionStorage } from '../../utils/sessionStorage';
 
 interface ChatWidgetContainerInnerProps extends ChatWidgetContainerProps {
   apiUrl?: string;
@@ -19,12 +21,18 @@ interface ChatWidgetContainerInnerProps extends ChatWidgetContainerProps {
  * Separated to allow provider wrapper
  */
 function ChatWidgetContainerInner({
-  apiUrl = '/api/chat',
+  apiUrl = '/api/chat/send',
   maxTextSelectionLength = 2000,
   fallbackTextLength = 5000,
 }: ChatWidgetContainerInnerProps) {
   // Use consolidated state management - get all needed methods directly
   const chatContext = useChat();
+
+  // Use auth context to get authentication state
+  const { isAuthenticated } = useAuth();
+
+  // Ref for anonymous session ID
+  const anonymousSessionIdRef = useRef<string | null>(null);
 
   // Performance monitoring
   const { renderCount } = usePerformanceMonitor('ChatWidgetContainer');
@@ -147,64 +155,57 @@ function ChatWidgetContainerInner({
       const abortController = new AbortController();
       streamingAbortControllerRef.current = abortController;
 
+      // Generate or get session ID
+      const sessionId = Math.random().toString(36).substring(7) + Date.now().toString(36);
+
       // Send request to API
       const request = formatChatRequest(content);
 
+      // Add session ID to request
+      request.session_id = sessionId;
+
+      // Prepare headers
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add anonymous session header if not authenticated
+      if (!isAuthenticated && anonymousSessionIdRef.current) {
+        headers['X-Anonymous-Session-ID'] = anonymousSessionIdRef.current;
+      }
+
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(request),
-        signal: abortController.signal
+        signal: abortController.signal,
+        credentials: 'include', // Include cookies for auth
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}: ${errorText}`);
       }
 
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
+      // Handle JSON response (our new API returns complete responses, not streams)
+      const responseData = await response.json();
 
-      if (!reader) {
-        throw new Error('No response body reader available');
-      }
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-
-        // Handle SSE format
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data !== '[DONE]') {
-              try {
-                const parsed = JSON.parse(data);
-
-                // Handle different message types from backend
-                if (parsed.type === 'chunk' && parsed.content) {
-                  handleChunk(parsed.content);
-                } else if (parsed.type === 'start') {
-                  // Initial metadata, can be ignored for now
-                  console.log('Chat session started:', parsed.session_id);
-                } else if (parsed.type === 'done') {
-                  // Stream completed
-                  console.log('Chat completed:', parsed);
-                  break;
-                }
-              } catch (e) {
-                // If not JSON, treat as raw text
-                handleChunk(data);
-              }
-            }
-          }
+      // Extract messages from the response
+      if (responseData.messages && Array.isArray(responseData.messages)) {
+        // Find the assistant's response
+        const assistantMessage = responseData.messages.find((msg: any) => msg.role === 'assistant');
+        if (assistantMessage && assistantMessage.content) {
+          handleChunk(assistantMessage.content);
         }
+      } else if (responseData.answer) {
+        // Direct answer format
+        handleChunk(responseData.answer);
+      } else if (responseData.content) {
+        // Alternative content format
+        handleChunk(responseData.content);
+      } else {
+        // Fallback
+        handleChunk('I received your message but couldn\'t generate a response.');
       }
 
       // Complete streaming
@@ -296,6 +297,66 @@ function ChatWidgetContainerInner({
   }, [isOpen, chatContext.setIsOpen, handleSendMessage]);
 
   /**
+   * Initialize anonymous session on mount
+   */
+  useEffect(() => {
+    // Only initialize if not authenticated
+    if (!isAuthenticated) {
+      const initializeAnonymousSession = async () => {
+        try {
+          // Get or create session ID with fallback
+          const sessionResult = sessionStorage.getOrCreateSessionId();
+
+          // Store session ID in ref for use in messages
+          anonymousSessionIdRef.current = sessionResult.id;
+
+          // Fetch session data from backend to get current message count
+          const response = await fetch(`/api/auth/anonymous-session/${sessionResult.id}`);
+
+          if (response.ok) {
+            const sessionData = await response.json();
+
+            // Update chat context with message count if needed
+            if (chatContext.setMessageCount && sessionData.message_count > 0) {
+              chatContext.setMessageCount(sessionData.message_count);
+            }
+
+            console.log('Anonymous session initialized:', {
+              sessionId: sessionData.id,
+              messageCount: sessionData.message_count,
+              existed: sessionData.exists,
+              source: sessionResult.source
+            });
+          } else {
+            // Session fetch failed, but we can continue with a new session
+            console.warn('Failed to fetch anonymous session data, creating new session');
+            // Set default message count for new session
+            if (chatContext.setMessageCount) {
+              chatContext.setMessageCount(0);
+            }
+          }
+        } catch (error) {
+          console.error('Error initializing anonymous session:', error);
+          // Continue with default values even if session initialization fails
+          if (chatContext.setMessageCount) {
+            chatContext.setMessageCount(0);
+          }
+          // Log additional error details for debugging
+          if (error instanceof Error) {
+            console.error('Session initialization error details:', {
+              name: error.name,
+              message: error.message,
+              stack: error.stack
+            });
+          }
+        }
+      };
+
+      initializeAnonymousSession();
+    }
+  }, [isAuthenticated, chatContext.setMessageCount]);
+
+  /**
    * Cleanup on unmount
    */
   useEffect(() => {
@@ -346,7 +407,8 @@ function ChatWidgetContainerInner({
         isThinking: isThinking,
         error: errorState,
         onRetry: handleRetry,
-        onDismissError: handleDismissError
+        onDismissError: handleDismissError,
+        migrationMessage: null // TODO: Pass migration message from auth context
       })
     ),
     // Selection tooltip for "Ask AI" functionality

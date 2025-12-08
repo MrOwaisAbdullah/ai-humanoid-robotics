@@ -17,7 +17,7 @@ function HomepageHeader() {
             {siteConfig.title}
           </h1>
           <p className={styles.heroSubtitle}>
-            Building Modern Educational Content with Cutting-Edge Web Technologies
+            A Comprehensive Guide to Embodied Intelligence, Sim-to-Real Transfer, and Humanoid Engineering
           </p>
           <div className={styles.heroActions}>
             <Link
@@ -33,16 +33,16 @@ function HomepageHeader() {
           </div>
           <div className={styles.heroStats}>
             <div className={styles.stat}>
-              <div className={styles.statNumber}>4</div>
-              <div className={styles.statLabel}>Modules</div>
+              <div className={styles.statNumber}>15+</div>
+              <div className={styles.statLabel}>Chapters</div>
             </div>
             <div className={styles.stat}>
-              <div className={styles.statNumber}>50+</div>
-              <div className={styles.statLabel}>Lessons</div>
+              <div className={styles.statNumber}>ROS 2</div>
+              <div className={styles.statLabel}>Humble</div>
             </div>
             <div className={styles.stat}>
-              <div className={styles.statNumber}>100%</div>
-              <div className={styles.statLabel}>Practical</div>
+              <div className={styles.statNumber}>ISAAC</div>
+              <div className={styles.statLabel}>Sim Ready</div>
             </div>
           </div>
         </div>
@@ -59,46 +59,48 @@ export default function Home(): JSX.Element {
       description="Learn to build production-ready documentation sites with Docusaurus, TypeScript, and AI-native design">
       <HomepageHeader />
       <main>
+        <HomepageFeatures />
+        
         <section className={styles.features}>
           <div className="container">
             <div className="row">
               <div className="col col--12 text-center mb-12">
                 <h2 className={styles.sectionTitle}>
-                  What You'll Build
+                  Who Is This For?
                 </h2>
                 <p className={styles.sectionSubtitle}>
-                  Go from zero to a production-ready educational platform
+                  Designed for ambitious builders ready to shape the future of robotics
                 </p>
               </div>
             </div>
             <div className="row">
               <div className="col col--4">
                 <div className={clsx('glass-card p-8 h-full hover-lift', styles.featureCard)}>
-                  <div className="text-4xl mb-4 opacity-80">⚙️</div>
-                  <h3>Modern Tech Stack</h3>
+                  <div className="text-4xl mb-4 opacity-80">👨‍💻</div>
+                  <h3>Software Engineers</h3>
                   <p>
-                    Docusaurus 3.9, TypeScript, React 19, and Tailwind CSS v4
-                    create a powerful foundation for your content.
+                    Expand your skills from pure code to physical systems. Learn how to apply
+                    modern AI, computer vision, and control theory to real-world hardware.
                   </p>
                 </div>
               </div>
               <div className="col col--4">
                 <div className={clsx('glass-card p-8 h-full hover-lift', styles.featureCard)}>
-                  <div className="text-4xl mb-4 opacity-80">🎨</div>
-                  <h3>AI-Native Design</h3>
+                  <div className="text-4xl mb-4 opacity-80">🎓</div>
+                  <h3>Students & Researchers</h3>
                   <p>
-                    Glassmorphism effects, dark-first design, and responsive layouts
-                    that look amazing on every device.
+                    Get a practical, hands-on guide to the latest in Humanoid Robotics,
+                    bridging the gap between academic theory and industrial application.
                   </p>
                 </div>
               </div>
               <div className="col col--4">
                 <div className={clsx('glass-card p-8 h-full hover-lift', styles.featureCard)}>
-                  <div className="text-4xl mb-4 opacity-80">🚀</div>
-                  <h3>Production Ready</h3>
+                  <div className="text-4xl mb-4 opacity-80">🔧</div>
+                  <h3>Robotics Hobbyists</h3>
                   <p>
-                    Automated deployments, performance optimizations, and WCAG AA
-                    accessibility compliance out of the box.
+                    Take your projects to the next level with professional-grade tools like
+                    ROS 2, Isaac Sim, and Jetson Orin, without the steep learning curve.
                   </p>
                 </div>
               </div>
@@ -112,11 +114,11 @@ export default function Home(): JSX.Element {
               <div className="row items-center">
                 <div className="col col--8">
                   <h2 className={styles.ctaTitle}>
-                    Ready to Start Building?
+                    Ready to Build the Future?
                   </h2>
                   <p className={styles.ctaDescription}>
-                    Join thousands of developers creating modern educational content
-                    with cutting-edge tools and best practices.
+                    The era of Physical AI is here. Start your journey into embodied intelligence
+                    and build your own humanoid robot companion today.
                   </p>
                 </div>
                 <div className="col col--4">
@@ -124,7 +126,7 @@ export default function Home(): JSX.Element {
                     <Link
                       className="button button--primary button--lg w-full hover-lift"
                       to="/docs/intro">
-                      Get Started Now
+                      Start Learning Now
                     </Link>
                   </div>
                 </div>

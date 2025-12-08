@@ -42,6 +42,12 @@ export function useTextSelection({
 
   // Process text selection with validation
   const processSelection = useCallback(() => {
+    // Only allow selection on docs pages
+    const currentPath = window.location.pathname;
+    if (!currentPath.includes('/docs')) {
+      return;
+    }
+
     if (!enabled) {
       if (selection.text !== '') {
         setSelection({

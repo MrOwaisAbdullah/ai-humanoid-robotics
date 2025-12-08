@@ -5,7 +5,7 @@ import { LoginButton } from './LoginButton';
 import { UserProfile } from './UserProfile';
 
 export const NavbarAuth: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const [container, setContainer] = useState<Element | null>(null);
 
   useEffect(() => {

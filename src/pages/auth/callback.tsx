@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import Head from '@docusaurus/Head';
-import { OAuthCallbackHandler } from '../../../src/contexts/AuthContext';
+import { OAuthCallbackHandler } from '../../components/Auth/OAuthCallbackHandler';
 
 export default function AuthCallbackPage() {
   return (

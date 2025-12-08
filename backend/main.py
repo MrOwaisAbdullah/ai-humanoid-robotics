@@ -32,6 +32,7 @@ from middleware.auth import AuthMiddleware
 
 # Import auth routes
 from routes import auth
+from src.api.routes import chat
 
 # Import ChatKit server
 # from chatkit_server import get_chatkit_server
@@ -225,7 +226,7 @@ app.add_middleware(
     httponly=False,
     samesite="lax",
     max_age=3600,
-    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections"],
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth/login", "/auth/register", "/api/chat", "/auth/logout", "/auth/me", "/auth/preferences", "/auth/refresh"],
 )
 
 app.add_middleware(
@@ -237,6 +238,9 @@ app.add_middleware(
 
 # Include auth routes
 app.include_router(auth.router)
+
+# Include new chat routes
+app.include_router(chat.router)
 
 
 # Optional API key security for higher rate limits
@@ -424,13 +428,83 @@ async def chat_endpoint(
             )
         else:
             # Return complete response (non-streaming)
-            response = await chat_handler.chat(
-                query=query,
-                session_id=session_id,
-                k=k,
-                context_window=context_window
-            )
-            return response
+            # Create a helper to collect streaming response
+            async def collect_streaming_response():
+                collected_response = {
+                    "answer": "",
+                    "sources": [],
+                    "session_id": session_id,
+                    "query": query,
+                    "response_time": 0,
+                    "tokens_used": 0,
+                    "context_used": False
+                }
+
+                response_chunks = []
+                try:
+                    async for chunk in chat_handler.chat(
+                        query=query,
+                        session_id=session_id,
+                        k=k,
+                        context_window=context_window
+                    ):
+                        response_chunks.append(chunk)
+
+                        # Parse SSE chunk
+                        if chunk.startswith("data: "):
+                            try:
+                                import json
+                                chunk_data = json.loads(chunk[6:])  # Remove "data: " prefix
+
+                                # Handle different chunk types
+                                if chunk_data.get("type") == "final":
+                                    # Handle sources serialization issue
+                                    if "sources" in chunk_data:
+                                        try:
+                                            # Convert Citation objects to serializable format
+                                            sources = []
+                                            for source in chunk_data["sources"]:
+                                                if hasattr(source, '__dict__'):
+                                                    # Convert object to dict
+                                                    source_dict = {
+                                                        "id": getattr(source, 'id', ''),
+                                                        "chunk_id": getattr(source, 'chunk_id', ''),
+                                                        "document_id": getattr(source, 'document_id', ''),
+                                                        "text_snippet": getattr(source, 'text_snippet', ''),
+                                                        "relevance_score": getattr(source, 'relevance_score', 0),
+                                                        "chapter": getattr(source, 'chapter', ''),
+                                                        "section": getattr(source, 'section', ''),
+                                                        "confidence": getattr(source, 'confidence', 0)
+                                                    }
+                                                    sources.append(source_dict)
+                                                else:
+                                                    sources.append(source)
+                                            chunk_data["sources"] = sources
+                                        except Exception as serialize_error:
+                                            logger.warning(f"Failed to serialize sources: {serialize_error}")
+                                            chunk_data["sources"] = []
+
+                                    collected_response.update(chunk_data)
+                                    break
+                                elif chunk_data.get("type") == "chunk":
+                                    collected_response["answer"] += chunk_data.get("content", "")
+                                elif chunk_data.get("type") == "error":
+                                    collected_response["answer"] = chunk_data.get("message", "Error occurred")
+                                    break
+                            except json.JSONDecodeError:
+                                # If not JSON, treat as plain text
+                                if chunk.startswith("data: "):
+                                    text_part = chunk[6:].strip()
+                                    collected_response["answer"] += text_part
+
+                except Exception as e:
+                    logger.error(f"Error collecting streaming response: {e}")
+                    collected_response["answer"] = "I encountered an error while processing your request."
+                    collected_response["error"] = str(e)
+
+                return collected_response
+
+            return await collect_streaming_response()
     except ContentNotFoundError as e:
         # Specific error for when no relevant content is found
         logger.warning(f"No content found for query: {query[:100]}...")

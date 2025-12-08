@@ -73,12 +73,13 @@ const config: Config = {
           sidebarId: "tutorialSidebar",
           position: "left",
           label: "Read Book",
+          className: "desktop-only",
         },
         {
           href: "https://github.com/mrowaisabdullah/ai-humanoid-robotics",
           label: "GitHub",
           position: "right",
-          className: "header-github-link", // Class to control mobile visibility
+          className: "header-github-link desktop-only", // Class to control mobile visibility
         },
       ],
     },
@@ -104,12 +105,8 @@ const config: Config = {
           title: "Community",
           items: [
             {
-              label: "Discord",
-              href: "https://discord.gg/panaversity",
-            },
-            {
-              label: "Twitter",
-              href: "https://twitter.com/panaversity",
+              label: "LinkedIn",
+              href: "https://www.linkedin.com/in/mrowaisabdullah/",
             },
           ],
         },
@@ -127,7 +124,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Physical AI & Humanoid Robotics. Designed with Spec-Driven Development.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Physical AI & Humanoid Robotics. Developed with ❤️ by Owais Abdullah.`,
     },
     prism: {
       theme: prismThemes.github,

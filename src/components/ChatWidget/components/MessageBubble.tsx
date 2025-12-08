@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '../types';
 import MessageRenderer from './MessageRenderer';
 import StreamingCursor from './StreamingCursor';
+import { MessageEdit } from './MessageEdit';
 import { getOptimizedMotionProps, messageEntryVariants } from '../utils/animations';
+import { useAuth } from '../../../contexts/AuthContext';
 import styles from '../styles/ChatWidget.module.css';
 
 // Helper function to safely format message content
@@ -26,11 +28,51 @@ function formatMessageContent(content: any): string {
 interface MessageBubbleProps {
   message: ChatMessage;
   isStreaming?: boolean;
+  onUpdateMessage?: (messageId: string, newContent: string) => void;
 }
 
-function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
+function MessageBubble({ message, isStreaming = false, onUpdateMessage }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const showAvatar = true; // Could be made configurable
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(message.content);
+  const [editCount, setEditCount] = useState(message.edit_count || 0);
+  const { isAuthenticated } = useAuth();
+
+  // Check if message is editable (user message, not streaming, within time limit)
+  const isEditable = () => {
+    if (!isUser || isStreaming || !isAuthenticated) return false;
+
+    const created = new Date(message.created_at);
+    const now = new Date();
+    const diffInMinutes = (now.getTime() - created.getTime()) / (1000 * 60);
+    return diffInMinutes < 15;
+  };
+
+  // Handle edit save
+  const handleEditSave = (newContent: string) => {
+    setEditedContent(newContent);
+    setEditCount(prev => prev + 1);
+    setIsEditing(false);
+    if (onUpdateMessage) {
+      onUpdateMessage(message.id, newContent);
+    }
+  };
+
+  // Update content when message changes
+  useEffect(() => {
+    if (!isEditing) {
+      setEditedContent(message.content);
+    }
+  }, [message.content, isEditing]);
+
+  // Check time remaining
+  const getTimeRemaining = () => {
+    const created = new Date(message.created_at);
+    const now = new Date();
+    const diffInMinutes = 15 - (now.getTime() - created.getTime()) / (1000 * 60);
+    return diffInMinutes > 0 ? Math.floor(diffInMinutes) : 0;
+  };
 
   return (
     <motion.div
@@ -71,33 +113,76 @@ function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
         <div
           className={`${styles.messageBubble} ${isUser ? styles.userMessageBubble : styles.aiMessageBubble}`}
         >
-          {isUser ? (
-            // User messages - plain text with streaming cursor
-            <div className={styles.messageText}>
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              >
-                {formatMessageContent(message.content)}
-              </motion.span>
-              {isStreaming && (
-                <StreamingCursor enabled={true} />
-              )}
-            </div>
-          ) : (
-            // AI messages - rich markdown rendering with streaming support
-            <div className={styles.messageText}>
-              <MessageRenderer
-                content={formatMessageContent(message.content)}
-                sources={message.sources}
-                isStreaming={isStreaming}
+          <AnimatePresence mode="wait">
+            {isEditing ? (
+              <MessageEdit
+                messageId={message.id}
+                initialContent={editedContent}
+                onSave={handleEditSave}
+                onCancel={() => setIsEditing(false)}
+                createdAt={message.created_at}
               />
-              {isStreaming && (
-                <StreamingCursor enabled={true} />
-              )}
-            </div>
-          )}
+            ) : (
+              <div className={styles.messageText}>
+                {isUser ? (
+                  // User messages - plain text with edit controls
+                  <>
+                    <div className={styles.messageTextWrapper}>
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                      >
+                        {formatMessageContent(editedContent)}
+                      </motion.span>
+                      {isStreaming && (
+                        <StreamingCursor enabled={true} />
+                      )}
+                    </div>
+
+                    {/* Edit indicator */}
+                    {editCount > 0 && (
+                      <div className={styles.editIndicator}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4-5.5z"/>
+                        </svg>
+                        <span>Edited {editCount} time{editCount > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+
+                    {/* Edit button */}
+                    {isEditable() && (
+                      <motion.button
+                        className={styles.editButton}
+                        onClick={() => setIsEditing(true)}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        title={`Edit (${getTimeRemaining()}m remaining)`}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4-5.5z"/>
+                        </svg>
+                      </motion.button>
+                    )}
+                  </>
+                ) : (
+                  // AI messages - rich markdown rendering with streaming support
+                  <>
+                    <MessageRenderer
+                      content={formatMessageContent(editedContent)}
+                      sources={message.sources}
+                      isStreaming={isStreaming}
+                    />
+                    {isStreaming && (
+                      <StreamingCursor enabled={true} />
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.div>

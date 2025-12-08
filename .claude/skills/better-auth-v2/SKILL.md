@@ -1171,6 +1171,122 @@ PASSKEY_ORIGIN=https://yourdomain.com
 - [ ] Test password reset flow
 - [ ] Verify OAuth callback URLs
 
+## ⚠️ Critical Implementation Lessons Learned
+
+Based on real-world OAuth implementation challenges, avoid these common pitfalls:
+
+### 1. Database Schema Conflicts
+**Problem**: Using reserved attribute names like `metadata` in SQLAlchemy models
+```python
+# ❌ Causes error
+class ChatMessage(Base):
+    metadata = Column(JSON, nullable=True)  # SQLAlchemy reserves this!
+
+# ✅ Fixed version
+class ChatMessage(Base):
+    message_metadata = Column(JSON, nullable=True)  # Use different name
+```
+
+### 2. OAuth Redirect URI Configuration
+**Critical Issues**:
+- Always include the full path with trailing slash removal
+- For cross-platform deployments (GitHub Pages + HuggingFace):
+  ```env
+  # OAuth callback to backend
+  AUTH_REDIRECT_URI=https://your-hf-space.hf.space/backend/auth/google/callback
+  # Frontend redirect after auth
+  FRONTEND_URL=https://your-username.github.io/your-repo
+  ```
+
+### 3. Session Middleware Requirements
+**Must-Have**: OAuth requires SessionMiddleware for state parameter
+```python
+from starlette.middleware.sessions import SessionMiddleware
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.jwt_secret_key,
+    session_cookie="session_id",
+    max_age=3600,
+    same_site="lax",
+    https_only=False,  # Set true in production
+)
+```
+
+### 4. Docusaurus Base Path Handling
+**Issue**: Static sites have base paths that affect OAuth callbacks
+```typescript
+// Docusaurus config
+baseUrl: '/ai-humanoid-robotics/',  // This affects ALL routes
+
+// Must match in environment
+FRONTEND_URL=https://username.github.io/ai-humanoid-robotics
+```
+
+### 5. Google OAuth Response Structure
+**Problem**: Provider account ID (`sub`) field might be missing
+```python
+def create_or_update_account(db: Session, user: User, provider: str, account_info: dict) -> Account:
+    provider_account_id = account_info.get('sub')  # Primary: Google ID
+    if not provider_account_id:
+        # Fallback to email
+        provider_account_id = account_info.get('email')
+    if not provider_account_id:
+        # Final fallback
+        provider_account_id = str(user.id)
+```
+
+### 6. GitHub Pages Static Route Handling
+**Problem**: Cannot create dynamic routes on static sites
+```typescript
+// Create static page: src/pages/auth/callback.tsx
+export default function AuthCallbackPage() {
+  return <OAuthCallbackHandler />;
+}
+```
+
+### 7. Dependency Management
+**Missing Dependencies Cause Failures**:
+```toml
+# pyproject.toml
+dependencies = [
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "python-jose[cryptography]>=3.3.0",
+    "authlib>=1.2.1",
+    "itsdangerous>=2.1.0",  # Required for SessionMiddleware
+]
+```
+
+### 8. CORS Configuration Checklist
+**Essential for Cross-Platform**:
+```python
+# main.py
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://username.github.io",
+    "https://huggingface.co",
+    "https://your-hf-space.hf.space",
+]
+```
+
+### 9. JWT Secret Key Requirements
+**Must Configure**:
+```python
+class Settings(BaseSettings):
+    # Add to your settings class
+    jwt_secret_key: str = "your-super-secret-jwt-key-at-least-32-characters-long"
+```
+
+### 10. Production Deployment Checklist
+- [ ] Test OAuth in production environment (localhost may work with wrong URLs)
+- [ ] Verify redirect URIs match EXACTLY in provider console
+- [ ] Include base path in frontend URLs for static sites
+- [ ] Set up proper session middleware before OAuth routes
+- [ ] Configure CORS for all deployment domains
+- [ ] Enable HTTPS in production
+- [ ] Set proper cookie attributes (SameSite, Secure, HttpOnly)
+
 ## Next Steps
 
 1. Customize the templates for your application
@@ -1179,5 +1295,6 @@ PASSKEY_ORIGIN=https://yourdomain.com
 4. Set up monitoring and analytics
 5. Add custom email templates
 6. Configure webhooks for your business logic
+7. **Review the lessons learned above to avoid common pitfalls**
 
 For detailed documentation and advanced configurations, visit the [Better Auth documentation](https://better-auth.com/docs).

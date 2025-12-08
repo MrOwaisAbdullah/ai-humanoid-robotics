@@ -1,5 +1,38 @@
-import React from 'react';
+/**
+ * Login button component that opens a modal for email/password authentication.
+ */
+
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { RegistrationBackground } from '../../contexts/AuthContext';
+import { RegistrationForm } from './RegistrationForm';
+import { PasswordInput } from './PasswordInput';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+// Form validation schemas
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+const registerSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[a-zA-Z]/, 'Password must contain at least one letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  confirmPassword: z.string(),
+  name: z.string().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 interface LoginButtonProps {
   className?: string;
@@ -7,37 +40,253 @@ interface LoginButtonProps {
 }
 
 export const LoginButton: React.FC<LoginButtonProps> = ({
-  className = '',
-  children = 'Sign in with Google'
+  className = "",
+  children
 }) => {
-  const { login } = useAuth();
+  const { login, register, isLoading } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Check if dark mode is active using document element class
+  const isDarkTheme = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
+  const modalBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white';
+  const textClass = isDarkTheme ? 'text-zinc-100' : 'text-zinc-900';
+  const subTextClass = isDarkTheme ? 'text-zinc-400' : 'text-zinc-600';
+  const inputClass = isDarkTheme
+    ? 'mt-1 block w-full px-3 py-2 border border-zinc-600 rounded-md shadow-sm bg-zinc-800 text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f]'
+    : 'mt-1 block w-full px-3 py-2 border border-zinc-300 rounded-md shadow-sm focus:ring-[#10a37f] focus:border-[#10a37f]';
+  const labelClass = isDarkTheme ? 'block text-sm font-medium text-zinc-200' : 'block text-sm font-medium text-zinc-700';
+  const buttonClass = isDarkTheme
+    ? 'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10a37f] disabled:opacity-50'
+    : 'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10a37f] disabled:opacity-50';
+  const primaryButtonClass = isDarkTheme
+    ? 'bg-[#10a37f] text-white hover:bg-[#0d8f6c]'
+    : 'bg-[#10a37f] text-white hover:bg-[#0d8f6c]';
+  const secondaryButtonClass = isDarkTheme
+    ? 'text-zinc-300 bg-zinc-700 border-zinc-600 hover:bg-zinc-600'
+    : 'text-zinc-700 bg-white border-zinc-300 hover:bg-zinc-50';
+
+  // Login form
+  const loginForm = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  // Register form
+  const registerForm = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      name: '',
+    },
+  });
+
+  const handleLogin = async (data: LoginFormData) => {
+    try {
+      setError(null);
+      setSuccess(null);
+      const migrationInfo = await login(data.email, data.password);
+      setIsModalOpen(false);
+      loginForm.reset();
+
+      // Show migration success message if applicable
+      if (migrationInfo && migrationInfo.migratedSessions && migrationInfo.migratedSessions > 0) {
+        setSuccess(
+          `Welcome back! We've migrated ${migrationInfo.migratedSessions} chat session${migrationInfo.migratedSessions > 1 ? 's' : ''} with ${migrationInfo.migratedMessages} message${migrationInfo.migratedMessages > 1 ? 's' : ''} to your account.`
+        );
+      }
+    } catch (error: any) {
+      setError(error.response?.data?.detail || 'Login failed. Please try again.');
+    }
+  };
+
+  const handleRegister = async (data: RegisterFormData & { background?: RegistrationBackground }) => {
+    try {
+      setError(null);
+      setSuccess(null);
+      const migrationInfo = await register(
+        data.email,
+        data.password,
+        data.name,
+        data.background
+      );
+      setIsModalOpen(false);
+      registerForm.reset();
+
+      // Show migration success message if applicable
+      if (migrationInfo && migrationInfo.migratedSessions && migrationInfo.migratedSessions > 0) {
+        setSuccess(
+          `Welcome! We've saved your ${migrationInfo.migratedSessions} chat session${migrationInfo.migratedSessions > 1 ? 's' : ''} with ${migrationInfo.migratedMessages} message${migrationInfo.migratedMessages > 1 ? 's' : ''} to your new account.`
+        );
+      }
+    } catch (error: any) {
+      setError(error.response?.data?.detail || 'Registration failed. Please try again.');
+    }
+  };
+
+  const switchMode = () => {
+    setIsLoginMode(!isLoginMode);
+    setError(null);
+    setSuccess(null);
+    loginForm.reset();
+    registerForm.reset();
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setError(null);
+    setSuccess(null);
+    loginForm.reset();
+    registerForm.reset();
+  };
+
+  // Modal content with portal
+  const modalContent = isModalOpen && mounted ? (
+    <div className="fixed inset-0 z-[60] overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-2 sm:px-4 py-4">
+        {/* Background overlay */}
+        <div
+          className="fixed inset-0 bg-black opacity-50"
+          onClick={closeModal}
+        />
+
+        {/* Modal */}
+        <div className={`relative bg-white dark:bg-zinc-900 rounded-lg w-full ${!isLoginMode ? 'py-6 px-3 sm:px-6' : 'p-6'} ${!isLoginMode ? 'max-w-4xl' : 'max-w-md'}`}>
+          <button
+            onClick={closeModal}
+            className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Only show title for login mode - RegistrationForm has its own title */}
+          {isLoginMode && (
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
+              Sign In
+            </h2>
+          )}
+
+          {/* Error/Success messages */}
+          {error && (
+            <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 dark:text-red-200 dark:bg-red-900/30 rounded-md">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="mb-4 p-3 text-sm text-green-700 bg-green-100 dark:text-green-200 dark:bg-green-900/30 rounded-md">
+              {success}
+            </div>
+          )}
+
+          {/* Login Form */}
+          {isLoginMode ? (
+            <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+              <div>
+                <label htmlFor="email" className={labelClass}>
+                  Email
+                </label>
+                <input
+                  {...loginForm.register('email')}
+                  type="email"
+                  id="email"
+                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
+                  placeholder="your@email.com"
+                />
+                {loginForm.formState.errors.email && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {loginForm.formState.errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <PasswordInput
+                  {...loginForm.register('password')}
+                  id="password"
+                  value={loginForm.watch('password')}
+                  onChange={(e) => loginForm.setValue('password', e.target.value)}
+                  className="px-3 py-2"
+                  placeholder="••••••••"
+                />
+                {loginForm.formState.errors.password && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {loginForm.formState.errors.password.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <a href="#" className="text-sm text-[#10a37f] hover:text-[#0d8f6c] dark:text-[#10a37f]">
+                  Forgot password?
+                </a>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium ${primaryButtonClass} ${buttonClass}`}
+              >
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </button>
+
+              <div className="text-center">
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={switchMode}
+                    className="text-[#10a37f] hover:text-[#0d8f6c] dark:text-[#10a37f] font-medium"
+                  >
+                    Sign up
+                  </button>
+                </span>
+              </div>
+            </form>
+          ) : (
+            /* Register Form */
+            <RegistrationForm
+              onSubmit={async (data) => {
+                await handleRegister({ ...data, background: data });
+              }}
+              onCancel={switchMode}
+              isLoading={isLoading}
+              error={error || undefined}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
-    <button
-      onClick={login}
-      className={`flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1b1b1d] border border-gray-300 dark:border-[#303030] rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-[#252526] text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${className}`}
-    >
-      {/* Google Icon */}
-      <svg className="w-5 h-5" viewBox="0 0 24 24">
-        <path
-          fill="#4285F4"
-          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-        />
-        <path
-          fill="#34A853"
-          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-        />
-        <path
-          fill="#FBBC05"
-          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-        />
-        <path
-          fill="#EA4335"
-          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-        />
-      </svg>
-      {children}
-    </button>
+    <>
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className={`${primaryButtonClass} ${buttonClass} ${className}`}
+      >
+        {children || 'Login'}
+      </button>
+
+      {/* Use createPortal to render modal at the document body level */}
+      {mounted && createPortal(
+        modalContent,
+        document.body
+      )}
+    </>
   );
 };
 
@@ -45,14 +294,17 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
 export const CompactLoginButton: React.FC<LoginButtonProps> = ({
   className = ''
 }) => {
-  const { login } = useAuth();
+  const isDarkTheme = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
 
   return (
-    <button
-      onClick={login}
-      className={`text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors ${className}`}
+    <LoginButton
+      className={`${
+        isDarkTheme
+          ? 'text-gray-200 hover:text-white hover:bg-gray-700'
+          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+      } px-3 py-2 rounded-md text-sm font-medium transition-colors ${className}`}
     >
       Sign In
-    </button>
+    </LoginButton>
   );
 };

@@ -274,12 +274,15 @@ export function formatChatRequest(
   message: string,
   selectedText?: string,
   source?: string
-): ChatRequest {
-  const request: ChatRequest = {
-    question: message, // Changed from 'message' to 'question' to match backend
-    stream: true,
+): any { // Using any for flexibility with new API structure
+  const request: any = {
+    question: message, // Changed to match new API structure
+    stream: false, // Our new API returns non-streaming responses for now
+    k: 5, // Number of documents to retrieve
+    context_window: 4000, // Context window size
   };
 
+  // Add optional context
   if (selectedText && selectedText.trim()) {
     request.context = {
       selectedText: selectedText.trim(),
