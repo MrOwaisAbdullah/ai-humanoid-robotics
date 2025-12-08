@@ -73,12 +73,13 @@ const config: Config = {
           sidebarId: "tutorialSidebar",
           position: "left",
           label: "Read Book",
+          className: "desktop-only",
         },
         {
           href: "https://github.com/mrowaisabdullah/ai-humanoid-robotics",
           label: "GitHub",
           position: "right",
-          className: "header-github-link", // Class to control mobile visibility
+          className: "header-github-link desktop-only", // Class to control mobile visibility
         },
       ],
     },

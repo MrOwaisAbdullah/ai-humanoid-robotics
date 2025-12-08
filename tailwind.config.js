@@ -90,7 +90,7 @@ module.exports = {
     },
   },
   plugins: [],
-  darkMode: ['class', '[data-theme="dark"]'], // Sync with Docusaurus data-theme
+  // darkMode removed to allow CSS-based configuration in src/css/custom.css to take precedence
   screens: {
     // Add custom breakpoints for better chat widget responsiveness
     'chat-sm': '400px',

@@ -62,15 +62,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     setMounted(true);
   }, []);
 
-  // Check if dark mode is active using document element class
-  const isDarkTheme = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
-  const modalBgClass = isDarkTheme ? 'bg-gray-800' : 'bg-white';
-  const textClass = isDarkTheme ? 'text-gray-100' : 'text-gray-900';
-  const subTextClass = isDarkTheme ? 'text-gray-300' : 'text-gray-600';
-  const borderClass = isDarkTheme ? 'border-gray-600' : 'border-gray-300';
-  const hoverClass = isDarkTheme ? 'hover:bg-gray-700' : 'hover:bg-gray-50';
-  const selectedClass = isDarkTheme ? 'bg-blue-900/50 border-blue-500' : 'bg-blue-50 border-blue-500';
-
   const {
     control,
     handleSubmit,
@@ -105,19 +96,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               { value: 'intermediate', label: 'Intermediate', description: 'Comfortable with programming concepts' },
               { value: 'advanced', label: 'Advanced', description: 'Experienced developer' }
             ].map((option) => (
-              <label key={option.value} className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+              <label key={option.value} className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 border-zinc-200 dark:border-zinc-700 transition-colors">
                 <input
                   type="radio"
                   value={option.value}
                   {...control.register('experience_level')}
                   className="sr-only"
                 />
-                <div className={`ml-3 flex-1 ${watch('experience_level') === option.value ? 'text-blue-600' : ''}`}>
+                <div className={`ml-3 flex-1 ${watch('experience_level') === option.value ? 'text-[#10a37f]' : 'text-zinc-900 dark:text-zinc-100'}`}>
                   <h3 className="font-medium">{option.label}</h3>
-                  <p className="text-sm text-gray-500">{option.description}</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{option.description}</p>
                 </div>
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  watch('experience_level') === option.value ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                  watch('experience_level') === option.value ? 'bg-[#10a37f] border-[#10a37f]' : 'border-zinc-300 dark:border-zinc-600'
                 }`}>
                   {watch('experience_level') === option.value && (
                     <div className="w-3 h-3 bg-white rounded-full" />
@@ -146,12 +137,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     max="50"
                     value={field.value}
                     onChange={(e) => field.onChange(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-[#10a37f]"
                   />
-                  <div className="text-center text-2xl font-semibold text-blue-600">
+                  <div className="text-center text-2xl font-semibold text-[#10a37f]">
                     {field.value} {field.value === 1 ? 'year' : 'years'}
                   </div>
-                  <div className="flex justify-between text-sm text-gray-500">
+                  <div className="flex justify-between text-sm text-zinc-500 dark:text-zinc-400">
                     <span>0</span>
                     <span>25</span>
                     <span>50+</span>
@@ -168,15 +159,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       subtitle: 'What programming languages do you use?',
       content: (
         <div className="space-y-4">
-          <div className="text-sm text-gray-600 mb-2">
+          <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">
             Select all that apply (you can select multiple)
           </div>
           <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto">
             {languages.map((language) => (
               <label
                 key={language}
-                className={`flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-                  selectedLanguages.includes(language) ? 'bg-blue-50 border-blue-500' : ''
+                className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                  selectedLanguages.includes(language) 
+                    ? 'bg-[#10a37f]/10 border-[#10a37f]' 
+                    : 'border-zinc-200 dark:border-zinc-700'
                 }`}
               >
                 <input
@@ -196,10 +189,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   className="sr-only"
                 />
                 <div className="ml-3">
-                  <span className="font-medium capitalize">{language}</span>
+                  <span className={`font-medium capitalize ${selectedLanguages.includes(language) ? 'text-[#10a37f]' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                    {language}
+                  </span>
                 </div>
                 {selectedLanguages.includes(language) && (
-                  <div className="ml-auto w-5 h-5 bg-blue-600 rounded flex items-center justify-center">
+                  <div className="ml-auto w-5 h-5 bg-[#10a37f] rounded flex items-center justify-center">
                     <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-8-8a1 1 0 011.414-1.414l8 8z" clipRule="evenodd" />
                     </svg>
@@ -234,8 +229,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             }
           ].map((field) => (
             <div key={field.key} className="space-y-2">
-              <h3 className="font-medium text-gray-900">{field.label}</h3>
-              <p className="text-sm text-gray-500">{field.description}</p>
+              <h3 className="font-medium text-zinc-900 dark:text-zinc-100">{field.label}</h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">{field.description}</p>
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { value: 'none', label: 'None', description: 'No experience' },
@@ -243,24 +238,23 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   { value: 'intermediate', label: 'Intermediate', description: 'Some hands-on' },
                   { value: 'advanced', label: 'Advanced', description: 'Expert level' }
                 ].map((option) => (
-                  <label key={option.value} className="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-center">
+                  <label key={option.value} className="flex flex-col items-center p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-center">
                     <input
                       type="radio"
                       value={option.value}
                       {...control.register(field.key as any)}
                       className="sr-only"
                     />
-                    <div className={`mt-2 ${watch(field.key as any) === option.value ? 'text-blue-600' : ''}`}>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        watch(field.key as any) === option.value ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
-                      }`}>
-                        {watch(field.key as any) === option.value && (
+                                          <div className={`mt-2 ${watch(field.key as any) === option.value ? 'text-[#10a37f]' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                            watch(field.key as any) === option.value ? 'bg-[#10a37f] border-[#10a37f]' : 'border-zinc-300 dark:border-zinc-600'
+                                          }`}>                        {watch(field.key as any) === option.value && (
                           <div className="w-2 h-2 bg-white rounded-full" />
                         )}
                       </div>
                       <span className="text-xs font-medium">{option.label}</span>
                     </div>
-                    <span className="text-xs text-gray-500 mt-1">{option.description}</span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{option.description}</span>
                   </label>
                 ))}
               </div>
@@ -339,30 +333,30 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       <div className="flex items-center justify-center min-h-screen px-4">
         {/* Background overlay */}
         <div
-          className="fixed inset-0 bg-black opacity-50"
+          className="fixed inset-0 bg-black opacity-50 transition-opacity"
           onClick={closeModal}
         />
 
         {/* Modal */}
-        <div className={`relative ${modalBgClass} rounded-lg max-w-2xl w-full p-6`}>
+        <div className="relative bg-white dark:bg-zinc-900 rounded-lg max-w-2xl w-full p-6 shadow-xl transition-all">
           {/* Progress bar */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-sm font-medium ${textClass}`}>
+              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                 Step {currentStep + 1} of {totalSteps}
               </span>
               <button
                 onClick={closeModal}
-                className={`${subTextClass} hover:${textClass} transition-colors`}
+                className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
               >
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className={`w-full ${isDarkTheme ? 'bg-gray-700' : 'bg-gray-200'} rounded-full h-2`}>
+            <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-[#10a37f] h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -370,10 +364,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
           {/* Step content */}
           <div className="mb-6">
-            <h2 className={`text-2xl font-bold ${textClass} mb-2`}>
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">
               {steps[currentStep].title}
             </h2>
-            <p className={subTextClass}>
+            <p className="text-zinc-600 dark:text-zinc-400">
               {steps[currentStep].subtitle}
             </p>
           </div>
@@ -382,20 +376,20 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
           {/* Error message */}
           {error && (
-            <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded-md">
+            <div className="mb-4 p-3 text-sm text-red-700 dark:text-red-200 bg-red-100 dark:bg-red-900/30 rounded-md">
               {error}
             </div>
           )}
 
           {/* Action buttons */}
-          <div className="flex justify-between">
+          <div className="flex justify-between mt-8">
             <div>
               {currentStep > 0 && (
                 <button
                   type="button"
                   onClick={handlePrevious}
                   disabled={isSubmitting}
-                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="px-4 py-2 text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10a37f] disabled:opacity-50 transition-colors"
                 >
                   Previous
                 </button>
@@ -407,7 +401,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 type="button"
                 onClick={handleSkip}
                 disabled={isSubmitting}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="px-4 py-2 text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10a37f] disabled:opacity-50 transition-colors"
               >
                 Skip for now
               </button>
@@ -417,16 +411,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   type="button"
                   onClick={handleNext}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="px-4 py-2 bg-[#10a37f] text-white rounded-md hover:bg-[#0d8f6c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10a37f] disabled:opacity-50 transition-colors"
                 >
                   Next
                 </button>
               ) : (
-                <form onSubmit={handleSubmit(onSubmit)}>
+                <form onSubmit={handleSubmit(onSubmit)} className="inline">
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="px-4 py-2 bg-[#10a37f] text-white rounded-md hover:bg-[#0d8f6c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10a37f] disabled:opacity-50 transition-colors"
                   >
                     {isSubmitting ? 'Saving...' : 'Complete'}
                   </button>

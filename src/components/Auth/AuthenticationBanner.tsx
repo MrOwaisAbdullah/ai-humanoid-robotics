@@ -10,11 +10,11 @@ export const AuthenticationBanner: React.FC = () => {
   }
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-400 dark:border-blue-600 p-4 mb-4">
+    <div className="bg-[#10a37f]/10 dark:bg-[#10a37f]/20 border-l-4 border-[#10a37f] p-4 mb-4">
       <div className="flex">
         <div className="flex-shrink-0">
           <svg
-            className="h-5 w-5 text-blue-600 dark:text-blue-300"
+            className="h-5 w-5 text-[#10a37f]"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -26,7 +26,7 @@ export const AuthenticationBanner: React.FC = () => {
           </svg>
         </div>
         <div className="ml-3 flex-1">
-          <p className="text-sm text-gray-900 dark:text-blue-200">
+          <p className="text-sm text-zinc-900 dark:text-[#5eead4]">
             <strong>Sign in to save your chat history</strong> - As a guest, you have 3 messages remaining.
             Sign in to get unlimited access and save your conversations.
           </p>
@@ -43,11 +43,11 @@ export const AuthenticationBanner: React.FC = () => {
 
 export const AnonymousLimitBanner: React.FC = () => {
   return (
-    <div className="bg-yellow-50 dark:bg-yellow-950 border-l-4 border-yellow-400 dark:border-yellow-600 p-4 mb-4">
+    <div className="bg-[#10a37f]/10 dark:bg-[#10a37f]/20 border-l-4 border-[#10a37f] p-4 mb-4">
       <div className="flex">
         <div className="flex-shrink-0">
           <svg
-            className="h-5 w-5 text-yellow-600 dark:text-yellow-300"
+            className="h-5 w-5 text-[#10a37f]"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -59,12 +59,12 @@ export const AnonymousLimitBanner: React.FC = () => {
           </svg>
         </div>
         <div className="ml-3 flex-1">
-          <p className="text-sm text-gray-900 dark:text-yellow-200">
+          <p className="text-sm text-zinc-900 dark:text-[#5eead4]">
             <strong>Message limit reached</strong> - You've used your 3 free messages as a guest.
             Sign in to continue chatting and save your conversation history.
           </p>
           <div className="mt-2">
-            <LoginButton className="text-sm bg-yellow-600 dark:bg-yellow-700 hover:bg-yellow-700 dark:hover:bg-yellow-800 px-3 py-1 rounded">
+            <LoginButton className="text-sm bg-[#10a37f] hover:bg-[#0d8f6c] text-white px-3 py-1 rounded">
               Sign in now
             </LoginButton>
           </div>

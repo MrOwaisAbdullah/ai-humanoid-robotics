@@ -53,22 +53,22 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
 
   // Check if dark mode is active using document element class
   const isDarkTheme = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
-  const modalBgClass = isDarkTheme ? 'bg-gray-800' : 'bg-white';
-  const textClass = isDarkTheme ? 'text-gray-100' : 'text-gray-900';
-  const subTextClass = isDarkTheme ? 'text-gray-300' : 'text-gray-600';
+  const modalBgClass = isDarkTheme ? 'bg-zinc-900' : 'bg-white';
+  const textClass = isDarkTheme ? 'text-zinc-100' : 'text-zinc-900';
+  const subTextClass = isDarkTheme ? 'text-zinc-400' : 'text-zinc-600';
   const inputClass = isDarkTheme
-    ? 'mt-1 block w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-gray-100 focus:ring-blue-500 focus:border-blue-500'
-    : 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500';
-  const labelClass = isDarkTheme ? 'block text-sm font-medium text-gray-200' : 'block text-sm font-medium text-gray-700';
+    ? 'mt-1 block w-full px-3 py-2 border border-zinc-600 rounded-md shadow-sm bg-zinc-800 text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f]'
+    : 'mt-1 block w-full px-3 py-2 border border-zinc-300 rounded-md shadow-sm focus:ring-[#10a37f] focus:border-[#10a37f]';
+  const labelClass = isDarkTheme ? 'block text-sm font-medium text-zinc-200' : 'block text-sm font-medium text-zinc-700';
   const buttonClass = isDarkTheme
-    ? 'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50'
-    : 'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50';
+    ? 'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10a37f] disabled:opacity-50'
+    : 'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#10a37f] disabled:opacity-50';
   const primaryButtonClass = isDarkTheme
-    ? 'bg-blue-600 text-white hover:bg-blue-700'
-    : 'bg-blue-600 text-white hover:bg-blue-700';
+    ? 'bg-[#10a37f] text-white hover:bg-[#0d8f6c]'
+    : 'bg-[#10a37f] text-white hover:bg-[#0d8f6c]';
   const secondaryButtonClass = isDarkTheme
-    ? 'text-gray-300 bg-gray-700 border-gray-600 hover:bg-gray-600'
-    : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50';
+    ? 'text-zinc-300 bg-zinc-700 border-zinc-600 hover:bg-zinc-600'
+    : 'text-zinc-700 bg-white border-zinc-300 hover:bg-zinc-50';
 
   // Login form
   const loginForm = useForm<LoginFormData>({
@@ -155,17 +155,17 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         />
 
         {/* Modal */}
-        <div className={`relative ${modalBgClass} rounded-lg max-w-md w-full p-6`}>
+        <div className="relative bg-white dark:bg-zinc-900 rounded-lg max-w-md w-full p-6">
           <button
             onClick={closeModal}
-            className={`absolute top-4 right-4 ${subTextClass} hover:${textClass} transition-colors`}
+            className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
 
-          <h2 className={`text-2xl font-bold ${textClass} mb-6`}>
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
             {isLoginMode ? 'Sign In' : 'Create Account'}
           </h2>
 
@@ -192,7 +192,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
                   {...loginForm.register('email')}
                   type="email"
                   id="email"
-                  className={inputClass}
+                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
                   placeholder="your@email.com"
                 />
                 {loginForm.formState.errors.email && (
@@ -203,14 +203,14 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
               </div>
 
               <div>
-                <label htmlFor="password" className={labelClass}>
+                <label htmlFor="password" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
                   Password
                 </label>
                 <input
                   {...loginForm.register('password')}
                   type="password"
                   id="password"
-                  className={inputClass}
+                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
                   placeholder="••••••••"
                 />
                 {loginForm.formState.errors.password && (
@@ -221,7 +221,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
               </div>
 
               <div className="flex items-center justify-between">
-                <a href="#" className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                <a href="#" className="text-sm text-[#10a37f] hover:text-[#0d8f6c] dark:text-[#10a37f]">
                   Forgot password?
                 </a>
               </div>
@@ -235,12 +235,12 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
               </button>
 
               <div className="text-center">
-                <span className={`text-sm ${subTextClass}`}>
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
                   Don't have an account?{' '}
                   <button
                     type="button"
                     onClick={switchMode}
-                    className="text-blue-600 hover:text-blue-500 dark:text-blue-400 font-medium"
+                    className="text-[#10a37f] hover:text-[#0d8f6c] dark:text-[#10a37f] font-medium"
                   >
                     Sign up
                   </button>
@@ -251,14 +251,14 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
             /* Register Form */
             <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
               <div>
-                <label htmlFor="reg-email" className={labelClass}>
+                <label htmlFor="reg-email" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
                   Email
                 </label>
                 <input
                   {...registerForm.register('email')}
                   type="email"
                   id="reg-email"
-                  className={inputClass}
+                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
                   placeholder="your@email.com"
                 />
                 {registerForm.formState.errors.email && (
@@ -269,27 +269,27 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
               </div>
 
               <div>
-                <label htmlFor="reg-name" className={labelClass}>
+                <label htmlFor="reg-name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
                   Name (optional)
                 </label>
                 <input
                   {...registerForm.register('name')}
                   type="text"
                   id="reg-name"
-                  className={inputClass}
+                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
                   placeholder="Your name"
                 />
               </div>
 
               <div>
-                <label htmlFor="reg-password" className={labelClass}>
+                <label htmlFor="reg-password" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
                   Password
                 </label>
                 <input
                   {...registerForm.register('password')}
                   type="password"
                   id="reg-password"
-                  className={inputClass}
+                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
                   placeholder="••••••••"
                 />
                 {registerForm.formState.errors.password && (
@@ -300,14 +300,14 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
               </div>
 
               <div>
-                <label htmlFor="reg-confirm-password" className={labelClass}>
+                <label htmlFor="reg-confirm-password" className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
                   Confirm Password
                 </label>
                 <input
                   {...registerForm.register('confirmPassword')}
                   type="password"
                   id="reg-confirm-password"
-                  className={inputClass}
+                  className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
                   placeholder="••••••••"
                 />
                 {registerForm.formState.errors.confirmPassword && (
@@ -317,7 +317,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
                 )}
               </div>
 
-              <div className={`text-xs ${subTextClass}`}>
+              <div className="text-xs text-zinc-600 dark:text-zinc-400">
                 Password must be at least 8 characters with letters and numbers
               </div>
 
@@ -330,12 +330,12 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
               </button>
 
               <div className="text-center">
-                <span className={`text-sm ${subTextClass}`}>
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
                   Already have an account?{' '}
                   <button
                     type="button"
                     onClick={switchMode}
-                    className="text-blue-600 hover:text-blue-500 dark:text-blue-400 font-medium"
+                    className="text-[#10a37f] hover:text-[#0d8f6c] dark:text-[#10a37f] font-medium"
                   >
                     Sign in
                   </button>

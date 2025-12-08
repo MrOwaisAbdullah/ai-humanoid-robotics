@@ -52,6 +52,12 @@ const API_BASE_URL = getApiBaseUrl();
 axios.defaults.baseURL = API_BASE_URL;
 axios.defaults.withCredentials = true; // Important for cookies
 
+// Ensure all requests have proper headers
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+
+// Set a reasonable timeout for requests
+axios.defaults.timeout = 10000; // 10 seconds
+
 // Auth Provider Component
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
@@ -94,8 +100,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           isAuthenticated: false,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       // Not authenticated - clear stored token and auth header
+      if (error?.code === 'ECONNABORTED') {
+        console.error('Authentication check timed out - backend may be down');
+      } else if (error?.response?.status === 401) {
+        console.error('Token expired or invalid');
+      } else {
+        console.error('Authentication check failed:', error?.message || 'Unknown error');
+      }
       localStorage.removeItem('access_token');
       delete axios.defaults.headers.common['Authorization'];
       setState({

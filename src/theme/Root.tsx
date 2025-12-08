@@ -12,17 +12,17 @@ import { NavbarAuth } from '../components/Auth/NavbarAuth';
 
 // Authentication-aware wrapper for the main content
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   // Handle OAuth callback
   if (typeof window !== 'undefined' && window.location.pathname === '/auth/callback') {
     return <OAuthCallbackHandler />;
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#10a37f]"></div>
       </div>
     );
   }
