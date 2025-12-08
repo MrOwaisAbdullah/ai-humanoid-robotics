@@ -325,6 +325,7 @@ html[data-theme='dark'] .glass-bar {
   .navbar__item:has(.navbar__link[href*="docs"]) {
     display: none !important;
   }
+}
 
 /* ==========================================================================
    TABLE OF CONTENTS (RIGHT SIDEBAR) CUSTOMIZATION

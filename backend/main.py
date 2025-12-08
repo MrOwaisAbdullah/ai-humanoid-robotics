@@ -132,7 +132,18 @@ async def lifespan(app: FastAPI):
     global chat_handler, qdrant_manager, document_ingestor, task_manager
 
     # Create database tables on startup
-    from database.config import create_tables
+    from database.config import create_tables, engine, DATABASE_URL
+    import os
+    from pathlib import Path
+
+    # Ensure database directory exists
+    if "sqlite" in DATABASE_URL:
+        db_path = Path(DATABASE_URL.replace("sqlite:///", ""))
+        db_dir = db_path.parent
+        db_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Database directory ensured: {db_dir}")
+
+    # Create tables
     create_tables()
 
     logger.info("Starting up RAG backend...",
