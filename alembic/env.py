@@ -10,7 +10,11 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Import models
 from src.models.auth import Base
-from src.models.chat import Base
+# Import other models to register them with the Base metadata
+import src.models.chat
+import src.models.translation
+import src.models.personalization
+import src.models.content_localization
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

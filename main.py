@@ -97,6 +97,9 @@ class Settings(BaseSettings):
     # JWT Configuration
     jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key")
 
+    # Google AI Configuration
+    google_ai_api_key: str = os.getenv("GOOGLE_AI_API_KEY", "")
+
     # Conversation Context
     max_context_messages: int = int(os.getenv("MAX_CONTEXT_MESSAGES", "3"))
     context_window_size: int = int(os.getenv("CONTEXT_WINDOW_SIZE", "4000"))
@@ -252,6 +255,14 @@ app.include_router(auth.router)
 
 # Include new chat routes
 app.include_router(chat.router)
+
+# Include reader features routes
+from src.api.v1 import reader_features
+app.include_router(reader_features.router, prefix="/api/v1")
+
+# Include translation routes
+from src.api.v1 import translation
+app.include_router(translation.router, prefix="/api/v1")
 
 
 # Optional API key security for higher rate limits
