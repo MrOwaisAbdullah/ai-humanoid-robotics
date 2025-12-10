@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { getOptimizedMotionProps, tooltipVariants } from '../utils/animations';
+import { useLocalization } from '../../../contexts/LocalizationContext';
 import styles from '../styles/ChatWidget.module.css';
 
 interface SelectionTooltipProps {
@@ -23,6 +24,7 @@ export default function SelectionTooltip({
   onClose,
   isVisible
 }: SelectionTooltipProps) {
+  const { language, formatText, isRTL } = useLocalization();
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = React.useState({
     top: 0,
@@ -85,6 +87,7 @@ export default function SelectionTooltip({
     onClose();
   };
 
+  
   const tooltipContent = (
     <AnimatePresence>
       <motion.div
@@ -143,6 +146,7 @@ export default function SelectionTooltip({
             </svg>
             Ask AI
           </motion.button>
+
           <motion.button
             className={styles.closeTooltipButton}
             onClick={onClose}

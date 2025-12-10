@@ -1,0 +1,583 @@
+openapi: 3.0.3
+info:
+  title: Reader Experience Enhancements API
+  description: REST API for personalization, progress tracking, bookmarks, and search
+  version: 1.0.0
+
+servers:
+  - url: https://api.ai-book.com/v1
+    description: Production server
+  - url: https://staging-api.ai-book.com/v1
+    description: Staging server
+
+paths:
+  # Progress Tracking Endpoints
+  /progress/{chapterId}:
+    get:
+      summary: Get reading progress for a chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Progress retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chapterProgress:
+                    type: number
+                    format: float
+                    minimum: 0
+                    maximum: 100
+                  sections:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SectionProgress'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      summary: Update reading progress
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressUpdate'
+      responses:
+        '200':
+          description: Progress updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionProgress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Bookmark Endpoints
+  /bookmarks:
+    get:
+      summary: Get user's bookmarks
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bookmarks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookmarks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bookmark'
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create a new bookmark
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookmarkCreate'
+      responses:
+        '201':
+          description: Bookmark created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bookmark'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /bookmarks/{bookmarkId}:
+    get:
+      summary: Get a specific bookmark
+      parameters:
+        - name: bookmarkId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bookmark retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bookmark'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update a bookmark
+      parameters:
+        - name: bookmarkId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookmarkUpdate'
+      responses:
+        '200':
+          description: Bookmark updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bookmark'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a bookmark
+      parameters:
+        - name: bookmarkId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Bookmark deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Personalization Endpoints
+  /preferences:
+    get:
+      summary: Get user preferences
+      responses:
+        '200':
+          description: Preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreference'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      summary: Update user preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPreferenceUpdate'
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreference'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /recommendations:
+    get:
+      summary: Get personalized content recommendations
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [chapter, section, bookmark]
+            default: chapter
+      responses:
+        '200':
+          description: Recommendations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recommendation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Analytics Endpoints
+  /analytics/progress:
+    get:
+      summary: Get user's progress analytics
+      parameters:
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: month
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressAnalytics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    SectionProgress:
+      type: object
+      properties:
+        sectionId:
+          type: string
+        position:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        completed:
+          type: boolean
+        timeSpent:
+          type: number
+          format: float
+          minimum: 0
+        lastAccessed:
+          type: string
+          format: date-time
+      required:
+        - sectionId
+        - position
+        - completed
+        - timeSpent
+
+    ProgressUpdate:
+      type: object
+      properties:
+        sectionId:
+          type: string
+        position:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        timeSpent:
+          type: number
+          format: float
+          minimum: 0
+      required:
+        - sectionId
+
+    Bookmark:
+      type: object
+      properties:
+        id:
+          type: string
+        chapterId:
+          type: string
+        sectionId:
+          type: string
+        pageUrl:
+          type: string
+          format: uri
+        pageTitle:
+          type: string
+        snippet:
+          type: string
+        note:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isPrivate:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - chapterId
+        - pageUrl
+        - pageTitle
+
+    BookmarkCreate:
+      type: object
+      properties:
+        chapterId:
+          type: string
+        sectionId:
+          type: string
+        pageUrl:
+          type: string
+          format: uri
+        pageTitle:
+          type: string
+        snippet:
+          type: string
+        note:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isPrivate:
+          type: boolean
+          default: true
+      required:
+        - chapterId
+        - pageUrl
+        - pageTitle
+
+    BookmarkUpdate:
+      type: object
+      properties:
+        note:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isPrivate:
+          type: boolean
+      minProperties: 1
+
+    UserPreference:
+      type: object
+      properties:
+        id:
+          type: string
+        language:
+          type: string
+          enum: [en, ur, ur-roman]
+        readingPace:
+          type: string
+          enum: [slow, medium, fast]
+        preferredDepth:
+          type: string
+          enum: [overview, detailed, comprehensive]
+        showCodeExamples:
+          type: boolean
+        adaptiveDifficulty:
+          type: boolean
+        theme:
+          type: string
+          enum: [light, dark, auto]
+        fontSize:
+          type: integer
+          minimum: 12
+          maximum: 24
+        lineHeight:
+          type: number
+          format: float
+          minimum: 1.2
+          maximum: 2.0
+        customNotes:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - id
+        - language
+
+    UserPreferenceUpdate:
+      type: object
+      properties:
+        language:
+          type: string
+          enum: [en, ur, ur-roman]
+        readingPace:
+          type: string
+          enum: [slow, medium, fast]
+        preferredDepth:
+          type: string
+          enum: [overview, detailed, comprehensive]
+        showCodeExamples:
+          type: boolean
+        adaptiveDifficulty:
+          type: boolean
+        theme:
+          type: string
+          enum: [light, dark, auto]
+        fontSize:
+          type: integer
+          minimum: 12
+          maximum: 24
+        lineHeight:
+          type: number
+          format: float
+          minimum: 1.2
+          maximum: 2.0
+        customNotes:
+          type: object
+          additionalProperties:
+            type: string
+      minProperties: 1
+
+    Recommendation:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [chapter, section, bookmark]
+        title:
+          type: string
+        description:
+          type: string
+        relevanceScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        estimatedReadingTime:
+          type: integer
+          description: Reading time in minutes
+      required:
+        - id
+        - type
+        - title
+        - relevanceScore
+
+    ProgressAnalytics:
+      type: object
+      properties:
+        totalTimeSpent:
+          type: number
+          format: float
+          description: Total time in minutes
+        chaptersCompleted:
+          type: integer
+        averageReadingSpeed:
+          type: number
+          format: float
+          description: Words per minute
+        streak:
+          type: integer
+          description: Consecutive days of reading
+        progressTrend:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              minutesSpent:
+                type: number
+                format: float
+              chaptersRead:
+                type: integer
+      required:
+        - totalTimeSpent
+        - chaptersCompleted
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              details:
+                type: object
+              timestamp:
+                type: string
+                format: date-time
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              resource:
+                type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []

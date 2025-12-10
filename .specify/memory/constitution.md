@@ -79,8 +79,7 @@ Always use Context7 MCP for latest documentation and Web Search for fact-checkin
 - FastAPI: Use library ID "fastapi" for framework documentation
 - Qdrant: Use library ID "qdrant" for vector database documentation
 - React: Use library ID "react" for component patterns
-- ChatKit JS: Use library ID "chatkit-js" for latest docs at https://github.com/openai/chatkit-js
-
+- ChatKit python: Use library ID "chatkit-python"
 **Application for Fact-Checking**: Use Web Search for all technical data, pricing, specifications, and current information:
 - AWS pricing: Verify against official AWS pricing pages
 - Hardware specifications: Cross-reference with manufacturer documentation

@@ -296,6 +296,7 @@ function ChatWidgetContainerInner({
     }, 300);
   }, [isOpen, chatContext.setIsOpen, handleSendMessage]);
 
+  
   /**
    * Initialize anonymous session on mount
    */

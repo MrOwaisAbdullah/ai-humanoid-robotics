@@ -1,0 +1,206 @@
+import React, { useState } from 'react';
+import { useFocusMode } from '../../contexts/FocusModeContext';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { Loader2, Globe } from 'lucide-react';
+import { useLocation } from '@docusaurus/router';
+
+export default function AIFeaturesBar() {
+  const { showTranslation } = useFocusMode();
+  const { translationEnabled, language } = useLocalization();
+  const [isTranslating, setIsTranslating] = useState(false);
+  const location = useLocation();
+
+  // Only show on docs pages, not on other pages like blog, authentication, etc.
+  if (!location.pathname.includes('/docs/') ||
+      location.pathname.includes('assessments') ||
+      location.pathname.includes('congratulations')) {
+    return null;
+  }
+
+  const extractContent = (): string => {
+    // Try multiple selectors to get the main content
+    const selectors = [
+      'article',
+      '.markdown',
+      '.theme-doc-markdown',
+      '.markdown > *',
+      '[role="main"]',
+      'main'
+    ];
+
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        // Remove script tags and other unwanted elements
+        const clonedElement = element.cloneNode(true) as Element;
+        const unwantedTags = clonedElement.querySelectorAll('script, style, nav, .pagination, .theme-doc-footer, .toolbar');
+        unwantedTags.forEach(tag => tag.remove());
+
+        // Get clean text content
+        let textContent = clonedElement.textContent || '';
+
+        // Clean up whitespace
+        textContent = textContent
+          .replace(/\s+/g, ' ')
+          .replace(/\n\s*\n/g, '\n')
+          .trim();
+
+        // Filter out navigation and footer text
+        const lines = textContent.split('\n').filter(line => {
+          const lowerLine = line.toLowerCase().trim();
+          return !lowerLine.includes('previous') &&
+                 !lowerLine.includes('next') &&
+                 !lowerLine.includes('edit this page') &&
+                 !lowerLine.includes('last updated') &&
+                 line.length > 10; // Only keep substantial lines
+        });
+
+        return lines.join('\n');
+      }
+    }
+
+    return '';
+  };
+
+  const handleTranslate = async () => {
+    if (!translationEnabled) {
+      showToast('Translation is disabled. Please enable it in settings.');
+      return;
+    }
+
+    // Extract content from the page
+    const originalText = extractContent();
+
+    if (!originalText || originalText.trim().length < 50) {
+      showToast('Not enough content to translate. Please select a page with more text.');
+      return;
+    }
+
+    // Limit text length to avoid API limits
+    const maxLength = 5000;
+    const truncatedText = originalText.length > maxLength
+      ? originalText.substring(0, maxLength) + '...'
+      : originalText;
+
+    setIsTranslating(true);
+
+    try {
+      // Show translation in focus mode
+      // The FocusModeContext will handle the actual translation
+      await showTranslation(truncatedText, {
+        sourceLanguage: 'en',
+        targetLanguage: language === 'ur' ? 'ur' : 'en'
+      });
+    } catch (error) {
+      console.error('Translation failed:', error);
+      showToast('Translation failed. Please try again.');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handlePersonalize = () => {
+    showToast('Personalization feature coming soon!');
+  };
+
+  return (
+    <div className="ai-features-bar glass-bar" style={{
+      borderRadius: '10px',
+      padding: '12px 20px',
+      margin: '24px 0',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: '16px',
+      position: 'sticky',
+      top: '20px',
+      zIndex: '100',
+      transition: 'all 0.3s ease',
+      backgroundColor: 'var(--ifm-background-surface-color)',
+      border: '1px solid var(--ifm-color-emphasis-300)',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+    }}>
+      <div style={{ color: 'var(--ifm-color-emphasis-600)', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        AI Features
+        {!translationEnabled && (
+          <span style={{
+            fontSize: '12px',
+            padding: '2px 6px',
+            background: 'var(--ifm-color-warning-lightest)',
+            color: 'var(--ifm-color-warning-dark)',
+            borderRadius: '4px',
+            fontWeight: 'normal'
+          }}>
+            Translation disabled
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <button
+          className="button button--primary button--sm"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          onClick={handlePersonalize}
+          disabled={isTranslating}
+        >
+          <span style={{ fontSize: '16px' }}>✨</span>
+          Personalize
+        </button>
+        <button
+          className={`button button--sm ${translationEnabled ? 'button--secondary' : 'button--outline'}`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            backgroundColor: translationEnabled ? 'var(--ifm-color-secondary)' : undefined,
+            position: 'relative'
+          }}
+          onClick={handleTranslate}
+          disabled={isTranslating || !translationEnabled}
+        >
+          {isTranslating ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              Translating...
+            </>
+          ) : (
+            <>
+              <Globe size={16} />
+              Translate to {language === 'ur' ? 'English' : 'اردو'}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Toast helper function
+function showToast(message: string) {
+  const toast = document.createElement('div');
+  toast.className = 'fixed bottom-5 right-5 bg-zinc-900 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-up border border-zinc-800';
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #18181b;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+    animation: slideInUp 0.3s ease-out;
+    border: 1px solid #27272a;
+    font-size: 14px;
+  `;
+
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'slideOutDown 0.3s ease-out';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}

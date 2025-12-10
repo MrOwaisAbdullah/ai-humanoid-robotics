@@ -1,0 +1,479 @@
+# Database Schema: Reader Experience Enhancements
+
+**Date**: 2025-01-09
+**Phase**: 1 - Design & Contracts
+**Database**: SQLite (with migration to PostgreSQL if needed)
+
+## Table Definitions
+
+### 1. reading_progress
+
+Stores user's reading progress through chapters and sections.
+
+```sql
+CREATE TABLE reading_progress (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    chapter_id TEXT NOT NULL,
+    section_id TEXT NOT NULL,
+    position REAL NOT NULL CHECK (position >= 0 AND position <= 100),
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    time_spent INTEGER NOT NULL DEFAULT 0 CHECK (time_spent >= 0),
+    last_accessed DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (user_id, chapter_id, section_id)
+);
+
+-- Indexes
+CREATE INDEX idx_reading_progress_user_chapter
+ON reading_progress(user_id, chapter_id);
+
+CREATE INDEX idx_reading_progress_last_accessed
+ON reading_progress(last_accessed DESC);
+```
+
+### 2. bookmarks
+
+Represents user-saved page references with optional metadata.
+
+```sql
+CREATE TABLE bookmarks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    chapter_id TEXT NOT NULL,
+    section_id TEXT,
+    page_url TEXT NOT NULL,
+    page_title TEXT NOT NULL CHECK (length(page_title) <= 255),
+    snippet TEXT,
+    note TEXT CHECK (length(note) <= 1000),
+    is_private BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Tags table for bookmark organization
+CREATE TABLE bookmark_tags (
+    id TEXT PRIMARY KEY,
+    bookmark_id TEXT NOT NULL,
+    tag TEXT NOT NULL CHECK (length(tag) <= 50),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (bookmark_id) REFERENCES bookmarks(id) ON DELETE CASCADE,
+    UNIQUE (bookmark_id, tag)
+);
+
+-- Indexes
+CREATE INDEX idx_bookmarks_user_created
+ON bookmarks(user_id, created_at DESC);
+
+CREATE INDEX idx_bookmarks_chapter
+ON bookmarks(chapter_id);
+
+-- GIN index for tags (requires SQLite FTS5 or PostgreSQL)
+CREATE INDEX idx_bookmark_tags_tag
+ON bookmark_tags(tag);
+```
+
+### 3. user_preferences
+
+Stores user personalization settings.
+
+```sql
+CREATE TABLE user_preferences (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    language TEXT NOT NULL CHECK (language IN ('en', 'ur', 'ur-roman')),
+    reading_pace TEXT NOT NULL CHECK (reading_pace IN ('slow', 'medium', 'fast')),
+    preferred_depth TEXT NOT NULL CHECK (preferred_depth IN ('overview', 'detailed', 'comprehensive')),
+    show_code_examples BOOLEAN NOT NULL DEFAULT TRUE,
+    adaptive_difficulty BOOLEAN NOT NULL DEFAULT FALSE,
+    theme TEXT NOT NULL CHECK (theme IN ('light', 'dark', 'auto')),
+    font_size INTEGER NOT NULL DEFAULT 16 CHECK (font_size >= 12 AND font_size <= 24),
+    line_height REAL NOT NULL DEFAULT 1.5 CHECK (line_height >= 1.2 AND line_height <= 2.0),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Custom notes as key-value pairs
+CREATE TABLE user_custom_notes (
+    id TEXT PRIMARY KEY,
+    user_preference_id TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_preference_id) REFERENCES user_preferences(id) ON DELETE CASCADE,
+    UNIQUE (user_preference_id, key)
+);
+```
+
+### 4. content_localization
+
+Represents translated content variants.
+
+```sql
+CREATE TABLE content_localization (
+    id TEXT PRIMARY KEY,
+    content_id TEXT NOT NULL,
+    language TEXT NOT NULL CHECK (language IN ('en', 'ur', 'ur-roman')),
+    title TEXT NOT NULL CHECK (length(title) <= 255),
+    content TEXT NOT NULL,
+    word_count INTEGER NOT NULL DEFAULT 0 CHECK (word_count >= 0),
+    reading_time_minutes INTEGER NOT NULL DEFAULT 0 CHECK (reading_time_minutes >= 0),
+    last_updated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    translator TEXT,
+    reviewed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (content_id, language)
+);
+
+-- Indexes
+CREATE INDEX idx_content_localization_language
+ON content_localization(language);
+
+CREATE INDEX idx_content_localization_content
+ON content_localization(content_id);
+```
+
+### 5. search_index
+
+Enables fast content retrieval across languages.
+
+```sql
+CREATE TABLE search_index (
+    id TEXT PRIMARY KEY,
+    content_id TEXT NOT NULL,
+    language TEXT NOT NULL CHECK (language IN ('en', 'ur', 'ur-roman')),
+    content_type TEXT NOT NULL CHECK (content_type IN ('chapter', 'section', 'bookmark')),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    chapter_id TEXT NOT NULL,
+    section_id TEXT,
+    rank REAL NOT NULL DEFAULT 0.5 CHECK (rank >= 0 AND rank <= 1),
+    indexed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Full-text search index (SQLite FTS5)
+CREATE VIRTUAL TABLE search_index_fts USING fts5(
+    title,
+    content,
+    keywords,
+    content=search_index
+);
+
+-- Triggers to keep FTS table in sync
+CREATE TRIGGER search_index_ai AFTER INSERT ON search_index BEGIN
+    INSERT INTO search_index_fts(rowid, title, content, keywords)
+    VALUES (new.id, new.title, new.content, new.title || ' ' || new.content);
+END;
+
+CREATE TRIGGER search_index_ad AFTER DELETE ON search_index BEGIN
+    INSERT INTO search_index_fts(search_index_fts, rowid, title, content, keywords)
+    VALUES ('delete', old.id, old.title, old.content, NULL);
+END;
+
+CREATE TRIGGER search_index_au AFTER UPDATE ON search_index BEGIN
+    DELETE FROM search_index_fts WHERE rowid = old.id;
+    INSERT INTO search_index_fts(rowid, title, content, keywords)
+    VALUES (new.id, new.title, new.content, new.title || ' ' || new.content);
+END;
+
+-- Regular indexes
+CREATE INDEX idx_search_index_language_rank
+ON search_index(language, rank DESC);
+
+CREATE INDEX idx_search_index_chapter
+ON search_index(chapter_id);
+```
+
+## Migration Scripts
+
+### Migration 001: Create reader features tables
+
+```python
+"""Create tables for reader experience features
+
+Revision ID: 001_reader_features_tables
+Revises:
+Create Date: 2025-01-09
+"""
+from alembic import op
+import sqlalchemy as sa
+
+# revision identifiers
+revision = '001_reader_features_tables'
+down_revision = None
+branch_labels = None
+depends_on = None
+
+def upgrade():
+    # Create reading_progress table
+    op.create_table('reading_progress',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('user_id', sa.String(), nullable=False),
+        sa.Column('chapter_id', sa.String(), nullable=False),
+        sa.Column('section_id', sa.String(), nullable=False),
+        sa.Column('position', sa.Float(), nullable=False),
+        sa.Column('completed', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('time_spent', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('last_accessed', sa.DateTime(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id', 'chapter_id', 'section_id')
+    )
+    op.create_index('idx_reading_progress_user_chapter', 'reading_progress', ['user_id', 'chapter_id'])
+    op.create_index('idx_reading_progress_last_accessed', 'reading_progress', ['last_accessed'])
+
+    # Create bookmarks table
+    op.create_table('bookmarks',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('user_id', sa.String(), nullable=False),
+        sa.Column('chapter_id', sa.String(), nullable=False),
+        sa.Column('section_id', sa.String(), nullable=True),
+        sa.Column('page_url', sa.String(), nullable=False),
+        sa.Column('page_title', sa.String(length=255), nullable=False),
+        sa.Column('snippet', sa.String(), nullable=True),
+        sa.Column('note', sa.String(length=1000), nullable=True),
+        sa.Column('is_private', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('idx_bookmarks_user_created', 'bookmarks', ['user_id', 'created_at'])
+    op.create_index('idx_bookmarks_chapter', 'bookmarks', ['chapter_id'])
+
+    # Create bookmark_tags table
+    op.create_table('bookmark_tags',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('bookmark_id', sa.String(), nullable=False),
+        sa.Column('tag', sa.String(length=50), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['bookmark_id'], ['bookmarks.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('bookmark_id', 'tag')
+    )
+    op.create_index('idx_bookmark_tags_tag', 'bookmark_tags', ['tag'])
+
+    # Create user_preferences table
+    op.create_table('user_preferences',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('user_id', sa.String(), nullable=False),
+        sa.Column('language', sa.String(), nullable=False),
+        sa.Column('reading_pace', sa.String(), nullable=False),
+        sa.Column('preferred_depth', sa.String(), nullable=False),
+        sa.Column('show_code_examples', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('adaptive_difficulty', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('theme', sa.String(), nullable=False),
+        sa.Column('font_size', sa.Integer(), nullable=False, server_default='16'),
+        sa.Column('line_height', sa.Float(), nullable=False, server_default='1.5'),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id')
+    )
+
+    # Create user_custom_notes table
+    op.create_table('user_custom_notes',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('user_preference_id', sa.String(), nullable=False),
+        sa.Column('key', sa.String(), nullable=False),
+        sa.Column('value', sa.String(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['user_preference_id'], ['user_preferences.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_preference_id', 'key')
+    )
+
+    # Create content_localization table
+    op.create_table('content_localization',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('content_id', sa.String(), nullable=False),
+        sa.Column('language', sa.String(), nullable=False),
+        sa.Column('title', sa.String(length=255), nullable=False),
+        sa.Column('content', sa.String(), nullable=False),
+        sa.Column('word_count', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('reading_time_minutes', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('last_updated', sa.DateTime(), nullable=False),
+        sa.Column('translator', sa.String(), nullable=True),
+        sa.Column('reviewed', sa.Boolean(), nullable=False, server_default='false'),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('content_id', 'language')
+    )
+    op.create_index('idx_content_localization_language', 'content_localization', ['language'])
+    op.create_index('idx_content_localization_content', 'content_localization', ['content_id'])
+
+    # Create search_index table
+    op.create_table('search_index',
+        sa.Column('id', sa.String(), nullable=False),
+        sa.Column('content_id', sa.String(), nullable=False),
+        sa.Column('language', sa.String(), nullable=False),
+        sa.Column('content_type', sa.String(), nullable=False),
+        sa.Column('title', sa.String(), nullable=False),
+        sa.Column('content', sa.String(), nullable=False),
+        sa.Column('chapter_id', sa.String(), nullable=False),
+        sa.Column('section_id', sa.String(), nullable=True),
+        sa.Column('rank', sa.Float(), nullable=False, server_default='0.5'),
+        sa.Column('indexed_at', sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('idx_search_index_language_rank', 'search_index', ['language', 'rank'])
+    op.create_index('idx_search_index_chapter', 'search_index', ['chapter_id'])
+
+    # Create FTS virtual table
+    op.execute("""
+        CREATE VIRTUAL TABLE search_index_fts USING fts5(
+            title,
+            content,
+            keywords,
+            content=search_index
+        )
+    """)
+
+    # Create FTS triggers
+    op.execute("""
+        CREATE TRIGGER search_index_ai AFTER INSERT ON search_index BEGIN
+            INSERT INTO search_index_fts(rowid, title, content, keywords)
+            VALUES (new.id, new.title, new.content, new.title || ' ' || new.content);
+        END
+    """)
+
+    op.execute("""
+        CREATE TRIGGER search_index_ad AFTER DELETE ON search_index BEGIN
+            INSERT INTO search_index_fts(search_index_fts, rowid, title, content, keywords)
+            VALUES ('delete', old.id, old.title, old.content, NULL);
+        END
+    """)
+
+    op.execute("""
+        CREATE TRIGGER search_index_au AFTER UPDATE ON search_index BEGIN
+            DELETE FROM search_index_fts WHERE rowid = old.id;
+            INSERT INTO search_index_fts(rowid, title, content, keywords)
+            VALUES (new.id, new.title, new.content, new.title || ' ' || new.content);
+        END
+    """)
+
+def downgrade():
+    # Drop tables in reverse order
+    op.drop_table('search_index')
+    op.execute('DROP TABLE IF EXISTS search_index_fts')
+    op.drop_table('content_localization')
+    op.drop_table('user_custom_notes')
+    op.drop_table('user_preferences')
+    op.drop_table('bookmark_tags')
+    op.drop_table('bookmarks')
+    op.drop_table('reading_progress')
+```
+
+## Data Seeding
+
+### Default User Preferences
+
+```sql
+-- Insert default preferences for existing users
+INSERT INTO user_preferences (
+    id, user_id, language, reading_pace, preferred_depth,
+    show_code_examples, adaptive_difficulty, theme, font_size, line_height
+)
+SELECT
+    'pref_' || id,
+    id,
+    'en',
+    'medium',
+    'detailed',
+    TRUE,
+    TRUE,
+    'auto',
+    16,
+    1.5
+FROM users
+WHERE id NOT IN (SELECT user_id FROM user_preferences);
+```
+
+## Performance Optimization
+
+### Partitioning Strategy (for PostgreSQL)
+
+```sql
+-- Partition reading_progress by user_id hash for large datasets
+CREATE TABLE reading_progress_partitioned (
+    LIKE reading_progress INCLUDING ALL
+) PARTITION BY HASH (user_id);
+
+-- Create partitions
+CREATE TABLE reading_progress_part_0 PARTITION OF reading_progress_partitioned
+    FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+
+CREATE TABLE reading_progress_part_1 PARTITION OF reading_progress_partitioned
+    FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+
+CREATE TABLE reading_progress_part_2 PARTITION OF reading_progress_partitioned
+    FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+
+CREATE TABLE reading_progress_part_3 PARTITION OF reading_progress_partitioned
+    FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+```
+
+### Query Optimization
+
+```sql
+-- Materialized view for user progress summary
+CREATE MATERIALIZED VIEW user_progress_summary AS
+SELECT
+    user_id,
+    COUNT(DISTINCT chapter_id) as chapters_completed,
+    SUM(time_spent) as total_time_spent,
+    MAX(last_accessed) as last_activity
+FROM reading_progress
+WHERE completed = TRUE
+GROUP BY user_id;
+
+-- Refresh strategy
+CREATE OR REPLACE FUNCTION refresh_user_progress_summary()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY user_progress_summary;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+## Backup Strategy
+
+### SQLite Backup Commands
+
+```bash
+# Full backup
+sqlite3 ai_book.db ".backup backup_$(date +%Y%m%d_%H%M%S).db"
+
+# Progress data only
+sqlite3 ai_book.db ".dump reading_progress bookmarks user_preferences" > progress_data.sql
+
+# Schema only
+sqlite3 ai_book.db ".schema" > schema.sql
+```
+
+### Recovery Procedures
+
+```sql
+-- Restore from backup
+RESTORE DATABASE ai_book FROM 'backup_20250109_120000.db';
+
+-- Import progress data
+.read progress_data.sql
+```

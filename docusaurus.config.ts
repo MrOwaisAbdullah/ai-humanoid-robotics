@@ -21,7 +21,15 @@ const config: Config = {
 
   i18n: {
     defaultLocale: "en",
-    locales: ["en"],
+    locales: ["en", "ur"],
+    localeConfigs: {
+      ur: {
+        label: "اردو",
+        direction: "rtl",
+        htmlLang: "ur-PK",
+        calendar: "gregory"
+      }
+    }
   },
 
   presets: [
@@ -124,7 +132,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Physical AI & Humanoid Robotics. Developed with ❤️ by Owais Abdullah.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Physical AI & Humanoid Robotics. Made with ❤️ by Owais Abdullah.`,
     },
     prism: {
       theme: prismThemes.github,

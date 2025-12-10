@@ -5,6 +5,8 @@
  * infinite loop issues.
  */
 
+import React from 'react';
+
 // Global render counter
 let renderCount = 0;
 
@@ -49,10 +51,10 @@ export function withRenderTracking<P extends object>(
   WrappedComponent: React.ComponentType<P>,
   componentName: string = WrappedComponent.displayName || WrappedComponent.name || 'Component'
 ) {
-  const TrackedComponent = React.forwardRef<any, P>((props, ref) => {
+  const TrackedComponent = React.forwardRef((props, ref) => {
     incrementRenderCount(componentName);
     return <WrappedComponent {...props} ref={ref} />;
-  });
+  }) as React.ForwardRefExoticComponent<P>;
 
   TrackedComponent.displayName = `withRenderTracking(${componentName})`;
 
