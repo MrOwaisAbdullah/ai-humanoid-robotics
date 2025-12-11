@@ -24,7 +24,6 @@ except ImportError:
 
 from src.utils.errors import CacheError, ValidationError
 from src.utils.logging import get_logger
-from src.utils.errors import log_exception
 
 logger = get_logger(__name__)
 

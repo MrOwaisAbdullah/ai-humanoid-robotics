@@ -40,6 +40,18 @@ class BaseError(Exception):
         }
 
 
+class CacheError(BaseError):
+    """Raised when cache operation fails."""
+
+    def __init__(self, message: str, operation: str = None, key: str = None):
+        details = {}
+        if operation:
+            details["operation"] = operation
+        if key:
+            details["key"] = key
+        super().__init__(message, "CACHE_ERROR", details)
+
+
 class ValidationError(BaseError):
     """Raised when input validation fails."""
 
@@ -122,6 +134,18 @@ class DatabaseError(BaseError):
         if operation:
             details["operation"] = operation
         super().__init__(message, "DATABASE_ERROR", details, cause)
+
+
+class ServiceError(BaseError):
+    """Raised when an internal service operation fails."""
+
+    def __init__(self, message: str, service: str = None, operation: str = None):
+        details = {}
+        if service:
+            details["service"] = service
+        if operation:
+            details["operation"] = operation
+        super().__init__(message, "SERVICE_ERROR", details)
 
 
 class ExternalServiceError(BaseError):
@@ -232,6 +256,7 @@ def create_http_exception(error: BaseError, status_code: int = status.HTTP_500_I
 # Error status code mapping
 ERROR_STATUS_MAP = {
     ValidationError: status.HTTP_400_BAD_REQUEST,
+    CacheError: status.HTTP_500_INTERNAL_SERVER_ERROR,
     NotFoundError: status.HTTP_404_NOT_FOUND,
     ConflictError: status.HTTP_409_CONFLICT,
     PermissionError: status.HTTP_403_FORBIDDEN,
@@ -239,6 +264,7 @@ ERROR_STATUS_MAP = {
     AuthorizationError: status.HTTP_403_FORBIDDEN,
     RateLimitError: status.HTTP_429_TOO_MANY_REQUESTS,
     DatabaseError: status.HTTP_500_INTERNAL_SERVER_ERROR,
+    ServiceError: status.HTTP_500_INTERNAL_SERVER_ERROR,
     ExternalServiceError: status.HTTP_502_BAD_GATEWAY,
 }
 
@@ -345,3 +371,25 @@ def log_error(error: BaseError, request_id: str = None, user_id: str = None):
         exc_info=error.cause
     )
     error_metrics.record_error(error)
+
+
+def log_exception(error: Exception, message: str = None, request_id: str = None, user_id: str = None):
+    """Log exception with context."""
+    error_message = message or str(error)
+    logger.error(
+        error_message,
+        extra={
+            "request_id": request_id,
+            "user_id": user_id,
+            "error_type": type(error).__name__,
+        },
+        exc_info=error
+    )
+
+    # If it's a BaseError, record it in metrics
+    if isinstance(error, BaseError):
+        error_metrics.record_error(error)
+    else:
+        # For other exceptions, create a generic error for metrics
+        generic_error = BaseError(error_message, "EXCEPTION")
+        error_metrics.record_error(generic_error)

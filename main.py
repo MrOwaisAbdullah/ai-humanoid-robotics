@@ -60,6 +60,7 @@ logger = structlog.get_logger()
 
 # Load environment variables
 load_dotenv()
+print(f"*** Environment loaded. GEMINI_API_KEY exists: {bool(os.getenv('GEMINI_API_KEY'))} ***")
 
 
 class Settings(BaseSettings):
@@ -98,7 +99,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key")
 
     # Google AI Configuration
-    google_ai_api_key: str = os.getenv("GOOGLE_AI_API_KEY", "")
+    google_ai_api_key: str = os.getenv("GEMINI_API_KEY", "")
 
     # Conversation Context
     max_context_messages: int = int(os.getenv("MAX_CONTEXT_MESSAGES", "3"))
