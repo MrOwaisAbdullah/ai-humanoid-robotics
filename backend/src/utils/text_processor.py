@@ -47,6 +47,7 @@ class ProcessedContent:
     total_characters: int
     estimated_reading_time: float  # in minutes
     language_detected: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class TextProcessor:

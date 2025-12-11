@@ -717,8 +717,8 @@ export const getCacheService = (): CacheService => {
   return cacheServiceInstance!;
 };
 
-// Export a safe version that works on both client and server
-export const cacheService: CacheService | null = typeof window !== 'undefined' ? getCacheService() : null;
+// Don't export cacheService at module level to avoid SSR issues
+// Use the factory function getCacheService() instead
 
 // Export types
 export type {

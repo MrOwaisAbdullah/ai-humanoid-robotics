@@ -23,7 +23,7 @@ from src.services.translation_service import (
 )
 from src.models.translation import Translation
 from src.database.base import get_db
-from src.security.dependencies import get_current_user_optional
+from src.security.dependencies import get_optional_current_user
 from src.utils.errors import ValidationError, ServiceError, log_exception
 from src.utils.logging import get_logger
 
@@ -57,13 +57,13 @@ class TranslationRequestSchema(BaseModel):
     )
     source_language: str = Field(
         ...,
-        regex="^(en|ur|ur-roman)$",
+        pattern="^(en|ur|ur-roman)$",
         description="Source language code",
         example="en"
     )
     target_language: str = Field(
         default="ur",
-        regex="^(ur|ur-roman)$",
+        pattern="^(en|ur|ur-roman)$",
         description="Target language code",
         example="ur"
     )
@@ -185,8 +185,9 @@ async def translate_content(
     background_tasks: BackgroundTasks,
     http_request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_current_user)
 ):
+    print(f"*** TRANSLATION ENDPOINT ENTRY: text={request.text[:30] if request.text else 'None'} ***")
     """
     Translate content endpoint.
 
@@ -200,6 +201,10 @@ async def translate_content(
     Returns:
         Translation response or streaming response
     """
+    print(f"*** TRANSLATION ENDPOINT CALLED: '{request.text[:30]}...' ***")
+    # Debug logging
+    logger.info(f"Translation request received: text='{request.text[:50]}...', source={request.source_language}, target={request.target_language}")
+
     # Validate service availability
     try:
         translation_service = await get_translation_service()
@@ -269,12 +274,15 @@ async def translate_content(
 
         # Log successful translation
         if response.status == TranslationStatus.COMPLETED:
+            # Debug: Log actual translation
             logger.info(
                 "Translation completed",
                 content_hash=response.content_hash[:8],
                 cached=response.cached,
                 processing_time_ms=response.processing_time_ms,
-                chunks_count=len(response.chunks) if response.chunks else 0
+                chunks_count=len(response.chunks) if response.chunks else 0,
+                original_text_preview=request.text[:100] + "..." if len(request.text) > 100 else request.text,
+                translated_text_preview=response.translated_text[:100] + "..." if len(response.translated_text) > 100 else response.translated_text
             )
 
             # Add background task for analytics if needed
@@ -346,7 +354,7 @@ async def translate_content(
 async def submit_translation_feedback(
     translation_id: int,
     feedback: FeedbackRequestSchema,
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_current_user),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ):
     """
@@ -446,7 +454,7 @@ async def submit_translation_feedback(
 async def get_translation_history(
     page: int = 1,
     per_page: int = 20,
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_current_user),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ):
     """
@@ -531,7 +539,7 @@ async def get_translation_history(
 )
 async def clear_translation_cache(
     content_hash: str,
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    current_user: Optional[Dict[str, Any]] = Depends(get_optional_current_user),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ):
     """

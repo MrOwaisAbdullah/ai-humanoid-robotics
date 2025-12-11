@@ -18,60 +18,126 @@ export default function AIFeaturesBar() {
   }
 
   const extractContent = (): string => {
-    // Try multiple selectors to get the main content
+    // Try multiple selectors to get the main content - more comprehensive list
     const selectors = [
+      // Docusaurus specific
       'article',
       '.markdown',
       '.theme-doc-markdown',
-      '.markdown > *',
+      '.theme-doc-content',
+      '.theme-doc-markdown-content',
       '[role="main"]',
-      'main'
+      'main',
+      // General content selectors
+      '.content',
+      '.page-content',
+      '.doc-content',
+      '.post-content',
+      '#content',
+      '.entry-content',
+      // Fallbacks
+      'body > div',
+      '.container',
+      '.wrapper',
+      // Specific page types
+      '.hero__subtitle',
+      '.hero__description',
+      '.section-title',
+      'h1, h2, h3, h4, h5, h6',
+      'p',
+      'li'
     ];
 
+    let bestContent = '';
+
     for (const selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element) {
-        // Remove script tags and other unwanted elements
-        const clonedElement = element.cloneNode(true) as Element;
-        const unwantedTags = clonedElement.querySelectorAll('script, style, nav, .pagination, .theme-doc-footer, .toolbar');
-        unwantedTags.forEach(tag => tag.remove());
+      try {
+        const elements = document.querySelectorAll(selector);
 
-        // Get clean text content
-        let textContent = clonedElement.textContent || '';
-
-        // Clean up whitespace
-        textContent = textContent
-          .replace(/\s+/g, ' ')
-          .replace(/\n\s*\n/g, '\n')
-          .trim();
-
-        // Filter out navigation and footer text
-        const lines = textContent.split('\n').filter(line => {
-          const lowerLine = line.toLowerCase().trim();
-          return !lowerLine.includes('previous') &&
-                 !lowerLine.includes('next') &&
-                 !lowerLine.includes('edit this page') &&
-                 !lowerLine.includes('last updated') &&
-                 line.length > 10; // Only keep substantial lines
-        });
-
-        return lines.join('\n');
+        // For single selectors like 'article', 'main', take the whole element
+        if (elements.length === 1 && ['article', 'main', '[role="main"]', '.theme-doc-markdown', '.theme-doc-content'].includes(selector)) {
+          const element = elements[0];
+          const textContent = getCleanTextFromElement(element);
+          if (textContent && textContent.length > bestContent.length) {
+            bestContent = textContent;
+          }
+        }
+        // For multiple selectors (like 'p', 'h1', etc.), combine them
+        else if (elements.length > 0) {
+          const texts: string[] = [];
+          elements.forEach(el => {
+            const text = el.textContent?.trim();
+            if (text && text.length > 5) { // Only substantial text
+              texts.push(text);
+            }
+          });
+          const combinedText = texts.join('\n');
+          if (combinedText.length > bestContent.length) {
+            bestContent = combinedText;
+          }
+        }
+      } catch (error) {
+        console.warn(`Selector ${selector} failed:`, error);
       }
     }
 
-    return '';
+    // If still no content, try to get all text from body as last resort
+    if (!bestContent || bestContent.length < 50) {
+      const bodyText = document.body.textContent || '';
+      bestContent = bodyText
+        .replace(/\s+/g, ' ')
+        .replace(/[\r\n]+/g, '\n')
+        .trim();
+    }
+
+    // Clean up the final content
+    if (bestContent) {
+      const lines = bestContent.split('\n').filter(line => {
+        const lowerLine = line.toLowerCase().trim();
+        return !lowerLine.includes('previous') &&
+               !lowerLine.includes('next') &&
+               !lowerLine.includes('edit this page') &&
+               !lowerLine.includes('last updated') &&
+               !lowerLine.includes('skip to main content') &&
+               !lowerLine.includes('navigation') &&
+               line.length > 5; // Reduced minimum length
+      });
+
+      return lines.join('\n').trim();
+    }
+
+    return bestContent;
+  };
+
+  const getCleanTextFromElement = (element: Element): string => {
+    // Remove script tags and other unwanted elements
+    const clonedElement = element.cloneNode(true) as Element;
+    const unwantedTags = clonedElement.querySelectorAll('script, style, nav, .pagination, .theme-doc-footer, .toolbar, .navbar, .footer, menu, button, .breadcrumbs');
+    unwantedTags.forEach(tag => tag.remove());
+
+    // Get clean text content
+    let textContent = clonedElement.textContent || '';
+
+    // Clean up whitespace
+    textContent = textContent
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
+
+    return textContent;
   };
 
   const handleTranslate = async () => {
+    
     if (!translationEnabled) {
-      showToast('Translation is disabled. Please enable it in settings.');
+            showToast('Translation is disabled. Please enable it in settings.');
       return;
     }
 
     // Extract content from the page
     const originalText = extractContent();
 
-    if (!originalText || originalText.trim().length < 50) {
+    if (!originalText || originalText.trim().length < 20) {
       showToast('Not enough content to translate. Please select a page with more text.');
       return;
     }
@@ -82,6 +148,10 @@ export default function AIFeaturesBar() {
       ? originalText.substring(0, maxLength) + '...'
       : originalText;
 
+    // Always translate to Urdu for now
+    // TODO: Make this dynamic based on user selection
+    const targetLang = 'ur';
+    
     setIsTranslating(true);
 
     try {
@@ -89,7 +159,7 @@ export default function AIFeaturesBar() {
       // The FocusModeContext will handle the actual translation
       await showTranslation(truncatedText, {
         sourceLanguage: 'en',
-        targetLanguage: language === 'ur' ? 'ur' : 'en'
+        targetLanguage: targetLang
       });
     } catch (error) {
       console.error('Translation failed:', error);
@@ -114,8 +184,8 @@ export default function AIFeaturesBar() {
       flexWrap: 'wrap',
       gap: '16px',
       position: 'sticky',
-      top: '20px',
-      zIndex: '100',
+      top: '80px', // Offset for navbar height (approx 60px) + some margin
+      zIndex: '90', // Lower than navbar (z-index: 100)
       transition: 'all 0.3s ease',
       backgroundColor: 'var(--ifm-background-surface-color)',
       border: '1px solid var(--ifm-color-emphasis-300)',

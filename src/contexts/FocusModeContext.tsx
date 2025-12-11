@@ -71,7 +71,7 @@ export const FocusModeProvider: React.FC<FocusModeProviderProps> = ({ children }
     const {
       pretranslatedText,
       sourceLanguage = 'en',
-      targetLanguage = language
+      targetLanguage = 'ur' // Always translate to Urdu by default
     } = options || {};
 
     // Set initial state
@@ -159,7 +159,7 @@ export const FocusModeProvider: React.FC<FocusModeProviderProps> = ({ children }
         comment
       };
 
-      await translationAPI.submitFeedback(request);
+      await translationAPI().submitFeedback(request);
     } catch (error: any) {
       throw new Error(error.message || 'Failed to submit feedback');
     }
@@ -179,7 +179,7 @@ export const FocusModeProvider: React.FC<FocusModeProviderProps> = ({ children }
 
       await showTranslation(focusMode.originalContent, {
         sourceLanguage: 'en',
-        targetLanguage: language
+        targetLanguage: 'ur' // Always retry translation to Urdu
       });
     } catch (error: any) {
       setFocusMode(prev => ({
@@ -189,7 +189,7 @@ export const FocusModeProvider: React.FC<FocusModeProviderProps> = ({ children }
         progress: 0
       }));
     }
-  }, [focusMode.originalContent, language, showTranslation]);
+  }, [focusMode.originalContent, showTranslation]);
 
   const value: FocusModeContextType = {
     ...focusMode,

@@ -1,5 +1,5 @@
 """
-Translation service with Gemini API integration.
+Translation service with Google Gen AI integration.
 
 Provides translation services using Google Gemini LLM with caching,
 technical terms handling, and code block preservation.
@@ -17,8 +17,8 @@ import os
 import logging
 
 try:
-    import google.generativeai as genai
-    from google.generativeai.types import HarmCategory, HarmBlockThreshold
+    from google import genai
+    from google.genai import types
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
@@ -95,48 +95,71 @@ class GeminiTranslationService:
     """
 
     # Gemini model configuration
-    DEFAULT_MODEL = "gemini-1.5-pro"
+    DEFAULT_MODEL = "models/gemini-2.5-flash"
     TEMPERATURE = 0.3
     TOP_P = 0.8
     TOP_K = 40
 
     # Translation prompt templates
     TRANSLATION_PROMPT_TEMPLATE = """
-You are a professional translator specializing in technical content.
+EMERGENCY TRANSLATION TASK - CRITICAL INSTRUCTIONS:
+
+You are translating technical content to {target_lang}. This is extremely important.
 
 Translate the following {source_lang} text to {target_lang}:
 
 {text}
 
-Requirements:
-1. Maintain technical accuracy
-2. Preserve formatting and structure
-3. Keep code blocks, URLs, and technical terms unchanged
-4. Use natural, fluent language
-5. Consider the context of technical documentation
+ABSOLUTE REQUIREMENTS - NO EXCEPTIONS:
+1. Translate 100% of the text to {target_lang}
+2. ZERO English words should remain untranslated
+3. ONLY preserve code blocks marked with ```
+4. Translate ALL technical terms:
+   - AI → مصنوعی ذہانت
+   - Physical → طبعی
+   - Embodied → مجسم
+   - Intelligence → ذہانت
+   - System → نظام
+   - Software → سافٹ ویئر
+   - Computer → کمپیوٹر
+   - Machine → مشین
+   - Learning → لرننگ
+   - Vision = بینائی
+   - Robotics → روبوٹکس
+5. Create Urdu translations for all English concepts
+6. Mix Urdu words with Roman Urdu where appropriate for technical terms
+7. Use Arabic script (Nastaleeq) for Urdu text
+
+FAILURE IS NOT ACCEPTABLE. Every word must be translated.
 
 Translate only the content inside the delimiters.
 """
 
     CHUNK_TRANSLATION_PROMPT = """
-Translate this {source_lang} text segment to {target_lang}:
+CRITICAL: Translate this {source_lang} text segment to {target_lang}:
 
 {text}
 
-Guidelines:
-- Maintain technical terminology accuracy
-- Preserve any code snippets or technical identifiers
-- Ensure smooth flow with adjacent segments
-- Keep the tone consistent with technical documentation
+STRICT GUIDELINES - DO NOT DEVIATE:
+1. EVERY single word must be translated to {target_lang}
+2. NO English words should remain in the translation
+3. ONLY preserve text that is actual code between ``` marks
+4. Translate ALL technical terms, acronyms, and jargon
+   - AI = مصنوعی ذہانت
+   - System = نظام
+   - Software = سافٹ ویئر
+   - Computer = کمپیوٹر
+   - Machine = مشین
+   - Learning = لرننگ
+5. Do NOT treat technical terms as proper nouns - TRANSLATE THEM ALL
+6. Create proper {target_lang} equivalents for all concepts
+7. Use Roman Urdu for brand names if necessary but keep them minimal
+
+TASK: Translate everything. No exceptions.
 """
 
-    # Safety settings
-    SAFETY_SETTINGS = {
-        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    }
+    # Safety settings - Note: New SDK handles safety differently
+    # Safety is configured through the types.GenerateContentConfig if needed
 
     def __init__(
         self,
@@ -152,33 +175,24 @@ Guidelines:
             model: Gemini model to use
             cache_service: Cache service instance
         """
-        self.api_key = api_key or os.getenv("GOOGLE_AI_API_KEY")
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.model = model
         self.cache_service = cache_service
         self.transliterator = get_technical_terms_transliterator()
         self.text_processor = get_text_processor()
 
-        # Initialize Gemini if available
-        self.gemini_model = None
+        # Initialize Gemini client if available
+        self.client = None
         if GEMINI_AVAILABLE and self.api_key:
             try:
-                genai.configure(api_key=self.api_key)
-                self.gemini_model = genai.GenerativeModel(
-                    model_name=self.model,
-                    generation_config={
-                        "temperature": self.TEMPERATURE,
-                        "top_p": self.TOP_P,
-                        "top_k": self.TOP_K,
-                    },
-                    safety_settings=self.SAFETY_SETTINGS
-                )
-                logger.info("Gemini model initialized", model=self.model)
+                self.client = genai.Client(api_key=self.api_key)
+                logger.info("Gemini client initialized successfully with model: {self.model}")
             except Exception as e:
-                logger.error("Failed to initialize Gemini", error=str(e))
-                self.gemini_model = None
+                logger.error(f"Failed to initialize Gemini client: {str(e)}")
+                self.client = None
 
-        if not self.gemini_model:
-            logger.warning("Gemini not available, translation service will use fallback")
+        if not self.client:
+            logger.error("Gemini client not initialized, translation service will not work")
 
     def _generate_content_hash(self, text: str, source_lang: str, target_lang: str) -> str:
         """Generate hash for caching purposes."""
@@ -260,7 +274,7 @@ Guidelines:
         Returns:
             Translated text
         """
-        if not self.gemini_model:
+        if not self.client:
             raise ServiceError("Gemini model not available")
 
         try:
@@ -278,23 +292,31 @@ Guidelines:
                     text=text
                 )
 
-            # Generate translation
-            response = await asyncio.to_thread(
-                self.gemini_model.generate_content,
-                prompt
-            )
+            # Generate translation using new SDK
+            if not self.client:
+                raise ServiceError("Gemini client not initialized")
 
-            # Extract translated text
-            if response.text:
-                return response.text.strip()
-            else:
-                # Handle empty response
-                if response.candidates and response.candidates[0].finish_reason:
-                    reason = response.candidates[0].finish_reason.name
-                    logger.error("Translation failed", reason=reason)
-                    raise ServiceError(f"Translation failed: {reason}")
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=self.TEMPERATURE,
+                        top_p=self.TOP_P,
+                        top_k=self.TOP_K,
+                        max_output_tokens=2048
+                    )
+                )
+
+                # Extract translated text
+                if response.text:
+                    return response.text.strip()
                 else:
                     raise ServiceError("Empty translation response")
+
+            except Exception as e:
+                logger.error(f"Gemini API error: {str(e)}")
+                raise ServiceError(f"Translation failed: {str(e)}")
 
         except Exception as e:
             log_exception(e, "Gemini translation failed")
@@ -382,6 +404,8 @@ Guidelines:
         self,
         request: TranslationRequest
     ) -> TranslationResponse:
+        print(f"*** TRANSLATION SERVICE CALLED: '{request.text[:50]}...' from {request.source_language} to {request.target_language}")
+        logger.info(f"Translation service called with text: '{request.text[:50]}...', from {request.source_language} to {request.target_language}")
         """
         Translate text content.
 
@@ -456,6 +480,7 @@ Guidelines:
 
             # Reconstruct translated text
             translated_text = ''.join(chunk.translated_text for chunk in translated_chunks)
+            logger.info(f"Translation complete. Original: '{request.text[:50]}...' Translated: '{translated_text[:50]}...'")
 
             # Convert chunks to response format
             response_chunks = [
@@ -701,7 +726,18 @@ async def get_translation_service() -> GeminiTranslationService:
     global _translation_service
 
     if _translation_service is None:
+        print("*** Creating translation service instance ***")
         cache_service = await get_cache_service()
-        _translation_service = GeminiTranslationService(cache_service=cache_service)
+        # Get API key from environment
+        api_key = os.getenv("GEMINI_API_KEY")
+        print(f"*** API key found: {bool(api_key)} ***")
+        if not api_key:
+            logger.error("GEMINI_API_KEY not configured in environment")
+            raise ServiceError("Google AI API key not configured")
+
+        _translation_service = GeminiTranslationService(
+            api_key=api_key,
+            cache_service=cache_service
+        )
 
     return _translation_service

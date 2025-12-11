@@ -10,8 +10,17 @@ This service handles all translation-related API calls including:
 */
 
 import { apiRequest } from './api';
-import { cacheService } from './cache';
+import { getCacheService } from './cache';
 import { getCookie } from '../contexts/AuthContext';
+
+// Safe cache service accessor
+const getCache = async () => {
+  try {
+    return typeof window !== 'undefined' ? getCacheService() : null;
+  } catch {
+    return null;
+  }
+};
 
 // Type definitions
 export interface TranslationRequest {
@@ -138,7 +147,7 @@ class TranslationAPIService {
     const contentHash = this.generateContentHash(text, sourceLanguage, targetLanguage);
     const cacheKey = `${this.cacheKeyPrefix}:${contentHash}`;
 
-    // Check cache first if preferred
+      // Check cache first if preferred
     if (preferCache) {
       const cached = await this.getCachedTranslation(cacheKey);
       if (cached) {
@@ -155,7 +164,7 @@ class TranslationAPIService {
         return this.translateStream(request);
       } else {
         // Return single response
-        const response = await apiRequest.post<TranslationResponse>('/api/v1/translate', {
+        const response = await apiRequest.post<TranslationResponse>('/api/v1/translation/', {
           text,
           source_language: sourceLanguage,
           target_language: targetLanguage,
@@ -165,21 +174,35 @@ class TranslationAPIService {
 
         const translation = response.data;
 
+  
+        // Transform snake_case response to camelCase for frontend
+        const transformedTranslation: TranslationResponse = {
+          id: translation.id,
+          contentHash: translation.content_hash,
+          sourceLanguage: translation.source_language,
+          targetLanguage: translation.target_language,
+          originalText: translation.original_text || text,
+          translatedText: translation.translated_text,
+          model: translation.model || 'gemini-2.5-flash',
+          characterCount: translation.character_count || text.length,
+          createdAt: translation.created_at || new Date().toISOString(),
+          updatedAt: translation.updated_at || new Date().toISOString(),
+          isCached: false
+        };
+
+        
         // Cache the translation if caching is enabled
         if (preferCache) {
-          await this.cacheTranslation(cacheKey, translation);
+          await this.cacheTranslation(cacheKey, transformedTranslation);
         }
 
         // Save to history if enabled
         const personalization = await this.getPersonalizationSettings();
         if (personalization.saveHistory) {
-          await this.saveToHistory(translation);
+          await this.saveToHistory(transformedTranslation);
         }
 
-        return {
-          ...translation,
-          isCached: false,
-        };
+        return transformedTranslation;
       }
     } catch (error: any) {
       throw new Error(`Translation failed: ${error.response?.data?.detail || error.message}`);
@@ -195,7 +218,7 @@ class TranslationAPIService {
     const { text, sourceLanguage, targetLanguage, context } = request;
 
     try {
-      const response = await fetch('/api/v1/translate/stream', {
+      const response = await fetch('/api/v1/translation/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -254,7 +277,7 @@ class TranslationAPIService {
    */
   public async submitFeedback(request: TranslationFeedbackRequest): Promise<TranslationFeedback> {
     try {
-      const response = await apiRequest.post<TranslationFeedback>('/api/v1/translate/feedback', {
+      const response = await apiRequest.post<TranslationFeedback>('/api/v1/translation/feedback', {
         translation_id: request.translationId,
         rating: request.rating,
         comment: request.comment,
@@ -287,7 +310,8 @@ class TranslationAPIService {
     try {
       // Check cache first
       const cacheKey = `${this.historyKeyPrefix}:${JSON.stringify({ page, limit, filters })}`;
-      const cached = cacheService ? await cacheService.get(cacheKey) : null;
+      const cache = await getCache();
+      const cached = cache ? await cache.get(cacheKey) : null;
       if (cached) {
         return cached;
       }
@@ -302,11 +326,11 @@ class TranslationAPIService {
         total: number;
         page: number;
         totalPages: number;
-      }>('/api/v1/translate/history', { params });
+      }>('/api/v1/translation/history', { params });
 
       // Cache the result
-      if (cacheService) {
-        await cacheService.set(cacheKey, response.data, { ttl: 5 * 60 * 1000 }); // 5 minutes
+      if (cache) {
+        await cache.set(cacheKey, response.data, { ttl: 5 * 60 * 1000 }); // 5 minutes
       }
 
       return response.data;
@@ -321,18 +345,19 @@ class TranslationAPIService {
   public async getPersonalizationSettings(): Promise<PersonalizationSettings> {
     try {
       // Check cache first
-      const cached = cacheService ? await cacheService.get(this.personalizationKey) : null;
+      const cache = await getCache();
+      const cached = cache ? await cache.get(this.personalizationKey) : null;
       if (cached) {
         return cached;
       }
 
-      const response = await apiRequest.get<PersonalizationSettings>('/api/v1/translate/personalization', {
+      const response = await apiRequest.get<PersonalizationSettings>('/api/v1/translation/personalization', {
         params: { user_id: this.getCurrentUserId() },
       });
 
       // Cache the settings
-      if (cacheService) {
-        await cacheService.set(this.personalizationKey, response.data, { ttl: 30 * 60 * 1000 }); // 30 minutes
+      if (cache) {
+        await cache.set(this.personalizationKey, response.data, { ttl: 30 * 60 * 1000 }); // 30 minutes
       }
 
       return response.data;
@@ -357,7 +382,7 @@ class TranslationAPIService {
   ): Promise<PersonalizationSettings> {
     try {
       const response = await apiRequest.put<PersonalizationSettings>(
-        '/api/v1/translate/personalization',
+        '/api/v1/translation/personalization',
         {
           ...settings,
           user_id: this.getCurrentUserId(),
@@ -365,8 +390,9 @@ class TranslationAPIService {
       );
 
       // Update cache
-      if (cacheService) {
-        await cacheService.set(this.personalizationKey, response.data, { ttl: 30 * 60 * 1000 });
+      const cache = await getCache();
+      if (cache) {
+        await cache.set(this.personalizationKey, response.data, { ttl: 30 * 60 * 1000 });
       }
 
       return response.data;
@@ -380,7 +406,8 @@ class TranslationAPIService {
    */
   public async clearCache(pattern?: string): Promise<number> {
     const cachePattern = pattern ? `${this.cacheKeyPrefix}:${pattern}` : `${this.cacheKeyPrefix}:*`;
-    return cacheService ? cacheService.clear(cachePattern) : 0;
+    const cache = await getCache();
+    return cache ? cache.clear(cachePattern) : 0;
   }
 
   /**
@@ -398,7 +425,7 @@ class TranslationAPIService {
         hits: number;
         misses: number;
         entries: TranslationCacheEntry[];
-      }>('/api/v1/translate/cache/stats', {
+      }>('/api/v1/translation/cache/stats', {
         params: { user_id: this.getCurrentUserId() },
       });
 
@@ -419,13 +446,14 @@ class TranslationAPIService {
    */
   public async deleteTranslation(translationId: number): Promise<void> {
     try {
-      await apiRequest.delete(`/api/v1/translate/history/${translationId}`, {
+      await apiRequest.delete(`/api/v1/translation/history/${translationId}`, {
         params: { user_id: this.getCurrentUserId() },
       });
 
       // Clear related cache entries
-      if (cacheService) {
-        cacheService.clear(`${this.historyKeyPrefix}:*`);
+      const cache = await getCache();
+      if (cache) {
+        cache.clear(`${this.historyKeyPrefix}:*`);
       }
     } catch (error: any) {
       throw new Error(`Failed to delete translation: ${error.response?.data?.detail || error.message}`);
@@ -437,14 +465,15 @@ class TranslationAPIService {
    */
   public async batchDeleteTranslations(translationIds: number[]): Promise<void> {
     try {
-      await apiRequest.post('/api/v1/translate/history/batch-delete', {
+      await apiRequest.post('/api/v1/translation/history/batch-delete', {
         translation_ids: translationIds,
         user_id: this.getCurrentUserId(),
       });
 
       // Clear related cache entries
-      if (cacheService) {
-        cacheService.clear(`${this.historyKeyPrefix}:*`);
+      const cache = await getCache();
+      if (cache) {
+        cache.clear(`${this.historyKeyPrefix}:*`);
       }
     } catch (error: any) {
       throw new Error(`Failed to batch delete translations: ${error.response?.data?.detail || error.message}`);
@@ -463,7 +492,8 @@ class TranslationAPIService {
 
   private async getCachedTranslation(cacheKey: string): Promise<TranslationResponse | null> {
     try {
-      return cacheService ? await cacheService.get(cacheKey) : null;
+      const cache = await getCache();
+      return cache ? await cache.get(cacheKey) : null;
     } catch (error) {
       console.error('Failed to get cached translation:', error);
       return null;
@@ -472,8 +502,9 @@ class TranslationAPIService {
 
   private async cacheTranslation(cacheKey: string, translation: TranslationResponse): Promise<void> {
     try {
-      if (cacheService) {
-        await cacheService.set(cacheKey, translation, { ttl: 7 * 24 * 60 * 60 * 1000 }); // 7 days
+      const cache = await getCache();
+      if (cache) {
+        await cache.set(cacheKey, translation, { ttl: 7 * 24 * 60 * 60 * 1000 }); // 7 days
       }
     } catch (error) {
       console.error('Failed to cache translation:', error);
@@ -485,7 +516,8 @@ class TranslationAPIService {
       // This would typically be handled by the backend, but we can
       // also maintain a local copy for immediate UI updates
       const historyKey = `${this.historyKeyPrefix}:local:${this.getCurrentUserId()}`;
-      const history = cacheService ? (await cacheService.get(historyKey)) || [] : [];
+      const cache = await getCache();
+      const history = cache ? (await cache.get(historyKey)) || [] : [];
 
       history.unshift({
         id: translation.id,
@@ -502,8 +534,8 @@ class TranslationAPIService {
         history.splice(100);
       }
 
-      if (cacheService) {
-        await cacheService.set(historyKey, history, { ttl: 24 * 60 * 60 * 1000 }); // 24 hours
+      if (cache) {
+        await cache.set(historyKey, history, { ttl: 24 * 60 * 60 * 1000 }); // 24 hours
       }
     } catch (error) {
       console.error('Failed to save to history:', error);
@@ -513,13 +545,14 @@ class TranslationAPIService {
   private async updateHistoryWithFeedback(feedback: TranslationFeedback): Promise<void> {
     try {
       const historyKey = `${this.historyKeyPrefix}:local:${this.getCurrentUserId()}`;
-      const history = cacheService ? (await cacheService.get(historyKey)) || [] : [];
+      const cache = await getCache();
+      const history = cache ? (await cache.get(historyKey)) || [] : [];
 
       const entry = history.find((e: any) => e.id === feedback.translationId);
       if (entry) {
         entry.feedback = feedback;
-        if (cacheService) {
-          await cacheService.set(historyKey, history, { ttl: 24 * 60 * 60 * 1000 });
+        if (cache) {
+          await cache.set(historyKey, history, { ttl: 24 * 60 * 60 * 1000 });
         }
       }
     } catch (error) {
@@ -528,8 +561,14 @@ class TranslationAPIService {
   }
 }
 
-// Export singleton instance
-export const translationAPI = TranslationAPIService.getInstance();
+// Export a getter function to avoid SSR issues
+let translationAPIInstance: TranslationAPIService | null = null;
+export const translationAPI = (): TranslationAPIService => {
+  if (!translationAPIInstance) {
+    translationAPIInstance = TranslationAPIService.getInstance();
+  }
+  return translationAPIInstance;
+};
 
 // Export types for use in components
 export type {

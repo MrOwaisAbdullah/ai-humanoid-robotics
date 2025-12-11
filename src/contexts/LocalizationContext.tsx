@@ -248,13 +248,19 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
           dispatch({ type: 'SET_LANGUAGE', payload: savedLanguage });
         }
 
-        // Load translation settings
-        const translationEnabled = localStorage.getItem('translationEnabled') === 'true';
-        dispatch({ type: 'TOGGLE_TRANSLATION', payload: translationEnabled });
+        // Load translation settings - always enable by default
+        const savedTranslationEnabled = localStorage.getItem('translationEnabled');
+        const translationEnabled = savedTranslationEnabled === 'true' || savedTranslationEnabled === null;
+        dispatch({ type: 'TOGGLE_TRANSLATION', payload: true }); // Force enable translation
+
+        // If it was disabled before, update localStorage
+        if (!translationEnabled) {
+          localStorage.setItem('translationEnabled', 'true');
+        }
 
         // Load personalization settings if authenticated
         if (isAuthenticated && user) {
-          const personalizationSettings = await translationAPI.getPersonalizationSettings();
+          const personalizationSettings = await translationAPI().getPersonalizationSettings();
           dispatch({ type: 'SET_PERSONALIZATION_SETTINGS', payload: personalizationSettings });
 
           // Set preferred language if different from current
@@ -324,7 +330,7 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
         userId: user?.id,
       };
 
-      const response = await translationAPI.translate(request);
+      const response = await translationAPI().translate(request);
 
       if (response && typeof response !== 'object' || !('id' in response)) {
         // Handle streaming response
@@ -363,8 +369,9 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
     targetLanguage?: string,
     onChunk?: (chunk: TranslationStreamChunk) => void
   ): Promise<void> => {
+    
     if (!state.translationEnabled) {
-      return;
+            return;
     }
 
     dispatch({ type: 'SET_TRANSLATION_STATUS', payload: 'loading' });
@@ -383,7 +390,7 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
         userId: user?.id,
       };
 
-      const streamResponse = await translationAPI.translate(request);
+      const streamResponse = await translationAPI().translate(request);
 
       if (typeof streamResponse === 'object' && 'id' in streamResponse) {
         // Not a streaming response
@@ -422,7 +429,7 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
 
   const clearTranslationCache = async (): Promise<number> => {
     try {
-      const cleared = await translationAPI.clearCache();
+      const cleared = await translationAPI().clearCache();
       return cleared;
     } catch (error) {
       console.error('Failed to clear translation cache:', error);
@@ -433,7 +440,7 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
   const updatePersonalizationSettings = async (settings: Partial<PersonalizationSettings>): Promise<void> => {
     try {
       if (isAuthenticated && user) {
-        const updatedSettings = await translationAPI.updatePersonalizationSettings(settings);
+        const updatedSettings = await translationAPI().updatePersonalizationSettings(settings);
         dispatch({ type: 'SET_PERSONALIZATION_SETTINGS', payload: updatedSettings });
       } else {
         // Update local state even if not authenticated
