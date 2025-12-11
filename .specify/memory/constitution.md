@@ -71,7 +71,7 @@ Every piece of knowledge has one authoritative representation. If you need to ma
 Use utility-first CSS (Tailwind CSS) for all custom components. Avoid writing custom CSS/CSS Modules unless absolutely necessary for complex animations or Docusaurus internal overrides.
 
 ### 8. Documentation Research & Fact-Checking Principle
-Always use Context7 MCP for latest documentation and Web Search for fact-checking technical data. Never rely on cached knowledge or internal knowledge for external library documentation or technical specifications.
+Always use Context7 MCP for latest documentation and Web Search for fact-checking technical data. Never rely on cached knowledge or internal knowledge for external library documentation or technical specifications. For debugging and checking the live site, always use Playwright and Chrome DevTools MCP.
 
 **Application for Documentation**: Use `mcp__context7__get-library-docs` for all framework documentation:
 - Docusaurus: Use library ID "docusaurus" for latest docs at https://docusaurus.io/docs

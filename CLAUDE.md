@@ -30,6 +30,8 @@ Agents MUST prioritize and use MCP tools and CLI commands for all information ga
 
 **Context 7 Mandate:** Before ANY planning or implementation step involving libraries or frameworks, you **MUST** use `mcp__context7__get-library-docs` (via `resolve-library-id` if needed) to verify the latest API usage and best practices. This prevents outdated code generation.
 
+**Debugging and Live Site Checks:** For debugging and checking the live site, utilize Playwright and Chrome DevTools MCP. These tools provide comprehensive capabilities for inspecting, debugging, and testing web applications in real-time.
+
 ### 2. Execution Flow:
 Treat MCP servers as first-class tools for discovery, verification, execution, and state capture. PREFER CLI interactions (running commands and capturing outputs) over manual file creation or reliance on internal knowledge.
 
