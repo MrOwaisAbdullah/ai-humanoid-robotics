@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minimize2, Volume2, VolumeX, ThumbsUp, ThumbsDown, Send, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Volume2, VolumeX, ThumbsUp, ThumbsDown, Send, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useFocusMode } from '../../contexts/FocusModeContext';
 import { TranslationFeedback } from './TranslationFeedback';
 import styles from '../ChatWidget/styles/ChatWidget.module.css';
+// CSS for syntax highlighting is imported via the oneDark style object
 
 interface FocusModeProps {
   isVisible: boolean;
@@ -71,8 +75,6 @@ export default function FocusMode({
 }: FocusModeProps) {
   const { isRTL, formatText, language } = useLocalization();
   const { submitFeedback, retryTranslation } = useFocusMode();
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [showOriginal, setShowOriginal] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -81,7 +83,7 @@ export default function FocusMode({
 
   // Enable full screen mode
   useEffect(() => {
-    if (isVisible && !isMinimized) {
+    if (isVisible) {
       document.body.style.overflow = 'hidden';
       document.documentElement.classList.add('focus-mode-active');
     } else {
@@ -97,7 +99,7 @@ export default function FocusMode({
         speechSynthesis.cancel();
       }
     };
-  }, [isVisible, isMinimized]);
+  }, [isVisible]);
 
   // Enhanced text-to-speech for Urdu content
   const speakUrduText = useCallback((text: string) => {
@@ -160,26 +162,17 @@ export default function FocusMode({
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isVisible || isMinimized) return;
+      if (!isVisible) return;
 
       switch (e.key) {
         case 'Escape':
           onClose();
           break;
-        case 'ArrowLeft':
-          if (showOriginal) {
-            setShowOriginal(false);
-          }
-          break;
-        case 'ArrowRight':
-          if (!showOriginal && translatedContent) {
-            setShowOriginal(true);
-          }
-          break;
         case ' ':
           if (e.target === document.body) {
             e.preventDefault();
-            const textToSpeak = showOriginal ? originalContent : (translatedContent || originalContent);
+            // Always speak Urdu content or fallback to original if empty
+            const textToSpeak = translatedContent || originalContent;
             if (isSpeaking) {
               stopSpeaking();
             } else {
@@ -192,7 +185,7 @@ export default function FocusMode({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, isMinimized, showOriginal, translatedContent, originalContent, isSpeaking, speakUrduText, stopSpeaking, onClose]);
+  }, [isVisible, translatedContent, originalContent, isSpeaking, speakUrduText, stopSpeaking, onClose]);
 
   // Process content with transliteration
   const processedContent = translatedContent
@@ -215,42 +208,175 @@ export default function FocusMode({
     }
   };
 
-  // Render words with highlighting for TTS
-  const renderTextWithHighlighting = (text: string, isOriginal: boolean = false) => {
-    if (!isSpeaking || isOriginal) {
-      return text.split('\n').map((paragraph, index) => (
-        <p key={index} className="text-paragraph">
-          {paragraph}
+  // Render markdown content with syntax highlighting
+  const renderMarkdown = (text: string, isOriginal: boolean = false) => {
+    const components = {
+      // Custom component for headings to add proper classes
+      h1: ({children, ...props}: any) => (
+        <h1 {...props} className="markdown-heading heading-1">
+          {children}
+        </h1>
+      ),
+      h2: ({children, ...props}: any) => (
+        <h2 {...props} className="markdown-heading heading-2">
+          {children}
+        </h2>
+      ),
+      h3: ({children, ...props}: any) => (
+        <h3 {...props} className="markdown-heading heading-3">
+          {children}
+        </h3>
+      ),
+      h4: ({children, ...props}: any) => (
+        <h4 {...props} className="markdown-heading heading-4">
+          {children}
+        </h4>
+      ),
+      h5: ({children, ...props}: any) => (
+        <h5 {...props} className="markdown-heading heading-5">
+          {children}
+        </h5>
+      ),
+      h6: ({children, ...props}: any) => (
+        <h6 {...props} className="markdown-heading heading-6">
+          {children}
+        </h6>
+      ),
+      // Custom paragraph component
+      p: ({children, ...props}: any) => (
+        <p {...props} className={`markdown-paragraph ${isOriginal ? 'english-text' : 'urdu-text'}`}>
+          {children}
         </p>
-      ));
+      ),
+      // Custom list components
+      ul: ({children, ...props}: any) => (
+        <ul {...props} className={`markdown-list ${isOriginal ? 'english-list' : 'urdu-list'}`}>
+          {children}
+        </ul>
+      ),
+      ol: ({children, ...props}: any) => (
+        <ol {...props} className={`markdown-list ${isOriginal ? 'english-list' : 'urdu-list'}`}>
+          {children}
+        </ol>
+      ),
+      li: ({children, ...props}: any) => (
+        <li {...props} className={`markdown-list-item ${isOriginal ? 'english-text' : 'urdu-text'}`}>
+          {children}
+        </li>
+      ),
+      // Code block component with syntax highlighting
+      code: ({node, inline, className, children, ...props}: any) => {
+        const match = /language-(\w+)/.exec(className || '');
+        // Use inline prop if available, otherwise fallback to heuristics
+        // Note: react-markdown v8+ passes 'inline' prop, v6/7 might not
+        const isInlineCode = inline !== undefined 
+          ? inline 
+          : !match && !String(children).includes('\n');
+
+        if (isInlineCode) {
+          return (
+            <code
+              {...props}
+              className="inline-code"
+              dir="ltr"
+            >
+              {children}
+            </code>
+          );
+        }
+
+        return (
+          <div
+            className="code-block-wrapper"
+            dir="ltr"
+          >
+            <SyntaxHighlighter
+              language={match ? match[1] : 'text'}
+              style={oneDark}
+              PreTag="div"
+              className="code-block-force-ltr"
+              customStyle={{
+                textAlign: 'left',
+                direction: 'ltr',
+                background: '#2d2d2d',
+                padding: '16px',
+                borderRadius: '8px',
+                margin: '0',
+                fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace"
+              }}
+              codeTagProps={{
+                style: {
+                  fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
+                  direction: 'ltr',
+                  textAlign: 'left'
+                }
+              }}
+              {...props}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          </div>
+        );
+      },
+      // Custom blockquote
+      blockquote: ({children, ...props}: any) => (
+        <blockquote {...props} className={`markdown-blockquote ${isOriginal ? '' : 'urdu-blockquote'}`}>
+          {children}
+        </blockquote>
+      ),
+      // Custom table components
+      table: ({children, ...props}: any) => (
+        <table {...props} className={`markdown-table ${isOriginal ? 'english-table' : 'urdu-table'}`}>
+          {children}
+        </table>
+      ),
+      thead: ({children, ...props}: any) => (
+        <thead {...props} className="table-header">
+          {children}
+        </thead>
+      ),
+      tbody: ({ children, ...props }: any) => (
+        <tbody {...props} className="table-body">
+          {children}
+        </tbody>
+      ),
+      tr: ({ children, ...props }: any) => (
+        <tr {...props} className="table-row">
+          {children}
+        </tr>
+      ),
+      th: ({ children, ...props }: any) => (
+        <th {...props} className={`table-header-cell ${isOriginal ? '' : ''}`}>
+          {children}
+        </th>
+      ),
+      td: ({ children, ...props }: any) => (
+        <td {...props} className={`table-cell ${isOriginal ? '' : ''}`}>
+          {children}
+        </td>
+      ),
+    };
+
+    return (
+      <div className={`markdown-content ${isOriginal ? 'english-markdown' : 'urdu-markdown'}`}>
+        <ReactMarkdown
+          remarkPlugins={[]}
+          components={components}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
+  };
+
+  // Render words with highlighting for TTS (only for original text)
+  const renderTextWithHighlighting = (text: string, isOriginal: boolean = false) => {
+    if (!isSpeaking || !isOriginal) {
+      return renderMarkdown(text, isOriginal);
     }
 
     const words = text.split(' ');
-    return text.split('\n').map((paragraph, pIndex) => (
-      <p key={pIndex} className="text-paragraph">
-        {paragraph.split(' ').map((word, wIndex) => {
-          const globalWordIndex = text.split('\n')
-            .slice(0, pIndex)
-            .reduce((acc, p) => acc + p.split(' ').length, 0) + wIndex;
-
-          return (
-            <span
-              key={wIndex}
-              className={
-                globalWordIndex === currentWordIndex
-                  ? 'highlighted-word'
-                  : globalWordIndex < currentWordIndex
-                  ? 'spoken-word'
-                  : ''
-              }
-            >
-              {word}
-              {wIndex < paragraph.split(' ').length - 1 && ' '}
-            </span>
-          );
-        })}
-      </p>
-    ));
+    return renderMarkdown(text, isOriginal);
   };
 
   // Toast helper function
@@ -293,9 +419,9 @@ export default function FocusMode({
       >
         {/* Focus Mode Container */}
         <motion.div
-          className={`focus-mode-container ${isMinimized ? 'minimized' : ''}`}
+          className="focus-mode-container"
           initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: isMinimized ? 0.3 : 1, opacity: 1 }}
+          animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
@@ -303,7 +429,7 @@ export default function FocusMode({
           <div className="focus-mode-header">
             <div className="focus-mode-info">
               <span className="language-indicator">
-                {showOriginal ? 'English' : 'اردو (Urdu)'}
+                اردو (Urdu)
               </span>
               {progress > 0 && progress < 100 && (
                 <div className="translation-progress-bar">
@@ -316,21 +442,11 @@ export default function FocusMode({
             </div>
 
             <div className="focus-mode-controls">
-              {translatedContent && (
-                <button
-                  className="focus-mode-control-btn language-toggle"
-                  onClick={() => setShowOriginal(!showOriginal)}
-                  title={showOriginal ? "Show Urdu Translation" : "Show Original"}
-                >
-                  {showOriginal ? "EN" : "اردو"}
-                </button>
-              )}
-
               {language === 'ur' && (
                 <button
                   className={`focus-mode-control-btn tts-btn ${isSpeaking ? 'active' : ''}`}
                   onClick={() => {
-                    const textToSpeak = showOriginal ? originalContent : (translatedContent || originalContent);
+                    const textToSpeak = translatedContent || originalContent;
                     if (isSpeaking) {
                       stopSpeaking();
                     } else {
@@ -354,14 +470,6 @@ export default function FocusMode({
               )}
 
               <button
-                className="focus-mode-control-btn"
-                onClick={() => setIsMinimized(!isMinimized)}
-                title={isMinimized ? "Expand" : "Minimize"}
-              >
-                <Minimize2 size={16} />
-              </button>
-
-              <button
                 className="focus-mode-control-btn close"
                 onClick={onClose}
                 title="Close focus mode"
@@ -372,8 +480,7 @@ export default function FocusMode({
           </div>
 
           {/* Content Area */}
-          {!isMinimized && (
-            <motion.div
+          <motion.div
               className="focus-mode-content"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -408,48 +515,21 @@ export default function FocusMode({
                 </div>
               ) : (
                 <div className="focus-mode-text">
-                  {showOriginal ? (
-                    <div className="original-text">
-                      {renderTextWithHighlighting(originalContent, true)}
-                    </div>
-                  ) : (
-                    <div className="translated-text urdu-text" dir="rtl">
-                      {renderTextWithHighlighting(processedContent, false)}
-                    </div>
-                  )}
+                  <div className="translated-text urdu-text" dir="rtl">
+                    {renderTextWithHighlighting(processedContent, false)}
+                  </div>
 
                   {/* Navigation hint */}
                   <div className="navigation-hint">
                     <span>
                       Press <kbd>Space</kbd> to read aloud
-                      {translatedContent && <>, <kbd>←</kbd>/<kbd>→</kbd> to switch languages</>}
                     </span>
                   </div>
                 </div>
               )}
             </motion.div>
-          )}
 
-          {/* Footer with progress indicator */}
-          {!isMinimized && !isLoading && !error && (
-            <motion.div
-              className="focus-mode-footer"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3, duration: 0.3 }}
-            >
-              <div className="reading-progress">
-                <span className="progress-label">
-                  {formatText('Reading Mode')}
-                </span>
-                <div className="progress-indicator">
-                  <div className={`progress-dot ${showOriginal ? 'active' : ''}`} />
-                  <div className={`progress-dot ${!showOriginal ? 'active' : ''}`} />
-                </div>
-              </div>
-            </motion.div>
-          )}
-
+          
           {/* Feedback Modal */}
           <AnimatePresence>
             {showFeedback && (
@@ -491,16 +571,7 @@ export default function FocusMode({
           position: relative;
         }
 
-        .focus-mode-container.minimized {
-          width: 300px;
-          height: 60px;
-          max-height: 60px;
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          z-index: 10000;
-        }
-
+        
         .focus-mode-header {
           padding: 15px 20px;
           border-bottom: 1px solid var(--ifm-color-emphasis-200);
@@ -690,6 +761,13 @@ export default function FocusMode({
           font-size: 18px;
           position: relative;
         }
+        
+        /* English/Original Text Container */
+        .english-text-container {
+          direction: ltr;
+          text-align: left;
+          font-family: var(--ifm-font-family-base);
+        }
 
         .urdu-text {
           font-family: 'Noto Nastaliq Urdu', 'Noto Sans Arabic', sans-serif;
@@ -705,6 +783,11 @@ export default function FocusMode({
         .urdu-paragraph {
           text-align: right;
           direction: rtl;
+        }
+        
+        .english-text {
+          text-align: left;
+          direction: ltr;
         }
 
         .highlighted-word {
@@ -741,40 +824,230 @@ export default function FocusMode({
           margin: 0 2px;
         }
 
-        .focus-mode-footer {
-          padding: 20px;
-          border-top: 1px solid var(--ifm-color-emphasis-200);
-          background: var(--ifm-background-surface-color);
-          border-radius: 0 0 12px 12px;
+        /* Markdown content styles */
+        .markdown-content {
+          line-height: 1.8;
+          font-size: 18px;
+        }
+        
+        .english-markdown {
+          direction: ltr;
+          text-align: left;
         }
 
-        .reading-progress {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+        .markdown-content urdu-paragraph {
+          text-align: right;
+          direction: rtl;
+          font-family: 'Noto Nastaliq Urdu', 'Noto Sans Arabic', sans-serif;
+          font-size: 20px;
         }
 
-        .progress-label {
-          font-size: 14px;
-          color: var(--ifm-color-emphasis-600);
+        /* Headings */
+        .markdown-heading {
+          font-weight: 700;
+          margin: 24px 0 16px 0;
+          color: var(--ifm-color-content);
+          line-height: 1.3;
+        }
+        
+        /* Ensure English headings are left aligned */
+        .english-text-container .markdown-heading {
+          text-align: left;
+          direction: ltr;
         }
 
-        .progress-indicator {
-          display: flex;
-          gap: 8px;
+        .markdown-heading:h1 {
+          font-size: 2.5em;
+          margin-top: 0;
         }
 
-        .progress-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: var(--ifm-color-emphasis-300);
-          transition: all 0.3s;
+        .markdown-heading:h2 {
+          font-size: 2em;
+          border-bottom: 2px solid var(--ifm-color-emphasis-200);
+          padding-bottom: 8px;
         }
 
-        .progress-dot.active {
-          background: var(--ifm-color-primary);
-          transform: scale(1.2);
+        .markdown-heading:h3 {
+          font-size: 1.5em;
+        }
+
+        .markdown-heading:h4 {
+          font-size: 1.25em;
+        }
+
+        .markdown-heading:h5 {
+          font-size: 1.125em;
+        }
+
+        .markdown-heading:h6 {
+          font-size: 1em;
+          color: var(--ifm-color-emphasis-700);
+        }
+
+        /* Paragraphs */
+        .markdown-paragraph {
+          margin-bottom: 16px;
+          color: var(--ifm-color-content);
+        }
+
+        /* Lists */
+        .markdown-list {
+          margin: 16px 0;
+          padding-left: 32px;
+          color: var(--ifm-color-content);
+        }
+        
+        /* English specific list styling */
+        .english-list {
+          padding-left: 2rem;
+          padding-right: 0;
+          text-align: left;
+          direction: ltr;
+          list-style-position: outside;
+        }
+
+        .markdown-list.urdu-list {
+          padding-left: 0;
+          padding-right: 32px;
+          direction: rtl;
+          text-align: right;
+        }
+
+        .markdown-list-item {
+          margin-bottom: 8px;
+          line-height: 1.7;
+        }
+
+        .markdown-list-item > p {
+          margin: 0;
+        }
+
+        /* Unordered lists */
+        .markdown-ul {
+          list-style-type: disc;
+        }
+
+        .markdown-ul .markdown-list-item::marker {
+          color: var(--ifm-color-primary);
+        }
+
+        /* Ordered lists */
+        .markdown-ol {
+          list-style-type: decimal;
+        }
+
+        .markdown-ol .markdown-list-item::marker {
+          color: var(--ifm-color-primary);
+          font-weight: 600;
+        }
+
+        /* Nested lists */
+        .markdown-list .markdown-list {
+          margin: 8px 0;
+        }
+
+        /* Code blocks - always left aligned */
+        .code-block-wrapper {
+          text-align: left !important;
+          direction: ltr !important;
+          display: block !important;
+          margin: 16px 0 !important;
+        }
+
+        .code-block-force-ltr {
+          background: #2d2d2d !important;
+          border-radius: 8px !important;
+          padding: 16px !important;
+          margin: 0 !important;
+          overflow-x: auto !important;
+          position: relative !important;
+          text-align: left !important;
+          direction: ltr !important;
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+        }
+
+        .code-block-force-ltr code {
+          background: none !important;
+          padding: 0 !important;
+          font-size: 14px !important;
+          line-height: 1.5 !important;
+          color: #fff !important;
+          text-align: left !important;
+          direction: ltr !important;
+          display: block !important;
+          font-family: inherit !important;
+        }
+
+        .code-block-force-ltr pre {
+          text-align: left !important;
+          direction: ltr !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        .code-block-force-ltr * {
+          text-align: left !important;
+          direction: ltr !important;
+        }
+
+        /* Inline code */
+        .inline-code {
+          background: var(--ifm-color-emphasis-200);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 0.9em;
+          color: var(--ifm-color-primary);
+        }
+
+        /* Blockquotes */
+        .markdown-blockquote {
+          margin: 16px 0;
+          padding: 8px 16px;
+          border-left: 4px solid var(--ifm-color-primary);
+          background: var(--ifm-color-emphasis-100);
+          color: var(--ifm-color-emphasis-800);
+          font-style: italic;
+        }
+
+        .markdown-blockquote.urdu-blockquote {
+          border-left: none;
+          border-right: 4px solid var(--ifm-color-primary);
+          text-align: right;
+          direction: rtl;
+        }
+
+        /* Tables */
+        .markdown-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 16px 0;
+          font-size: 15px;
+        }
+
+        .markdown-table th,
+        .markdown-table td {
+          border: 1px solid var(--ifm-color-emphasis-300);
+          padding: 8px 12px;
+          text-align: left;
+        }
+
+        .markdown-table th {
+          background: var(--ifm-color-emphasis-200);
+          font-weight: 600;
+        }
+
+        .markdown-table.urdu-table th,
+        .markdown-table.urdu-table td {
+          text-align: right;
+        }
+
+        /* Horizontal rule */
+        .markdown-hr {
+          border: none;
+          height: 2px;
+          background: var(--ifm-color-emphasis-200);
+          margin: 24px 0;
         }
 
         /* RTL styles */
