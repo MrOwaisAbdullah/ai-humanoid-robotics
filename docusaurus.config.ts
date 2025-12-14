@@ -84,7 +84,7 @@ const config: Config = {
           className: "desktop-only",
         },
         {
-          href: "https://github.com/mrowaisabdullah/ai-humanoid-robotics",
+          href: "https://github.com/mrowaisabdullah",
           label: "GitHub",
           position: "right",
           className: "header-github-link desktop-only", // Class to control mobile visibility
@@ -114,7 +114,7 @@ const config: Config = {
           items: [
             {
               label: "LinkedIn",
-              href: "https://www.linkedin.com/in/mrowaisabdullah/",
+              href: "https://www.linkedin.com/in/mrowaisabdullah",
             },
           ],
         },
