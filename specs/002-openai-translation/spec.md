@@ -112,7 +112,7 @@ As a user, I want previously translated pages to load instantly, so that I can n
 
 ### Functional Requirements
 
-- **FR-001**: System MUST translate complete English book pages to Urdu using OpenAI Agents SDK with Gemini API integration
+- **FR-001**: System MUST translate complete English book pages to Urdu using OpenAI Agents SDK with Gemini API (OpenAI-compatible endpoint)
 - **FR-002**: System MUST preserve all HTML formatting including headings, lists, emphasis, and code blocks during translation
 - **FR-003**: System MUST NOT translate code blocks, keeping them in their original language
 - **FR-004**: System MUST cache translations to improve performance and reduce API costs

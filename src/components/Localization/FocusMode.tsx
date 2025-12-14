@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Volume2, VolumeX, ThumbsUp, ThumbsDown, Send, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ThumbsUp, ThumbsDown, Send, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -75,17 +75,22 @@ export default function FocusMode({
 }: FocusModeProps) {
   const { isRTL, formatText, language } = useLocalization();
   const { submitFeedback, retryTranslation } = useFocusMode();
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const autoScrollEnabled = useRef(true);
+
+  // Process content with transliteration (moved up to be used in useEffect)
+  const processedContent = useMemo(() => {
+    const content = translatedContent || originalContent;
+    return transliterateTechnicalTerms(content);
+  }, [translatedContent, originalContent]);
 
   // Enable full screen mode
   useEffect(() => {
     if (isVisible) {
       document.body.style.overflow = 'hidden';
       document.documentElement.classList.add('focus-mode-active');
+      autoScrollEnabled.current = true; // Reset auto-scroll on open
     } else {
       document.body.style.overflow = '';
       document.documentElement.classList.remove('focus-mode-active');
@@ -101,64 +106,27 @@ export default function FocusMode({
     };
   }, [isVisible]);
 
-  // Enhanced text-to-speech for Urdu content
-  const speakUrduText = useCallback((text: string) => {
-    if (!('speechSynthesis' in window)) {
-      showToast('Text-to-speech is not supported in your browser');
-      return;
-    }
-
-    // Cancel any ongoing speech
-    speechSynthesis.cancel();
-
-    // Split text into words for highlighting
-    const words = text.split(' ');
-    setCurrentWordIndex(0);
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ur-PK';
-    utterance.rate = 0.85;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    // Get Urdu voices if available
-    const voices = speechSynthesis.getVoices();
-    const urduVoice = voices.find(voice =>
-      voice.lang.startsWith('ur') ||
-      voice.name.includes('Urdu') ||
-      voice.name.includes('Pakistan')
-    );
-
-    if (urduVoice) {
-      utterance.voice = urduVoice;
-    }
-
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      showToast('Failed to start text-to-speech');
-    };
-
-    // Word boundary events for highlighting
-    utterance.onboundary = (event) => {
-      if (event.name === 'word') {
-        setCurrentWordIndex(Math.floor(event.charIndex / (text.length / words.length)));
+  // Auto-scroll logic
+  useEffect(() => {
+    if (contentRef.current && autoScrollEnabled.current && translatedContent) {
+      const { scrollHeight, clientHeight } = contentRef.current;
+      // Only auto-scroll if content is scrollable
+      if (scrollHeight > clientHeight) {
+        contentRef.current.scrollTop = scrollHeight;
       }
-    };
-
-    speechRef.current = utterance;
-    speechSynthesis.speak(utterance);
-  }, []);
-
-  const stopSpeaking = useCallback(() => {
-    if ('speechSynthesis' in window) {
-      speechSynthesis.cancel();
-      setIsSpeaking(false);
-      setCurrentWordIndex(0);
     }
-  }, []);
+  }, [processedContent, translatedContent]);
 
+  const handleScroll = () => {
+    if (contentRef.current) {
+      const { scrollHeight, scrollTop, clientHeight } = contentRef.current;
+      // Check if user is near the bottom (within 50px)
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      autoScrollEnabled.current = isAtBottom;
+    }
+  };
+
+  
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -168,29 +136,12 @@ export default function FocusMode({
         case 'Escape':
           onClose();
           break;
-        case ' ':
-          if (e.target === document.body) {
-            e.preventDefault();
-            // Always speak Urdu content or fallback to original if empty
-            const textToSpeak = translatedContent || originalContent;
-            if (isSpeaking) {
-              stopSpeaking();
-            } else {
-              speakUrduText(textToSpeak);
-            }
-          }
-          break;
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, translatedContent, originalContent, isSpeaking, speakUrduText, stopSpeaking, onClose]);
-
-  // Process content with transliteration
-  const processedContent = translatedContent
-    ? transliterateTechnicalTerms(translatedContent)
-    : transliterateTechnicalTerms(originalContent);
+  }, [isVisible, onClose]);
 
   // Handle feedback submission
   const handleFeedback = async (rating: 1 | -1, comment?: string) => {
@@ -369,16 +320,7 @@ export default function FocusMode({
     );
   };
 
-  // Render words with highlighting for TTS (only for original text)
-  const renderTextWithHighlighting = (text: string, isOriginal: boolean = false) => {
-    if (!isSpeaking || !isOriginal) {
-      return renderMarkdown(text, isOriginal);
-    }
-
-    const words = text.split(' ');
-    return renderMarkdown(text, isOriginal);
-  };
-
+  
   // Toast helper function
   const showToast = (message: string) => {
     const toast = document.createElement('div');
@@ -442,23 +384,6 @@ export default function FocusMode({
             </div>
 
             <div className="focus-mode-controls">
-              {language === 'ur' && (
-                <button
-                  className={`focus-mode-control-btn tts-btn ${isSpeaking ? 'active' : ''}`}
-                  onClick={() => {
-                    const textToSpeak = translatedContent || originalContent;
-                    if (isSpeaking) {
-                      stopSpeaking();
-                    } else {
-                      speakUrduText(textToSpeak);
-                    }
-                  }}
-                  title={isSpeaking ? "Stop reading" : "Read aloud"}
-                >
-                  {isSpeaking ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                </button>
-              )}
-
               {translationId && (
                 <button
                   className="focus-mode-control-btn feedback-btn"
@@ -486,6 +411,7 @@ export default function FocusMode({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.3 }}
               ref={contentRef}
+              onScroll={handleScroll}
             >
               {error ? (
                 <div className="focus-mode-error">
@@ -516,14 +442,7 @@ export default function FocusMode({
               ) : (
                 <div className="focus-mode-text">
                   <div className="translated-text urdu-text" dir="rtl">
-                    {renderTextWithHighlighting(processedContent, false)}
-                  </div>
-
-                  {/* Navigation hint */}
-                  <div className="navigation-hint">
-                    <span>
-                      Press <kbd>Space</kbd> to read aloud
-                    </span>
+                    {renderMarkdown(processedContent, false)}
                   </div>
                 </div>
               )}
@@ -650,28 +569,9 @@ export default function FocusMode({
           font-weight: 600;
         }
 
-        .focus-mode-control-btn.tts-btn {
-          background: var(--ifm-color-info);
-          color: white;
-        }
-
-        .focus-mode-control-btn.tts-btn.active {
-          background: var(--ifm-color-success);
-          animation: pulse 2s infinite;
-        }
-
         .focus-mode-control-btn.feedback-btn {
           background: var(--ifm-color-warning);
           color: white;
-        }
-
-        @keyframes pulse {
-          0%, 100% {
-            box-shadow: 0 0 0 0 rgba(var(--ifm-color-success-rgb), 0.4);
-          }
-          50% {
-            box-shadow: 0 0 0 10px rgba(var(--ifm-color-success-rgb), 0);
-          }
         }
 
         .focus-mode-content {
@@ -790,40 +690,7 @@ export default function FocusMode({
           direction: ltr;
         }
 
-        .highlighted-word {
-          background: rgba(var(--ifm-color-primary-rgb), 0.3);
-          padding: 2px 4px;
-          border-radius: 3px;
-          transition: background 0.2s;
-        }
-
-        .spoken-word {
-          color: var(--ifm-color-success);
-        }
-
-        .navigation-hint {
-          position: sticky;
-          bottom: 20px;
-          background: var(--ifm-background-surface-color);
-          border: 1px solid var(--ifm-color-emphasis-200);
-          border-radius: 8px;
-          padding: 12px 16px;
-          margin-top: 30px;
-          font-size: 13px;
-          color: var(--ifm-color-emphasis-600);
-          text-align: center;
-        }
-
-        .navigation-hint kbd {
-          background: var(--ifm-color-emphasis-200);
-          border: 1px solid var(--ifm-color-emphasis-300);
-          border-radius: 4px;
-          padding: 2px 6px;
-          font-family: monospace;
-          font-size: 12px;
-          margin: 0 2px;
-        }
-
+        
         /* Markdown content styles */
         .markdown-content {
           line-height: 1.8;
@@ -1133,10 +1000,6 @@ export default function FocusMode({
           .progress-dot,
           .translation-progress-fill {
             transition: none;
-          }
-
-          .focus-mode-control-btn.tts-btn.active {
-            animation: none;
           }
         }
       `}</style>

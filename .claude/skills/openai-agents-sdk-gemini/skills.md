@@ -65,7 +65,7 @@ provider = AsyncOpenAI(
 # Create model
 model = OpenAIChatCompletionsModel(
     openai_client=provider,
-    model="gemini-2.0-flash",
+    model="gemini-2.0-flash-lite",
 )
 
 # Create agent
@@ -361,7 +361,7 @@ provider = AsyncOpenAI(
 
 model = OpenAIChatCompletionsModel(
     openai_client=provider,
-    model="gemini-2.0-flash-exp",  # Experimental model
+    model="gemini-2.0-flash-lite",  # Experimental model
     temperature=0.7,
     top_p=0.9,
     max_tokens=2048,
@@ -464,12 +464,14 @@ def get_weather_validated(input_data: WeatherInput) -> str:
 ## Best Practices
 
 ### 1. Agent Instructions
+
 - Be specific about the agent's role and capabilities
 - Include examples of desired behavior
 - Set clear boundaries for what the agent should and shouldn't do
 - Include formatting instructions for consistent output
 
 ### 2. Tool Design
+
 - Keep tools focused on single responsibilities
 - Use clear, descriptive names
 - Include comprehensive docstrings
@@ -477,18 +479,21 @@ def get_weather_validated(input_data: WeatherInput) -> str:
 - Use appropriate return types
 
 ### 3. Session Management
+
 - Store only necessary conversation history
 - Implement context windows to manage memory
 - Use session IDs for multi-user scenarios
 - Clear sensitive data when appropriate
 
 ### 4. Error Handling
+
 - Always handle API failures gracefully
 - Implement exponential backoff for retries
 - Provide helpful error messages to users
 - Log errors for debugging
 
 ### 5. Performance
+
 - Use streaming for long responses
 - Cache expensive operations
 - Implement rate limiting for API calls
@@ -499,6 +504,7 @@ def get_weather_validated(input_data: WeatherInput) -> str:
 ### Common Issues
 
 1. **API Key Errors**
+
    ```python
    # Verify your API key is set correctly
    import os
@@ -508,6 +514,7 @@ def get_weather_validated(input_data: WeatherInput) -> str:
    ```
 
 2. **Rate Limiting**
+
    ```python
    # Implement rate limiting
    import time
@@ -571,7 +578,7 @@ provider = AsyncOpenAI(
 
 model = OpenAIChatCompletionsModel(
     openai_client=provider,
-    model="gemini-2.0-flash",
+    model="gemini-2.0-flash-lite",
     temperature=0.7,
 )
 
@@ -713,6 +720,7 @@ if __name__ == "__main__":
 ## Contributing
 
 This skill is open for contributions. Please feel free to:
+
 - Report bugs and issues
 - Suggest new features
 - Submit pull requests
@@ -722,12 +730,12 @@ This skill is open for contributions. Please feel free to:
 
 ### From Old (Incorrect) API to New (Correct) API
 
-| OLD (Incorrect) | NEW (Correct) |
-|-----------------|--------------|
-| `runner = Runner(agent=agent)` | Use `Runner.run()` directly |
-| `await runner.run(message)` | `await Runner.run(agent, message)` |
-| `Runner.run(agent, input)` | `await Runner.run(agent, message)` |
-| `runner.run_stream()` | `Runner.run_streamed(agent, message)` |
+| OLD (Incorrect)                | NEW (Correct)                         |
+| ------------------------------ | ------------------------------------- |
+| `runner = Runner(agent=agent)` | Use `Runner.run()` directly           |
+| `await runner.run(message)`    | `await Runner.run(agent, message)`    |
+| `Runner.run(agent, input)`     | `await Runner.run(agent, message)`    |
+| `runner.run_stream()`          | `Runner.run_streamed(agent, message)` |
 
 ### Quick Migration
 
@@ -766,6 +774,7 @@ MIT License - feel free to use this skill in your projects!
 ## Support
 
 For issues or questions:
+
 1. Check this documentation
 2. Review the OpenAI Agents SDK documentation: https://openai.github.io/openai-agents-python/
 3. Check Gemini API documentation: https://ai.google.dev/gemini-api/docs

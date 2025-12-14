@@ -42,51 +42,65 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
 backend/
 ├── src/
 │   ├── models/
+│   │   ├── translation_openai.py      # OpenAI translation data models
+│   │   └── __init__.py
 │   ├── services/
-│   └── api/
-└── tests/
+│   │   ├── openai_translation/
+│   │   │   ├── agent.py             # OpenAI translation agent
+│   │   │   ├── client.py            # Gemini API client configuration
+│   │   │   ├── service.py          # Main translation service
+│   │   │   └── __init__.py
+│   │   ├── content_extractor.py    # Content extraction from pages
+│   │   ├── content_reconstructor.py # Rebuild HTML after translation
+│   │   ├── code_block_handler.py  # Preserve code blocks
+│   │   ├── content_chunker.py     # Chunk large content
+│   │   ├── chunk_processor.py     # Process translation chunks
+│   │   ├── parallel_executor.py   # Parallel translation execution
+│   │   └── cache_service.py       # Translation cache management
+│   ├── api/
+│   │   └── v1/
+│   │       └── translation.py      # Translation API endpoints
+│   └── utils/
+│       ├── translation_errors.py # Error handling utilities
+│       └── logger.py              # Logging configuration
+├── tests/
+│   ├── test_translation.py         # Translation service tests
+│   ├── test_formatting.py          # Formatting preservation tests
+│   ├── test_chunking.py           # Large content handling tests
+│   └── test_cache.py              # Cache functionality tests
+├── migrations/
+│   └── versions/                  # Database migrations
+├── pyproject.toml                  # Python dependencies
+├── .env.example                    # Environment variables template
+└── main.py                        # FastAPI application entry
 
 frontend/
 ├── src/
 │   ├── components/
+│   │   ├── DocItem/
+│   │   │   └── AIFeaturesBar.tsx  # Translation button component
+│   │   └── ...
+│   ├── services/
+│   │   └── translationAPI.ts       # Frontend translation service
 │   ├── pages/
-│   └── services/
-└── tests/
+│   │   └── ...
+│   ├── contexts/
+│   │   └── ...
+│   └── ...
+├── package.json                    # Node.js dependencies
+└── ...
 
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+docs/
+├── deployment.md                   # Hugging Face Spaces deployment guide
+└── README.md                      # Project documentation
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Web application with separate backend (Python/FastAPI) and frontend (React/TypeScript)
 
 ## Complexity Tracking
 

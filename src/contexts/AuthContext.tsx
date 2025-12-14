@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import axios from 'axios';
+import { api } from '../services/api';
 
 // Types
 export interface User {
@@ -43,22 +44,9 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Determine API base URL
-export const getApiBaseUrl = () => {
-  if (typeof window === 'undefined') return 'http://localhost:7860';
+// API base URL is now imported from config/api.ts
 
-  const hostname = window.location.hostname;
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:7860';
-  }
-  return 'https://mrowaisabdullah-ai-humanoid-robotics.hf.space';
-};
-
-// API base URL
-const API_BASE_URL = getApiBaseUrl();
-
-// Configure axios defaults
-axios.defaults.baseURL = API_BASE_URL;
+// Configure axios defaults - using default baseURL from api.ts instance
 axios.defaults.withCredentials = true; // Important for cookies
 
 // Ensure all requests have proper headers
@@ -78,9 +66,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Token refresh timer ref
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Flag to prevent multiple simultaneous auth checks
+  const isCheckingAuth = useRef(false);
+
   // Check authentication on mount
   useEffect(() => {
-    checkAuth();
+    // Only check auth if we haven't already checked
+    if (!isCheckingAuth.current) {
+      checkAuth();
+    }
   }, []);
 
   // Cleanup refresh timer on unmount
@@ -94,6 +88,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check authentication status
   const checkAuth = async () => {
+    // Prevent multiple simultaneous checks
+    if (isCheckingAuth.current) {
+      return;
+    }
+
+    isCheckingAuth.current = true;
+
     try {
       setState(prev => ({ ...prev, isLoading: true }));
 
@@ -103,32 +104,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (storedToken) {
         // Set the authorization header
         axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+
+        // Try to get current user from API
+        const response = await api.get('/auth/me');
+
+        if (response.data) {
+          setState({
+            user: response.data,
+            isLoading: false,
+            isAuthenticated: true,
+          });
+          // Start token refresh timer when authenticated
+          startTokenRefreshTimer();
+          return;
+        }
       }
 
-      // Try to get current user from API
-      const response = await axios.get('/auth/me');
+      // No token or invalid token - user is not authenticated
+      setState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
 
-      if (response.data) {
-        setState({
-          user: response.data,
-          isLoading: false,
-          isAuthenticated: true,
-        });
-        // Start token refresh timer when authenticated
-        startTokenRefreshTimer();
-      } else {
-        setState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false,
-        });
-      }
     } catch (error: any) {
       // Not authenticated - clear stored token and auth header
       if (error?.code === 'ECONNABORTED') {
         console.error('Authentication check timed out - backend may be down');
       } else if (error?.response?.status === 401) {
-        console.error('Token expired or invalid');
+        // Expected for users without authentication
+        console.log('User not authenticated');
       } else {
         console.error('Authentication check failed:', error?.message || 'Unknown error');
       }
@@ -139,6 +144,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false,
         isAuthenticated: false,
       });
+    } finally {
+      isCheckingAuth.current = false;
     }
   };
 

@@ -34,7 +34,7 @@ provider = AsyncOpenAI(
 
 model = OpenAIChatCompletionsModel(
     openai_client=provider,
-    model="gemini-2.0-flash",
+    model="gemini-2.0-flash-lite",
 )
 
 @function_tool

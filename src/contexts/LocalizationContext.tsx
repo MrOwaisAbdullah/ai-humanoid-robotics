@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { useUser } from './UserContext';
 import { translationAPI, TranslationRequest, TranslationResponse, TranslationStreamChunk, PersonalizationSettings } from '../services/translationAPI';
+import { simpleTranslationAPI, SimpleTranslationRequest, SimpleTranslationResponse } from '../services/simpleTranslationAPI';
 type Language = 'en' | 'ur' | 'ur-roman';
 type Direction = 'ltr' | 'rtl';
 type TranslationStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -369,8 +370,12 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
     targetLanguage?: string,
     onChunk?: (chunk: TranslationStreamChunk) => void
   ): Promise<void> => {
-    
+
+    console.log('translateTextStream called, translationEnabled:', state.translationEnabled);
+    console.log('Text length:', text.length);
+
     if (!state.translationEnabled) {
+            console.log('Translation disabled, returning');
             return;
     }
 
@@ -378,50 +383,43 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({ chil
     dispatch({ type: 'SET_TRANSLATION_ERROR', payload: null });
 
     try {
-      const sourceLang = sourceLanguage || 'en';
-      const targetLang = targetLanguage || state.language;
+      // Always translate from English to Urdu
+      console.log('Translating from English to Urdu');
 
-      const request: TranslationRequest = {
+      // Use the simplified translation API
+      const request: SimpleTranslationRequest = {
         text,
-        sourceLanguage: sourceLang,
-        targetLanguage: targetLang,
-        preferCache: false, // Don't use cache for streaming
-        stream: true,
         userId: user?.id,
       };
 
-      const streamResponse = await translationAPI().translate(request);
+      console.log('Making simple translation request...');
+      const response = await simpleTranslationAPI.translate(request);
+      console.log('Translation response received:', response);
 
-      if (typeof streamResponse === 'object' && 'id' in streamResponse) {
-        // Not a streaming response
-        return;
+      // Send translation result without artificial streaming
+      if (onChunk) {
+        onChunk({ type: 'start' });
+        onChunk({
+          type: 'chunk',
+          content: response.translated_text,
+          cached: response.cached || false
+        });
+        onChunk({ type: 'end', translationId: Date.now() });
       }
 
-      // Process stream
-      let fullTranslation = '';
-      for await (const chunk of streamResponse as AsyncIterable<TranslationStreamChunk>) {
-        if (onChunk) {
-          onChunk(chunk);
-        }
+      // Update state with translation
+      dispatch({ type: 'SET_TRANSLATION_STATUS', payload: 'success' });
+      dispatch({ type: 'SET_CURRENT_TRANSLATION', payload: {
+        originalText: text,
+        translatedText: response.translated_text,
+        sourceLanguage: 'en', // Always English
+        targetLanguage: 'ur', // Always Urdu
+      } });
+      dispatch({ type: 'SET_CACHED_TRANSLATION', payload: response.cached || false }); // Pass through cache status
 
-        if (chunk.type === 'chunk' && chunk.content) {
-          fullTranslation += chunk.content;
-        } else if (chunk.type === 'end') {
-          dispatch({ type: 'SET_TRANSLATION_STATUS', payload: 'success' });
-          dispatch({ type: 'SET_CURRENT_TRANSLATION', payload: {
-            originalText: text,
-            translatedText: fullTranslation,
-            sourceLanguage: sourceLang,
-            targetLanguage: targetLang,
-          } });
-          dispatch({ type: 'SET_CACHED_TRANSLATION', payload: chunk.metadata?.cached || false });
-        } else if (chunk.type === 'error') {
-          dispatch({ type: 'SET_TRANSLATION_ERROR', payload: chunk.error || 'Stream error' });
-          dispatch({ type: 'SET_TRANSLATION_STATUS', payload: 'error' });
-        }
-      }
     } catch (error: any) {
-      const errorMessage = error.message || 'Stream translation failed';
+      console.error('Simple translation failed:', error);
+      const errorMessage = error.message || 'Translation failed';
       dispatch({ type: 'SET_TRANSLATION_ERROR', payload: errorMessage });
       dispatch({ type: 'SET_TRANSLATION_STATUS', payload: 'error' });
     }

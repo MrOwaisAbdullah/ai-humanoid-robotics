@@ -38,7 +38,7 @@ async def test_basic_setup():
 
         model = OpenAIChatCompletionsModel(
             openai_client=provider,
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
         )
 
         agent = Agent(
@@ -74,7 +74,7 @@ async def test_tool_integration():
 
         model = OpenAIChatCompletionsModel(
             openai_client=provider,
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
         )
 
         agent = Agent(
@@ -106,7 +106,7 @@ async def test_session_management():
 
         model = OpenAIChatCompletionsModel(
             openai_client=provider,
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
         )
 
         agent = Agent(
@@ -151,7 +151,7 @@ async def test_handoffs():
 
         model = OpenAIChatCompletionsModel(
             openai_client=provider,
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
         )
 
         specialist = Agent(
@@ -192,7 +192,7 @@ async def test_sync_runner():
 
         model = OpenAIChatCompletionsModel(
             openai_client=provider,
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
         )
 
         agent = Agent(
@@ -224,7 +224,7 @@ async def test_streaming():
 
         model = OpenAIChatCompletionsModel(
             openai_client=provider,
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
         )
 
         agent = Agent(
@@ -261,7 +261,7 @@ async def test_max_turns():
 
         model = OpenAIChatCompletionsModel(
             openai_client=provider,
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
         )
 
         agent = Agent(

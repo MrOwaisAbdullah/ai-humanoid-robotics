@@ -1,0 +1,12 @@
+{
+  "translated_text": "السلام علیکم، آج آپ کیسے ہیں؟",
+  "original_text": "Hello, how are you today?",
+  "tokens_used": 0,
+  "model": "gemini-2.0-flash-lite",
+  "confidence_score": 0.95,
+  "has_code_blocks": false,
+  "code_blocks": [],
+  "context_used": false,
+  "processing_time_ms": 0,
+  "cache_hit": false
+}

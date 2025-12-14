@@ -7,8 +7,8 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from agents import (
-    Agent, Runner, function_tool, handoff,
-    AsyncOpenAI, OpenAIChatCompletionsModel,
+    Agent, AsyncOpenAI, Runner, function_tool, handoff,
+    OpenAIChatCompletionsModel,
     SQLiteSession, set_tracing_disabled
 )
 import requests
@@ -28,7 +28,7 @@ provider = AsyncOpenAI(
 # Create model
 model = OpenAIChatCompletionsModel(
     openai_client=provider,
-    model="gemini-2.0-flash",
+    model="gemini-2.0-flash-lite",
     temperature=0.7,
 )
 

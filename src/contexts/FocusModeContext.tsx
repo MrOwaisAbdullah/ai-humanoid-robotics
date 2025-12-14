@@ -15,8 +15,6 @@ interface FocusModeState {
 interface FocusModeContextType extends FocusModeState {
   showTranslation: (originalText: string, options?: {
     pretranslatedText?: string;
-    sourceLanguage?: string;
-    targetLanguage?: string;
   }) => Promise<void>;
   closeFocusMode: () => void;
   submitFeedback: (translationId: number, rating: 1 | -1, comment?: string) => Promise<void>;
@@ -64,82 +62,113 @@ export const FocusModeProvider: React.FC<FocusModeProviderProps> = ({ children }
     originalText: string,
     options?: {
       pretranslatedText?: string;
-      sourceLanguage?: string;
-      targetLanguage?: string;
     }
   ) => {
     const {
-      pretranslatedText,
-      sourceLanguage = 'en',
-      targetLanguage = 'ur' // Always translate to Urdu by default
+      pretranslatedText
     } = options || {};
 
-    // Set initial state
-    setFocusMode({
-      isVisible: true,
-      originalContent: originalText,
-      translatedContent: pretranslatedText || '',
-      isLoading: !pretranslatedText,
-      error: null,
-      progress: 0
-    });
-
-    document.body.classList.add('focus-mode-active');
-
-    // If we don't have pretranslated text, translate it
+    // If we don't have pretranslated text, translate it first
     if (!pretranslatedText) {
       try {
         let accumulatedTranslation = '';
         let totalChars = originalText.length;
+        let translationSuccess = false;
+        let isFromCache = false;
 
         await translateTextStream(
           originalText,
-          sourceLanguage,
-          targetLanguage,
+          undefined,
+          undefined,
           (chunk) => {
             if (chunk.type === 'start') {
-              setFocusMode(prev => ({ ...prev, progress: 0 }));
+              // Show UI with loader
+              setFocusMode({
+                isVisible: true, // Show UI immediately
+                originalContent: originalText,
+                translatedContent: '',
+                isLoading: true,
+                error: null,
+                progress: 0
+              });
+              document.body.classList.add('focus-mode-active');
             } else if (chunk.type === 'chunk' && chunk.content) {
-              accumulatedTranslation += chunk.content;
-              const progress = Math.min((accumulatedTranslation.length / totalChars) * 100, 95);
-              setFocusMode(prev => ({
-                ...prev,
-                translatedContent: accumulatedTranslation,
-                progress
-              }));
+              // If cached, show the full translation immediately
+              if (chunk.cached) {
+                isFromCache = true;
+                accumulatedTranslation = chunk.content;
+                setFocusMode({
+                  isVisible: true,
+                  originalContent: originalText,
+                  translatedContent: accumulatedTranslation,
+                  isLoading: false,
+                  error: null,
+                  progress: 100
+                });
+              } else {
+                accumulatedTranslation += chunk.content;
+                const progress = Math.min((accumulatedTranslation.length / totalChars) * 100, 95);
+                // Update with translated content during streaming
+                setFocusMode(prev => ({
+                  ...prev,
+                  translatedContent: accumulatedTranslation,
+                  progress
+                }));
+              }
             } else if (chunk.type === 'end') {
-              setFocusMode(prev => ({
-                ...prev,
-                translatedContent: accumulatedTranslation,
-                isLoading: false,
-                progress: 100,
-                translationId: chunk.translationId
-              }));
+              if (!isFromCache) {
+                translationSuccess = true;
+                // Translation successful, show final state
+                setFocusMode({
+                  isVisible: true,
+                  originalContent: originalText,
+                  translatedContent: accumulatedTranslation,
+                  isLoading: false,
+                  error: null,
+                  progress: 100,
+                  translationId: chunk.translationId
+                });
+              }
             } else if (chunk.type === 'error') {
-              setFocusMode(prev => ({
-                ...prev,
+              // Translation failed, show error
+              setFocusMode({
+                isVisible: true,
+                originalContent: '',
+                translatedContent: '',
                 isLoading: false,
                 error: chunk.error || 'Translation failed',
                 progress: 0
-              }));
+              });
+              document.body.classList.remove('focus-mode-active');
             }
           }
         );
+
+        // Translation completed through the stream handler
+        // No need for additional fallback logic
       } catch (error: any) {
-        setFocusMode(prev => ({
-          ...prev,
+        // Translation failed, show error
+        setFocusMode({
+          isVisible: true,
+          originalContent: '',
+          translatedContent: '',
           isLoading: false,
           error: error.message || 'Translation failed',
           progress: 0
-        }));
+        });
+        document.body.classList.add('focus-mode-active');
       }
     } else {
-      // We have pretranslated text, mark as complete
-      setFocusMode(prev => ({
-        ...prev,
+      // We have pretranslated text, show the UI immediately
+      setFocusMode({
+        isVisible: true,
+        originalContent: originalText,
+        translatedContent: pretranslatedText,
         isLoading: false,
+        error: null,
         progress: 100
-      }));
+      });
+      document.body.classList.add('focus-mode-active');
     }
   }, [translateTextStream, language]);
 
@@ -177,10 +206,7 @@ export const FocusModeProvider: React.FC<FocusModeProviderProps> = ({ children }
         translatedContent: ''
       }));
 
-      await showTranslation(focusMode.originalContent, {
-        sourceLanguage: 'en',
-        targetLanguage: 'ur' // Always retry translation to Urdu
-      });
+      await showTranslation(focusMode.originalContent, {});
     } catch (error: any) {
       setFocusMode(prev => ({
         ...prev,

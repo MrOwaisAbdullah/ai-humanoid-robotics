@@ -6,11 +6,11 @@ for handling authentication tokens and error responses.
  */
 
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { getApiBaseUrl } from '../contexts/AuthContext';
+import { API_BASE_URL } from '../config/api';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: API_BASE_URL,
   withCredentials: true, // Important for cookies
   headers: {
     'Content-Type': 'application/json',
@@ -107,6 +107,7 @@ export const apiRequest = {
 };
 
 // Export the configured axios instance
+export { api };
 export default api;
 
 // Export cookie utilities for other components

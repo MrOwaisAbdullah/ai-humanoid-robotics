@@ -1,40 +1,36 @@
 """
-OpenAI Translation Service with Comprehensive Data Model.
+OpenAI Translation Service using Gemini API.
 
-Provides translation services using OpenAI API with:
-- Enhanced caching with page URL support
-- Progress tracking for large translations
-- Error logging and retry mechanism
-- Session management
-- Cost and quality tracking
+This service implements the core translation functionality using
+OpenAI Agents SDK with Gemini's OpenAI-compatible endpoint.
 """
 
 import asyncio
 import hashlib
 import json
 import time
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, AsyncGenerator
-from dataclasses import dataclass, asdict
-from enum import Enum
-import os
-import uuid
-import logging
+from dataclasses import dataclass
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 
-from src.services.cache_service import CacheService, CacheType, get_cache_service
 from src.models.translation_openai import (
-    TranslationJob, TranslationChunk, TranslationError,
-    TranslationSession, TranslationCache, TranslationMetrics,
-    TranslationJobStatus, ChunkStatus, ErrorSeverity
+    TranslationJob, TranslationChunk, TranslationError, TranslationSession,
+    TranslationCache, TranslationJobStatus, ChunkStatus, ErrorSeverity
 )
+from src.services.openai_translation.client import GeminiOpenAIClient, get_gemini_client
+from src.services.cache_service import CacheService, get_cache_service
 from src.database.base import get_db
-from src.utils.errors import ValidationError, ServiceError, log_exception
-from src.utils.logging import get_logger
+from src.utils.translation_errors import (
+    TranslationError as TranslationServiceError, APIError, RateLimitError,
+    with_translation_error_handling, retry_with_exponential_backoff
+)
+from src.utils.translation_logger import get_translation_logger, log_translation_performance
 
-logger = get_logger(__name__)
+logger = get_translation_logger(__name__)
 
 
 @dataclass
@@ -48,7 +44,7 @@ class OpenAITranslationRequest:
     session_id: Optional[str] = None
 
     # OpenAI parameters
-    model: str = "gpt-4-turbo-preview"
+    model: str = "gemini-2.0-flash-lite"
     temperature: float = 0.3
     max_tokens: int = 2048
 
@@ -101,46 +97,34 @@ class OpenAITranslationResponse:
 
 class OpenAITranslationService:
     """
-    Translation service using OpenAI API with comprehensive tracking.
+    Translation service using OpenAI Agents SDK with Gemini API.
 
     Features:
-    - OpenAI GPT-4/GPT-3.5 integration
+    - OpenAI Agents SDK with Gemini 2.0 Flash model
     - Content chunking for large texts
     - Enhanced caching with page URL support
     - Progress tracking and streaming
     - Error handling and retries
     - Session management
     - Cost and quality tracking
-    - Comprehensive analytics
     """
-
-    # OpenAI model pricing (approximate, should be updated)
-    MODEL_PRICING = {
-        "gpt-4-turbo-preview": {
-            "input": 0.01,  # per 1K tokens
-            "output": 0.03  # per 1K tokens
-        },
-        "gpt-3.5-turbo": {
-            "input": 0.0015,
-            "output": 0.002
-        }
-    }
 
     # Translation prompt templates
     TRANSLATION_PROMPT_TEMPLATE = """
 You are a professional translator. Translate the following text from {source_lang} to {target_lang}.
 
-Requirements:
-1. Maintain the original meaning and tone
-2. Preserve formatting and structure
-3. Only translate content outside of code blocks marked with ```
-4. For technical terms, provide the most appropriate translation
-5. Ensure cultural and contextual appropriateness
+CRITICAL REQUIREMENTS:
+1. Translate ALL text to {target_lang} - no English words should remain
+2. ONLY preserve code blocks marked with ```
+3. Translate technical terms with context (e.g., AI → مصنوعی ذہانت)
+4. Use Urdu script (Nastaleeq) for Urdu text
+5. Maintain formatting and structure
+6. Mix Urdu with Roman Urdu for technical terms where appropriate
 
 Text to translate:
 {text}
 
-Translate only the content between the delimiters above.
+Translate only the content above.
 """
 
     CHUNK_TRANSLATION_PROMPT = """
@@ -153,6 +137,7 @@ Requirements:
 - Translate accurately while preserving meaning
 - Handle technical terms appropriately
 - Keep the flow natural
+- Use Urdu script (Nastaleeq)
 
 Text:
 {text}
@@ -160,9 +145,17 @@ Text:
 Translation:
 """
 
+    # Model pricing (approximate USD per 1K tokens)
+    MODEL_PRICING = {
+        "gemini-2.0-flash-lite": {
+            "input": 0.000075,  # $0.075 per 1M input tokens
+            "output": 0.00015   # $0.15 per 1M output tokens
+        }
+    }
+
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        gemini_client: Optional[GeminiOpenAIClient] = None,
         cache_service: Optional[CacheService] = None,
         enable_analytics: bool = True
     ):
@@ -170,22 +163,26 @@ Translation:
         Initialize OpenAI translation service.
 
         Args:
-            api_key: OpenAI API key
+            gemini_client: Gemini OpenAI client
             cache_service: Cache service instance
             enable_analytics: Whether to collect detailed analytics
         """
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.gemini_client = gemini_client
         self.cache_service = cache_service
         self.enable_analytics = enable_analytics
 
-        # Initialize OpenAI client
-        if self.api_key:
-            self.client = AsyncOpenAI(api_key=self.api_key)
-        else:
-            self.client = None
-            logger.error("OpenAI API key not configured")
+        # Initialize services if not provided
+        if not self.gemini_client:
+            self.gemini_client = get_gemini_client()
 
-        logger.info("OpenAI Translation Service initialized", analytics_enabled=enable_analytics)
+        if not self.cache_service:
+            self.cache_service = get_cache_service()
+
+        logger.info(
+            "OpenAI Translation Service initialized",
+            model="gemini-2.0-flash-lite",
+            analytics_enabled=enable_analytics
+        )
 
     def _generate_content_hash(self, text: str, source_lang: str, target_lang: str) -> str:
         """Generate SHA-256 hash for content identification."""
@@ -198,48 +195,6 @@ Translation:
             url_hash = hashlib.sha256(page_url.encode('utf-8')).hexdigest()[:16]
             return f"openai_translation:{content_hash}:{url_hash}"
         return f"openai_translation:{content_hash}"
-
-    async def _get_or_create_session(
-        self,
-        session_id: Optional[str],
-        user_id: Optional[str],
-        request: OpenAITranslationRequest
-    ) -> Optional[TranslationSession]:
-        """Get or create a translation session."""
-        if not session_id:
-            return None
-
-        db = next(get_db())
-        try:
-            # Try to get existing session
-            session = db.query(TranslationSession).filter(
-                TranslationSession.session_id == session_id
-            ).first()
-
-            if not session:
-                # Create new session
-                session = TranslationSession(
-                    session_id=session_id,
-                    user_id=user_id,
-                    expires_at=datetime.utcnow() + timedelta(hours=24),
-                    source_language=request.source_language,
-                    target_language=request.target_language,
-                    preferred_model=request.model,
-                    user_agent=request.user_agent,
-                    ip_address=request.ip_address
-                )
-                db.add(session)
-                db.commit()
-            else:
-                # Update session activity
-                session.last_activity_at = datetime.utcnow()
-                session.request_count += 1
-                db.commit()
-
-            return session
-
-        finally:
-            db.close()
 
     async def _check_cache(
         self,
@@ -261,7 +216,11 @@ Translation:
                 cache_entry.hit_count += 1
                 cache_entry.last_hit_at = datetime.utcnow()
                 db.commit()
-                logger.info("Cache hit found", cache_key=cache_key[:20], hits=cache_entry.hit_count)
+                logger.info(
+                    "Cache hit found",
+                    cache_key=cache_key[:20],
+                    hits=cache_entry.hit_count
+                )
                 return cache_entry
 
         finally:
@@ -294,13 +253,12 @@ Translation:
                 job_id=job.id,
                 content_hash=job.content_hash,
                 page_url=job.page_url,
-                url_hash=hashlib.sha256(job.page_url.encode()).hexdigest() if job.page_url else None,
                 source_language=job.source_language,
                 target_language=job.target_language,
                 original_text=job.original_text,
                 translated_text=job.translated_text,
-                processing_time_ms=job.processing_time_ms,
                 model_version=job.model_name,
+                processing_time_ms=job.processing_time_ms,
                 ttl_hours=ttl_hours,
                 expires_at=expires_at,
                 quality_score=quality_score,
@@ -310,7 +268,11 @@ Translation:
             db.add(cache_entry)
             db.commit()
 
-            logger.info("Translation cached", cache_key=cache_key[:20], ttl_hours=ttl_hours)
+            logger.info(
+                "Translation cached",
+                cache_key=cache_key[:20],
+                ttl_hours=ttl_hours
+            )
             return True
 
         except Exception as e:
@@ -319,51 +281,7 @@ Translation:
         finally:
             db.close()
 
-    async def _log_error(
-        self,
-        job_id: str,
-        error_type: str,
-        error_message: str,
-        severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-        chunk_id: Optional[str] = None,
-        is_retriable: bool = True,
-        error_details: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """Log an error to the database."""
-        error_id = str(uuid.uuid4())
-
-        db = next(get_db())
-        try:
-            error = TranslationError(
-                error_id=error_id,
-                job_id=job_id,
-                chunk_id=chunk_id,
-                error_type=error_type,
-                error_message=error_message,
-                error_details=error_details,
-                severity=severity.value,
-                category="translation",
-                is_retriable=is_retriable,
-                next_retry_at=datetime.utcnow() + timedelta(seconds=1) if is_retriable else None
-            )
-
-            db.add(error)
-            db.commit()
-
-            logger.error(
-                "Translation error logged",
-                error_id=error_id,
-                job_id=job_id,
-                error_type=error_type,
-                severity=severity.value
-            )
-
-            return error_id
-
-        finally:
-            db.close()
-
-    async def _translate_with_openai(
+    async def _translate_with_gemini(
         self,
         text: str,
         source_lang: str,
@@ -375,13 +293,12 @@ Translation:
         context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Translate text using OpenAI API.
+        Translate text using Gemini via OpenAI SDK.
 
         Returns:
             Dict containing translated_text, tokens_used, and response metadata
         """
-        if not self.client:
-            raise ServiceError("OpenAI client not initialized")
+        client = self.gemini_client.get_client()
 
         try:
             # Select appropriate prompt
@@ -400,8 +317,8 @@ Translation:
                     text=text
                 )
 
-            # Call OpenAI API
-            response = await self.client.chat.completions.create(
+            # Call Gemini API via OpenAI SDK
+            response = await client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": "You are a professional translator."},
@@ -417,9 +334,11 @@ Translation:
             output_tokens = response.usage.completion_tokens
 
             # Calculate cost
-            pricing = self.MODEL_PRICING.get(model, self.MODEL_PRICING["gpt-4-turbo-preview"])
-            estimated_cost = (input_tokens / 1000 * pricing["input"] +
-                            output_tokens / 1000 * pricing["output"])
+            pricing = self.MODEL_PRICING.get(model, self.MODEL_PRICING["gemini-2.0-flash-lite"])
+            estimated_cost = (
+                (input_tokens / 1000 * pricing["input"]) +
+                (output_tokens / 1000 * pricing["output"])
+            )
 
             return {
                 "translated_text": translated_text.strip() if translated_text else "",
@@ -432,8 +351,12 @@ Translation:
             }
 
         except Exception as e:
-            logger.error("OpenAI API error", error=str(e))
-            raise ServiceError(f"Translation failed: {str(e)}")
+            logger.error("Gemini API error", error=str(e))
+            raise TranslationServiceError(
+                f"Translation failed: {str(e)}",
+                error_type="API_ERROR",
+                is_retriable=True
+            )
 
     def _split_text_into_chunks(
         self,
@@ -545,6 +468,7 @@ Translation:
 
         return chunks
 
+    @log_translation_performance
     async def translate(
         self,
         request: OpenAITranslationRequest
@@ -558,9 +482,6 @@ Translation:
         Returns:
             Translation response with metadata
         """
-        if not self.client:
-            raise ServiceError("OpenAI client not initialized")
-
         start_time = time.time()
         job_id = str(uuid.uuid4())
         content_hash = self._generate_content_hash(
@@ -570,17 +491,23 @@ Translation:
         )
         cache_key = self._generate_cache_key(content_hash, request.page_url)
 
-        # Get or create session
-        session = await self._get_or_create_session(
-            request.session_id,
-            request.user_id,
-            request
+        logger.bind_request(request_id=job_id).log_translation_request(
+            text_length=len(request.text),
+            source_lang=request.source_language,
+            target_lang=request.target_language,
+            page_url=request.page_url
         )
 
         # Check cache first
         cached_translation = await self._check_cache(content_hash, request.page_url)
         if cached_translation:
             processing_time = int((time.time() - start_time) * 1000)
+
+            logger.log_translation_response(
+                translated_length=len(cached_translation.translated_text),
+                chunks_count=1,
+                cached=True
+            )
 
             return OpenAITranslationResponse(
                 job_id=job_id,
@@ -616,7 +543,6 @@ Translation:
                 enable_transliteration=request.enable_transliteration,
                 chunk_size=request.chunk_size,
                 max_chunks=request.max_chunks,
-                max_retries=request.max_retries,
                 user_agent=request.user_agent,
                 ip_address=request.ip_address
             )
@@ -668,21 +594,25 @@ Translation:
                         chunk.translated_text = translated_text
                         chunk.completed_at = datetime.utcnow()
                     else:
-                        # Translate chunk with OpenAI
-                        context = {
-                            "current_part": i + 1,
-                            "total_parts": len(chunks_data)
-                        } if len(chunks_data) > 1 else None
+                        # Translate chunk with retry logic
+                        async def translate_chunk():
+                            return await self._translate_with_gemini(
+                                chunk_data["text"],
+                                request.source_language,
+                                request.target_language,
+                                request.model,
+                                request.temperature,
+                                request.max_tokens,
+                                is_chunk=True,
+                                context={
+                                    "current_part": i + 1,
+                                    "total_parts": len(chunks_data)
+                                } if len(chunks_data) > 1 else None
+                            )
 
-                        result = await self._translate_with_openai(
-                            chunk_data["text"],
-                            request.source_language,
-                            request.target_language,
-                            request.model,
-                            request.temperature,
-                            request.max_tokens,
-                            is_chunk=True,
-                            context=context
+                        result = await retry_with_exponential_backoff(
+                            translate_chunk,
+                            max_retries=request.max_retries
                         )
 
                         translated_text = result["translated_text"]
@@ -699,7 +629,7 @@ Translation:
                     # Update job progress
                     job.chunks_completed += 1
                     job.progress_percentage = (job.chunks_completed / job.chunks_total) * 100
-                    job.last_activity_at = datetime.utcnow()
+                    db.commit()
 
                     # Add to response chunks
                     translated_chunks.append({
@@ -712,8 +642,6 @@ Translation:
                         "code_language": chunk_data.get("code_language")
                     })
 
-                    db.commit()
-
                 except Exception as e:
                     # Handle chunk error
                     chunk.status = ChunkStatus.FAILED.value
@@ -721,13 +649,7 @@ Translation:
                     job.chunks_failed += 1
 
                     # Log error
-                    await self._log_error(
-                        job.id,
-                        "chunk_translation_error",
-                        str(e),
-                        ErrorSeverity.HIGH,
-                        chunk.id
-                    )
+                    logger.log_error(e, chunk_index=i)
 
                     db.commit()
                     logger.error(f"Chunk {i} translation failed", error=str(e))
@@ -740,7 +662,11 @@ Translation:
             job.input_tokens = total_input_tokens
             job.output_tokens = total_output_tokens
             job.estimated_cost_usd = total_cost
-            job.status = TranslationJobStatus.COMPLETED.value if job.chunks_failed == 0 else TranslationJobStatus.FAILED.value
+            job.status = (
+                TranslationJobStatus.COMPLETED.value
+                if job.chunks_failed == 0
+                else TranslationJobStatus.FAILED.value
+            )
             job.completed_at = datetime.utcnow()
             job.processing_time_ms = int((time.time() - start_time) * 1000)
             job.progress_percentage = 100.0
@@ -750,12 +676,15 @@ Translation:
             if job.chunks_failed == 0:
                 await self._cache_translation(job, cache_key)
 
-            # Update session
-            if session:
-                session.character_count += len(request.text)
-                session.total_cost_usd += total_cost
-
             processing_time = int((time.time() - start_time) * 1000)
+
+            logger.log_translation_response(
+                translated_length=len(final_translation),
+                chunks_count=len(translated_chunks),
+                tokens_used=total_input_tokens + total_output_tokens,
+                cost_usd=total_cost,
+                cached=False
+            )
 
             logger.info(
                 "Translation completed",
@@ -779,49 +708,28 @@ Translation:
                 estimated_cost_usd=total_cost,
                 cache_key=cache_key,
                 cache_hit=False,
-                error_message=f"{job.chunks_failed} chunks failed" if job.chunks_failed > 0 else None
+                error_message=(
+                    f"{job.chunks_failed} chunks failed"
+                    if job.chunks_failed > 0
+                    else None
+                )
             )
 
         except Exception as e:
             # Update job status to failed
-            job.status = TranslationJobStatus.FAILED.value
-            job.completed_at = datetime.utcnow()
-            db.commit()
+            if 'job' in locals():
+                job.status = TranslationJobStatus.FAILED.value
+                job.completed_at = datetime.utcnow()
+                db.commit()
 
-            # Log error
-            await self._log_error(
-                job.id,
-                "translation_job_error",
-                str(e),
-                ErrorSeverity.CRITICAL
+            logger.log_error(e, job_id=job_id)
+            raise TranslationServiceError(
+                f"Translation failed: {str(e)}",
+                error_type="SYSTEM_ERROR"
             )
-
-            log_exception(e, "Translation job failed")
-            raise ServiceError(f"Translation failed: {str(e)}")
 
         finally:
             db.close()
-
-    async def translate_streaming(
-        self,
-        request: OpenAITranslationRequest
-    ) -> AsyncGenerator[Dict[str, Any], None]:
-        """
-        Translate text with streaming progress updates.
-
-        Yields:
-            Progress updates and final translation
-        """
-        if not self.client:
-            raise ServiceError("OpenAI client not initialized")
-
-        # Similar implementation to translate() but yields progress updates
-        # Implementation details omitted for brevity
-        yield {"type": "start", "message": "Starting translation..."}
-
-        # ... streaming implementation ...
-
-        yield {"type": "complete", "translated_text": "..."}
 
     async def get_translation_status(self, job_id: str) -> Dict[str, Any]:
         """Get the status of a translation job."""
@@ -832,7 +740,10 @@ Translation:
             ).first()
 
             if not job:
-                raise ValidationError("Translation job not found")
+                raise TranslationServiceError(
+                    "Translation job not found",
+                    error_type="VALIDATION_ERROR"
+                )
 
             return {
                 "job_id": job.job_id,
@@ -851,57 +762,94 @@ Translation:
         finally:
             db.close()
 
-    async def get_translation_history(
-        self,
-        user_id: Optional[str] = None,
-        limit: int = 50,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
-        """Get translation history with pagination."""
+    async def stream_translation_status(self, job_id: str) -> AsyncGenerator[Dict[str, Any], None]:
+        """Stream translation status updates."""
+        # Implementation for streaming status updates
+        # This would typically check status periodically and yield updates
+        yield {"type": "start", "job_id": job_id, "message": "Starting stream..."}
+
+        # In a real implementation, you would:
+        # 1. Get initial job status
+        # 2. Poll status changes
+        # 3. Yield updates as they occur
+        # 4. Close stream when job completes
+
+    async def check_cache(self, content_hash: str, page_url: Optional[str] = None) -> Optional[TranslationCache]:
+        """Check cache for translation."""
+        return await self._check_cache(content_hash, page_url)
+
+    def generate_cache_key(self, content_hash: str, page_url: Optional[str] = None) -> str:
+        """Generate cache key."""
+        return self._generate_cache_key(content_hash, page_url)
+
+    async def clear_cache(self, page_url: Optional[str] = None, older_than_hours: Optional[int] = None) -> int:
+        """Clear translation cache entries."""
         db = next(get_db())
         try:
-            query = db.query(TranslationJob)
+            query = db.query(TranslationCache)
 
-            if user_id:
-                query = query.filter(TranslationJob.user_id == user_id)
+            if page_url:
+                query = query.filter(TranslationCache.page_url == page_url)
 
-            jobs = query.order_by(
-                TranslationJob.created_at.desc()
-            ).offset(offset).limit(limit).all()
+            if older_than_hours:
+                cutoff_time = datetime.utcnow() - timedelta(hours=older_than_hours)
+                query = query.filter(TranslationCache.created_at < cutoff_time)
 
-            return [
-                {
-                    "job_id": job.job_id,
-                    "source_language": job.source_language,
-                    "target_language": job.target_language,
-                    "status": job.status,
-                    "progress": float(job.progress_percentage),
-                    "character_count": len(job.original_text),
-                    "processing_time_ms": job.processing_time_ms,
-                    "estimated_cost_usd": float(job.estimated_cost_usd),
-                    "created_at": job.created_at.isoformat(),
-                    "completed_at": job.completed_at.isoformat() if job.completed_at else None
-                }
-                for job in jobs
-            ]
+            # Get count before deleting
+            count = query.count()
+
+            # Delete entries
+            query.delete()
+            db.commit()
+
+            logger.info(
+                "Cache cleared",
+                entries_deleted=count,
+                page_url=page_url,
+                older_than_hours=older_than_hours
+            )
+
+            return count
 
         finally:
             db.close()
 
+    async def health_check(self) -> bool:
+        """Check if the service is healthy."""
+        try:
+            # Test Gemini connection
+            await self.gemini_client.test_connection()
+            return True
+        except Exception as e:
+            logger.error("Health check failed", error=str(e))
+            return False
+
+    async def get_metrics(self, period: str = "24h") -> Dict[str, Any]:
+        """Get translation metrics."""
+        # Implementation would aggregate metrics from database
+        # This is a placeholder
+        return {
+            "period": period,
+            "total_requests": 0,
+            "successful_requests": 0,
+            "failed_requests": 0,
+            "cache_hit_rate": 0.0,
+            "avg_processing_time_ms": 0.0,
+            "total_cost_usd": 0.0
+        }
+
 
 # Global service instance
-_openai_translation_service: Optional[OpenAITranslationService] = None
+_translation_service: Optional[OpenAITranslationService] = None
 
 
-async def get_openai_translation_service() -> OpenAITranslationService:
+async def get_translation_service() -> OpenAITranslationService:
     """Get or create OpenAI translation service instance."""
-    global _openai_translation_service
+    global _translation_service
 
-    if _openai_translation_service is None:
-        cache_service = await get_cache_service()
-        _openai_translation_service = OpenAITranslationService(
-            cache_service=cache_service,
-            enable_analytics=True
-        )
+    if _translation_service is None:
+        _translation_service = OpenAITranslationService()
+        # Initialize the async client
+        _translation_service.gemini_client = get_gemini_client()
 
-    return _openai_translation_service
+    return _translation_service

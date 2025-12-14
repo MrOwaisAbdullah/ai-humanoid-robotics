@@ -3,6 +3,8 @@ import { useFocusMode } from '../../contexts/FocusModeContext';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { Loader2, Globe } from 'lucide-react';
 import { useLocation } from '@docusaurus/router';
+import TextToSpeech from '../../components/TTS/TextToSpeech';
+import styles from './AIFeaturesBar.module.css';
 
 export default function AIFeaturesBar() {
   const { showTranslation } = useFocusMode();
@@ -173,75 +175,51 @@ export default function AIFeaturesBar() {
   };
 
   return (
-    <div className="ai-features-bar glass-bar" style={{
-      borderRadius: '10px',
-      padding: '12px 20px',
-      margin: '24px 0',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      flexWrap: 'wrap',
-      gap: '16px',
-      position: 'sticky',
-      top: '80px', // Offset for navbar height (approx 60px) + some margin
-      zIndex: '90', // Lower than navbar (z-index: 100)
-      transition: 'all 0.3s ease',
-      backgroundColor: 'var(--ifm-background-surface-color)',
-      border: '1px solid var(--ifm-color-emphasis-300)',
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-    }}>
-      <div style={{ color: 'var(--ifm-color-emphasis-600)', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className={`ai-features-bar glass-bar ${styles.aiFeaturesBar}`}>
+      <div className={styles.header}>
         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
         </svg>
         AI Features
-        {!translationEnabled && (
-          <span style={{
-            fontSize: '12px',
-            padding: '2px 6px',
-            background: 'var(--ifm-color-warning-lightest)',
-            color: 'var(--ifm-color-warning-dark)',
-            borderRadius: '4px',
-            fontWeight: 'normal'
-          }}>
-            Translation disabled
-          </span>
-        )}
       </div>
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <button
-          className="button button--primary button--sm"
-          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          onClick={handlePersonalize}
-          disabled={isTranslating}
-        >
-          <span style={{ fontSize: '16px' }}>✨</span>
-          Personalize
-        </button>
-        <button
-          className={`button button--sm ${translationEnabled ? 'button--secondary' : 'button--outline'}`}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            backgroundColor: translationEnabled ? 'var(--ifm-color-secondary)' : undefined,
-            position: 'relative'
-          }}
-          onClick={handleTranslate}
-          disabled={isTranslating || !translationEnabled}
-        >
-          {isTranslating ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              Translating...
-            </>
-          ) : (
-            <>
-              <Globe size={16} />
-              Translate to Urdu
-            </>
-          )}
-        </button>
+      
+      <div className={styles.actionsWrapper}>
+        <div className={styles.topButtons}>
+          <button
+            className={`button button--primary button--sm ${styles.featureBtn}`}
+            onClick={handlePersonalize}
+            disabled={isTranslating}
+          >
+            <span style={{ fontSize: '16px' }}>✨</span>
+            <span className={styles.btnText}>Personalize</span>
+          </button>
+          
+          <button
+            className={`button button--sm button--outline ${styles.featureBtn}`}
+            onClick={handleTranslate}
+            disabled={isTranslating || !translationEnabled}
+          >
+            {isTranslating ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span className={styles.btnText}>Translating...</span>
+              </>
+            ) : (
+              <>
+                <Globe size={16} />
+                <span className={styles.btnText}>Translate to Urdu</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        <TextToSpeech className={styles.voiceBtn} />
+        
+        {!translationEnabled && (
+          <div className={styles.disabledNotice}>
+            ⚠️ Translation is disabled
+          </div>
+        )}
       </div>
     </div>
   );

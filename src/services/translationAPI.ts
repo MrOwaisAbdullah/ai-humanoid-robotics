@@ -122,9 +122,15 @@ class TranslationAPIService {
   /**
    * Generate content hash for caching
    */
-  private generateContentHash(text: string, sourceLang: string, targetLang: string): string {
+  private generateContentHash(
+    text: string,
+    sourceLang: string,
+    targetLang: string
+  ): string {
     const content = `${text}:${sourceLang}:${targetLang}`;
-    return btoa(content).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+    return btoa(content)
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .substring(0, 16);
   }
 
   /**
@@ -140,14 +146,18 @@ class TranslationAPIService {
       context,
       preferCache = true,
       stream = false,
-      userId
+      userId,
     } = request;
 
     // Generate cache key
-    const contentHash = this.generateContentHash(text, sourceLanguage, targetLanguage);
+    const contentHash = this.generateContentHash(
+      text,
+      sourceLanguage,
+      targetLanguage
+    );
     const cacheKey = `${this.cacheKeyPrefix}:${contentHash}`;
 
-      // Check cache first if preferred
+    // Check cache first if preferred
     if (preferCache) {
       const cached = await this.getCachedTranslation(cacheKey);
       if (cached) {
@@ -160,52 +170,70 @@ class TranslationAPIService {
 
     try {
       if (stream) {
-        // Return streaming response
-        return this.translateStream(request);
-      } else {
-        // Return single response
-        const response = await apiRequest.post<TranslationResponse>('/api/v1/translation/', {
+        // Streaming not currently supported, use regular endpoint
+        console.warn(
+          'Streaming is not currently implemented, using regular translation'
+        );
+      }
+
+      // Return single response using the agent endpoint
+      console.log(
+        'Making request to /api/v1/translation/translate/agent with:',
+        {
+          text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+          source_language: sourceLanguage,
+          target_language: targetLanguage,
+          document_type: 'general',
+          user_id: userId || this.getCurrentUserId(),
+        }
+      );
+
+      const response = await apiRequest.post<TranslationResponse>(
+        '/api/v1/translation/translate/agent',
+        {
           text,
           source_language: sourceLanguage,
           target_language: targetLanguage,
-          context,
+          document_type: 'general',
           user_id: userId || this.getCurrentUserId(),
-        });
-
-        const translation = response.data;
-
-  
-        // Transform snake_case response to camelCase for frontend
-        const transformedTranslation: TranslationResponse = {
-          id: translation.id,
-          contentHash: translation.content_hash,
-          sourceLanguage: translation.source_language,
-          targetLanguage: translation.target_language,
-          originalText: translation.original_text || text,
-          translatedText: translation.translated_text,
-          model: translation.model || 'gemini-2.5-flash',
-          characterCount: translation.character_count || text.length,
-          createdAt: translation.created_at || new Date().toISOString(),
-          updatedAt: translation.updated_at || new Date().toISOString(),
-          isCached: false
-        };
-
-        
-        // Cache the translation if caching is enabled
-        if (preferCache) {
-          await this.cacheTranslation(cacheKey, transformedTranslation);
         }
+      );
 
-        // Save to history if enabled
-        const personalization = await this.getPersonalizationSettings();
-        if (personalization.saveHistory) {
-          await this.saveToHistory(transformedTranslation);
-        }
+      console.log('Translation response:', response);
 
-        return transformedTranslation;
+      const translation = response.data;
+
+      // Transform agent response to frontend format
+      const transformedTranslation: TranslationResponse = {
+        id: Date.now(), // Generate a temporary ID since agent doesn't return one
+        contentHash: '', // Not provided by agent
+        sourceLanguage: sourceLanguage,
+        targetLanguage: targetLanguage,
+        originalText: translation.original_text || text,
+        translatedText: translation.translated_text,
+        model: translation.model || 'gemini-2.0-flash-lite',
+        characterCount: (translation.translated_text || '').length,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isCached: false,
+      };
+
+      // Cache the translation if caching is enabled
+      if (preferCache) {
+        await this.cacheTranslation(cacheKey, transformedTranslation);
       }
+
+      // Save to history if enabled
+      const personalization = await this.getPersonalizationSettings();
+      if (personalization.saveHistory) {
+        await this.saveToHistory(transformedTranslation);
+      }
+
+      return transformedTranslation;
     } catch (error: any) {
-      throw new Error(`Translation failed: ${error.response?.data?.detail || error.message}`);
+      throw new Error(
+        `Translation failed: ${error.response?.data?.detail || error.message}`
+      );
     }
   }
 
@@ -222,7 +250,7 @@ class TranslationAPIService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getCookie('access_token')}`,
+          Authorization: `Bearer ${getCookie('access_token')}`,
         },
         body: JSON.stringify({
           text,
@@ -275,21 +303,30 @@ class TranslationAPIService {
   /**
    * Submit feedback for a translation
    */
-  public async submitFeedback(request: TranslationFeedbackRequest): Promise<TranslationFeedback> {
+  public async submitFeedback(
+    request: TranslationFeedbackRequest
+  ): Promise<TranslationFeedback> {
     try {
-      const response = await apiRequest.post<TranslationFeedback>('/api/v1/translation/feedback', {
-        translation_id: request.translationId,
-        rating: request.rating,
-        comment: request.comment,
-        user_id: this.getCurrentUserId(),
-      });
+      const response = await apiRequest.post<TranslationFeedback>(
+        '/api/v1/translation/feedback',
+        {
+          translation_id: request.translationId,
+          rating: request.rating,
+          comment: request.comment,
+          user_id: this.getCurrentUserId(),
+        }
+      );
 
       // Update cached history with feedback
       await this.updateHistoryWithFeedback(response.data);
 
       return response.data;
     } catch (error: any) {
-      throw new Error(`Failed to submit feedback: ${error.response?.data?.detail || error.message}`);
+      throw new Error(
+        `Failed to submit feedback: ${
+          error.response?.data?.detail || error.message
+        }`
+      );
     }
   }
 
@@ -306,10 +343,19 @@ class TranslationAPIService {
       dateTo?: string;
       hasFeedback?: boolean;
     }
-  ): Promise<{ entries: TranslationHistoryEntry[]; total: number; page: number; totalPages: number }> {
+  ): Promise<{
+    entries: TranslationHistoryEntry[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
     try {
       // Check cache first
-      const cacheKey = `${this.historyKeyPrefix}:${JSON.stringify({ page, limit, filters })}`;
+      const cacheKey = `${this.historyKeyPrefix}:${JSON.stringify({
+        page,
+        limit,
+        filters,
+      })}`;
       const cache = await getCache();
       const cached = cache ? await cache.get(cacheKey) : null;
       if (cached) {
@@ -335,7 +381,11 @@ class TranslationAPIService {
 
       return response.data;
     } catch (error: any) {
-      throw new Error(`Failed to fetch translation history: ${error.response?.data?.detail || error.message}`);
+      throw new Error(
+        `Failed to fetch translation history: ${
+          error.response?.data?.detail || error.message
+        }`
+      );
     }
   }
 
@@ -351,13 +401,18 @@ class TranslationAPIService {
         return cached;
       }
 
-      const response = await apiRequest.get<PersonalizationSettings>('/api/v1/translation/personalization', {
-        params: { user_id: this.getCurrentUserId() },
-      });
+      const response = await apiRequest.get<PersonalizationSettings>(
+        '/api/v1/translation/personalization',
+        {
+          params: { user_id: this.getCurrentUserId() },
+        }
+      );
 
       // Cache the settings
       if (cache) {
-        await cache.set(this.personalizationKey, response.data, { ttl: 30 * 60 * 1000 }); // 30 minutes
+        await cache.set(this.personalizationKey, response.data, {
+          ttl: 30 * 60 * 1000,
+        }); // 30 minutes
       }
 
       return response.data;
@@ -392,12 +447,18 @@ class TranslationAPIService {
       // Update cache
       const cache = await getCache();
       if (cache) {
-        await cache.set(this.personalizationKey, response.data, { ttl: 30 * 60 * 1000 });
+        await cache.set(this.personalizationKey, response.data, {
+          ttl: 30 * 60 * 1000,
+        });
       }
 
       return response.data;
     } catch (error: any) {
-      throw new Error(`Failed to update personalization settings: ${error.response?.data?.detail || error.message}`);
+      throw new Error(
+        `Failed to update personalization settings: ${
+          error.response?.data?.detail || error.message
+        }`
+      );
     }
   }
 
@@ -405,7 +466,9 @@ class TranslationAPIService {
    * Clear translation cache
    */
   public async clearCache(pattern?: string): Promise<number> {
-    const cachePattern = pattern ? `${this.cacheKeyPrefix}:${pattern}` : `${this.cacheKeyPrefix}:*`;
+    const cachePattern = pattern
+      ? `${this.cacheKeyPrefix}:${pattern}`
+      : `${this.cacheKeyPrefix}:*`;
     const cache = await getCache();
     return cache ? cache.clear(cachePattern) : 0;
   }
@@ -456,14 +519,20 @@ class TranslationAPIService {
         cache.clear(`${this.historyKeyPrefix}:*`);
       }
     } catch (error: any) {
-      throw new Error(`Failed to delete translation: ${error.response?.data?.detail || error.message}`);
+      throw new Error(
+        `Failed to delete translation: ${
+          error.response?.data?.detail || error.message
+        }`
+      );
     }
   }
 
   /**
    * Batch delete translations from history
    */
-  public async batchDeleteTranslations(translationIds: number[]): Promise<void> {
+  public async batchDeleteTranslations(
+    translationIds: number[]
+  ): Promise<void> {
     try {
       await apiRequest.post('/api/v1/translation/history/batch-delete', {
         translation_ids: translationIds,
@@ -476,7 +545,11 @@ class TranslationAPIService {
         cache.clear(`${this.historyKeyPrefix}:*`);
       }
     } catch (error: any) {
-      throw new Error(`Failed to batch delete translations: ${error.response?.data?.detail || error.message}`);
+      throw new Error(
+        `Failed to batch delete translations: ${
+          error.response?.data?.detail || error.message
+        }`
+      );
     }
   }
 
@@ -484,13 +557,13 @@ class TranslationAPIService {
 
   private getCurrentUserId(): string {
     const userId = getCookie('user_id');
-    if (!userId) {
-      throw new Error('User not authenticated');
-    }
-    return userId;
+    // Return a placeholder for anonymous users
+    return userId || 'anonymous_user';
   }
 
-  private async getCachedTranslation(cacheKey: string): Promise<TranslationResponse | null> {
+  private async getCachedTranslation(
+    cacheKey: string
+  ): Promise<TranslationResponse | null> {
     try {
       const cache = await getCache();
       return cache ? await cache.get(cacheKey) : null;
@@ -500,11 +573,16 @@ class TranslationAPIService {
     }
   }
 
-  private async cacheTranslation(cacheKey: string, translation: TranslationResponse): Promise<void> {
+  private async cacheTranslation(
+    cacheKey: string,
+    translation: TranslationResponse
+  ): Promise<void> {
     try {
       const cache = await getCache();
       if (cache) {
-        await cache.set(cacheKey, translation, { ttl: 7 * 24 * 60 * 60 * 1000 }); // 7 days
+        await cache.set(cacheKey, translation, {
+          ttl: 7 * 24 * 60 * 60 * 1000,
+        }); // 7 days
       }
     } catch (error) {
       console.error('Failed to cache translation:', error);
@@ -515,7 +593,9 @@ class TranslationAPIService {
     try {
       // This would typically be handled by the backend, but we can
       // also maintain a local copy for immediate UI updates
-      const historyKey = `${this.historyKeyPrefix}:local:${this.getCurrentUserId()}`;
+      const historyKey = `${
+        this.historyKeyPrefix
+      }:local:${this.getCurrentUserId()}`;
       const cache = await getCache();
       const history = cache ? (await cache.get(historyKey)) || [] : [];
 
@@ -542,9 +622,13 @@ class TranslationAPIService {
     }
   }
 
-  private async updateHistoryWithFeedback(feedback: TranslationFeedback): Promise<void> {
+  private async updateHistoryWithFeedback(
+    feedback: TranslationFeedback
+  ): Promise<void> {
     try {
-      const historyKey = `${this.historyKeyPrefix}:local:${this.getCurrentUserId()}`;
+      const historyKey = `${
+        this.historyKeyPrefix
+      }:local:${this.getCurrentUserId()}`;
       const cache = await getCache();
       const history = cache ? (await cache.get(historyKey)) || [] : [];
 

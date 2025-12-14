@@ -42,6 +42,9 @@ class User(Base):
     chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
     folders = relationship("ChatFolder", back_populates="user", cascade="all, delete-orphan")
     tags = relationship("ChatTag", back_populates="user", cascade="all, delete-orphan")
+    translation_jobs = relationship("TranslationJob", back_populates="user", cascade="all, delete-orphan")
+    translation_sessions = relationship("TranslationSession", back_populates="user", cascade="all, delete-orphan")
+    translation_metrics = relationship("TranslationMetrics", back_populates="user", cascade="all, delete-orphan")
 
 
 class Account(Base):

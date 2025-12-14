@@ -50,6 +50,7 @@ description: "Task list for OpenAI Translation System implementation"
 - [ ] T011 Set up logging configuration for translation service in backend/src/utils/logger.py
 - [ ] T012 Create translation API router structure in backend/src/api/v1/translation.py
 - [ ] T013 [P] Configure rate limiting middleware for translation endpoints
+- [ ] T053 [P] Implement session management for rate limiting
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -148,6 +149,8 @@ description: "Task list for OpenAI Translation System implementation"
 - [ ] T048 [P] Implement request/response logging for debugging
 - [ ] T049 [P] Add metrics collection for translation performance
 - [ ] T050 [P] Create health check endpoint /api/v1/translation/health
+- [ ] T061 [P] Implement uptime monitoring with 99.9% SLO tracking
+- [ ] T062 [P] Add performance metrics dashboard endpoint
 - [ ] T051 [P] Add input validation and sanitization for all endpoints
 - [ ] T052 [P] Implement session management for rate limiting
 - [ ] T053 [P] Add OpenAPI documentation for all translation endpoints
