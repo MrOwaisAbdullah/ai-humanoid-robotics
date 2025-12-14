@@ -19,7 +19,11 @@
   "dependencies": {
     "@docusaurus/core": "3.9.2",
     "@docusaurus/preset-classic": "3.9.2",
+    "@hookform/resolvers": "^3.3.4",
     "@mdx-js/react": "^3.0.0",
+    "@pagefind/default-ui": "^1.4.0",
+    "@types/node": "^24.10.2",
+    "@types/react": "^19.2.7",
     "@types/react-syntax-highlighter": "^15.5.13",
     "axios": "^1.6.0",
     "clsx": "^2.0.0",
@@ -28,9 +32,12 @@
     "prism-react-renderer": "^2.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-hook-form": "^7.48.2",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
-    "remark-gfm": "^4.0.1"
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@docusaurus/faster": "^3.9.2",

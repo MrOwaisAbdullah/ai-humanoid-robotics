@@ -30,11 +30,12 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Course Content',
+      collapsed: false,
       items: [
         {
           type: 'category',
-          label: 'Part 1: Foundations',
-          collapsed: true,
+          label: 'MODULE 1: FOUNDATIONS',
+          collapsed: false,
           items: [
             'part-1-foundations/chapter-1-introduction',
             'part-1-foundations/chapter-2-sensors-perception',
@@ -45,7 +46,8 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Part 2: Nervous System',
+          label: 'MODULE 2: NERVOUS SYSTEM',
+          collapsed: true,
           items: [
             'part-2-nervous-system/chapter-6-ros2-architecture',
             'part-2-nervous-system/chapter-7-ros2-nodes-python',
@@ -54,7 +56,8 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Part 3: Motion and Control',
+          label: 'MODULE 3: MOTION AND CONTROL',
+          collapsed: true,
           items: [
             'part-3-motion-control/chapter-9-kinematics-dynamics',
             'part-3-motion-control/chapter-10-balance-locomotion',
@@ -63,7 +66,8 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Part 4: Applications and Advanced Topics',
+          label: 'MODULE 4: APPLICATIONS AND ADVANCED TOPICS',
+          collapsed: true,
           items: [
             'part-4-applications/chapter-12-computer-vision',
             'part-4-applications/chapter-13-machine-learning',

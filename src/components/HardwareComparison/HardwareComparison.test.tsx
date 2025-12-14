@@ -19,7 +19,7 @@ describe('HardwareComparison', () => {
 
     expect(screen.getByText('Hardware Comparison Tool')).toBeInTheDocument();
     expect(screen.getByText('Component Category')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'GPU' })).toHaveClass('bg-blue-600');
+    expect(screen.getByRole('button', { name: 'GPU' })).toHaveClass('bg-[#10a37f]');
   });
 
   test('category selection changes active button', () => {
@@ -28,8 +28,8 @@ describe('HardwareComparison', () => {
     const cpuButton = screen.getByRole('button', { name: 'CPU' });
     fireEvent.click(cpuButton);
 
-    expect(cpuButton).toHaveClass('bg-blue-600');
-    expect(screen.getByRole('button', { name: 'GPU' })).not.toHaveClass('bg-blue-600');
+    expect(cpuButton).toHaveClass('bg-[#10a37f]');
+    expect(screen.getByRole('button', { name: 'GPU' })).not.toHaveClass('bg-[#10a37f]');
   });
 
   test('tier filter updates results', () => {

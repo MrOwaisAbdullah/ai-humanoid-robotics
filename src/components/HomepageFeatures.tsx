@@ -4,34 +4,34 @@ import styles from './HomepageFeatures.module.css';
 
 const FeatureList = [
   {
-    title: 'Modern Development',
-    icon: '⚡',
-    description: 'Learn cutting-edge web development with Docusaurus 3.9, TypeScript, and the latest React features.',
+    title: 'Embodied Intelligence',
+    icon: '🧠',
+    description: 'Bridge the gap between digital AI and the physical world. Give LLMs a body and sensory perception.',
   },
   {
-    title: 'AI-Native Design',
-    icon: '🎨',
-    description: 'Master modern UI/UX patterns with glassmorphism effects, dark themes, and responsive design.',
+    title: 'ROS 2 & Isaac Sim',
+    icon: '🤖',
+    description: 'Master the industry-standard Robot Operating System and NVIDIA\'s photorealistic simulation environment.',
   },
   {
-    title: 'Production Ready',
-    icon: '🚀',
-    description: 'Deploy professional sites with automated workflows, performance optimization, and accessibility.',
+    title: 'Hands-On Hardware',
+    icon: '🛠️',
+    description: 'Build real systems with Jetson Orin, Realsense cameras, and dynamixel actuators.',
   },
   {
-    title: 'Educational Focus',
-    icon: '📚',
-    description: 'Build content that teaches effectively with interactive examples and clear explanations.',
+    title: 'Computer Vision',
+    icon: '👁️',
+    description: 'Implement state-of-the-art perception pipelines for depth estimation, object detection, and SLAM.',
   },
   {
-    title: 'Best Practices',
-    icon: '✨',
-    description: 'Follow industry standards for code quality, testing, documentation, and maintenance.',
+    title: 'Sim-to-Real Transfer',
+    icon: '🔄',
+    description: 'Train policies in simulation and successfully deploy them to physical humanoid hardware.',
   },
   {
-    title: 'Community Driven',
-    icon: '🤝',
-    description: 'Join a growing community of developers building modern educational content.',
+    title: 'Cognitive Architecture',
+    icon: '🧩',
+    description: 'Design complex nervous systems that integrate planning, memory, and multi-modal interaction.',
   },
 ];
 
@@ -60,10 +60,10 @@ export default function HomepageFeatures(): JSX.Element {
         <div className="row">
           <div className="col col--12 text-center mb-8">
             <h2 className={styles.sectionTitle}>
-              Why This Approach?
+              What You Will Master
             </h2>
             <p className={styles.sectionSubtitle}>
-              Modern tools and techniques for creating exceptional educational experiences
+              A comprehensive curriculum designed for the next generation of robotics engineers
             </p>
           </div>
         </div>

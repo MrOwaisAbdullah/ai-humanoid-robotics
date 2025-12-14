@@ -584,7 +584,7 @@ const HardwareComparison: React.FC<HardwareComparisonProps> = ({
   const getPerformanceColor = (ratio: number, maxRatio: number) => {
     const percentage = (ratio / maxRatio) * 100;
     if (percentage > 80) return 'bg-green-500';
-    if (percentage > 60) return 'bg-blue-500';
+    if (percentage > 60) return 'bg-[#10a37f]';
     if (percentage > 40) return 'bg-yellow-500';
     return 'bg-gray-400';
   };
@@ -618,7 +618,7 @@ const HardwareComparison: React.FC<HardwareComparisonProps> = ({
               onClick={() => setSelectedCategory(cat.id as any)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 selectedCategory === cat.id
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-[#10a37f] text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
               }`}
             >
@@ -637,7 +637,7 @@ const HardwareComparison: React.FC<HardwareComparisonProps> = ({
           <select
             value={filters.tier}
             onChange={e => setFilters({ ...filters, tier: e.target.value as any })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#10a37f] dark:bg-gray-800 dark:text-white"
           >
             <option value="all">All Tiers</option>
             <option value="edge">Edge Kit</option>
@@ -672,7 +672,7 @@ const HardwareComparison: React.FC<HardwareComparisonProps> = ({
               setSortField(field as SortField);
               setSortOrder(order as SortOrder);
             }}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#10a37f] dark:bg-gray-800 dark:text-white"
           >
             <option value="price-asc">Price: Low to High</option>
             <option value="price-desc">Price: High to Low</option>
@@ -737,7 +737,7 @@ const HardwareComparison: React.FC<HardwareComparisonProps> = ({
               const ratio = getPriceToPerformanceRatio(item);
               const isSelected = selectedComponents[selectedCategory]?.model === item.model;
               return (
-                <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-800 border-b ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                <tr key={index} className={`hover:bg-gray-50 dark:hover:bg-gray-800 border-b ${isSelected ? 'bg-[#10a37f]/10 dark:bg-[#10a37f]/20' : ''}`}>
                   <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                     {item.model}
                   </td>
@@ -817,7 +817,7 @@ const HardwareComparison: React.FC<HardwareComparisonProps> = ({
                         className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                           isSelected
                             ? 'bg-green-600 text-white'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-[#10a37f] text-white hover:bg-[#0d8f6c]'
                         }`}
                       >
                         {isSelected ? 'Selected' : 'Add to Budget'}
@@ -871,8 +871,8 @@ const HardwareComparison: React.FC<HardwareComparisonProps> = ({
       </div>
 
       {/* Integration Note */}
-      <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-        <p className="text-sm text-blue-800 dark:text-blue-200">
+      <div className="mt-8 p-4 bg-[#10a37f]/10 dark:bg-[#10a37f]/20 rounded-lg">
+        <p className="text-sm text-[#10a37f] dark:text-[#5eead4]">
           <strong>Budget Integration:</strong> Selected components can be added to your custom configuration for detailed cost analysis in the Budget Calculator.
           The calculator will estimate total costs, cloud alternatives, and ROI projections.
         </p>

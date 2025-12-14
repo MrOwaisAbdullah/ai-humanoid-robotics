@@ -25,6 +25,7 @@ from rag.chat import ChatHandler
 from rag.qdrant_client import QdrantManager
 from rag.tasks import TaskManager
 from api.exceptions import ContentNotFoundError, RAGException
+from src.services.translation_cache import cache_service
 
 # Import security middleware
 from middleware.csrf import CSRFMiddleware
@@ -32,6 +33,7 @@ from middleware.auth import AuthMiddleware
 
 # Import auth routes
 from routes import auth
+from src.api.routes import chat
 
 # Import ChatKit server
 # from chatkit_server import get_chatkit_server
@@ -59,6 +61,7 @@ logger = structlog.get_logger()
 
 # Load environment variables
 load_dotenv()
+print(f"*** Environment loaded. GEMINI_API_KEY exists: {bool(os.getenv('GEMINI_API_KEY'))} ***")
 
 
 class Settings(BaseSettings):
@@ -90,11 +93,14 @@ class Settings(BaseSettings):
     # CORS Configuration
     allowed_origins: str = os.getenv(
         "ALLOWED_ORIGINS",
-        "http://localhost:3000,http://localhost:8080,https://mrowaisabdullah.github.io,https://huggingface.co"
+        "http://localhost:3000,http://localhost:3001,http://localhost:8080,https://mrowaisabdullah.github.io,https://huggingface.co"
     )
 
     # JWT Configuration
     jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key")
+
+    # Google AI Configuration
+    google_ai_api_key: str = os.getenv("GEMINI_API_KEY", "")
 
     # Conversation Context
     max_context_messages: int = int(os.getenv("MAX_CONTEXT_MESSAGES", "3"))
@@ -131,7 +137,18 @@ async def lifespan(app: FastAPI):
     global chat_handler, qdrant_manager, document_ingestor, task_manager
 
     # Create database tables on startup
-    from database.config import create_tables
+    from database.config import create_tables, engine, DATABASE_URL
+    import os
+    from pathlib import Path
+
+    # Ensure database directory exists
+    if "sqlite" in DATABASE_URL:
+        db_path = Path(DATABASE_URL.replace("sqlite:///", ""))
+        db_dir = db_path.parent
+        db_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Database directory ensured: {db_dir}")
+
+    # Create tables
     create_tables()
 
     logger.info("Starting up RAG backend...",
@@ -169,6 +186,9 @@ async def lifespan(app: FastAPI):
             max_concurrent_tasks=settings.max_concurrent_requests
         )
         await task_manager.start()
+
+        # Start background task for cache cleanup (runs daily)
+        asyncio.create_task(schedule_cache_cleanup())
 
         logger.info("RAG backend initialized successfully")
 
@@ -225,18 +245,29 @@ app.add_middleware(
     httponly=False,
     samesite="lax",
     max_age=3600,
-    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections"],
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth/login", "/auth/register", "/api/chat", "/auth/logout", "/auth/me", "/auth/preferences", "/auth/refresh", "/api/v1/translation"],
 )
 
 app.add_middleware(
     AuthMiddleware,
     anonymous_limit=3,
-    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth"],
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth", "/api/v1/translation"],
     anonymous_header="X-Anonymous-Session-ID",
 )
 
 # Include auth routes
 app.include_router(auth.router)
+
+# Include new chat routes
+app.include_router(chat.router)
+
+# Include reader features routes
+from src.api.v1 import reader_features
+app.include_router(reader_features.router, prefix="/api/v1")
+
+# Include translation routes
+from src.api.v1 import translation
+app.include_router(translation.router, prefix="/api/v1")
 
 
 # Optional API key security for higher rate limits
@@ -424,13 +455,83 @@ async def chat_endpoint(
             )
         else:
             # Return complete response (non-streaming)
-            response = await chat_handler.chat(
-                query=query,
-                session_id=session_id,
-                k=k,
-                context_window=context_window
-            )
-            return response
+            # Create a helper to collect streaming response
+            async def collect_streaming_response():
+                collected_response = {
+                    "answer": "",
+                    "sources": [],
+                    "session_id": session_id,
+                    "query": query,
+                    "response_time": 0,
+                    "tokens_used": 0,
+                    "context_used": False
+                }
+
+                response_chunks = []
+                try:
+                    async for chunk in chat_handler.chat(
+                        query=query,
+                        session_id=session_id,
+                        k=k,
+                        context_window=context_window
+                    ):
+                        response_chunks.append(chunk)
+
+                        # Parse SSE chunk
+                        if chunk.startswith("data: "):
+                            try:
+                                import json
+                                chunk_data = json.loads(chunk[6:])  # Remove "data: " prefix
+
+                                # Handle different chunk types
+                                if chunk_data.get("type") == "final":
+                                    # Handle sources serialization issue
+                                    if "sources" in chunk_data:
+                                        try:
+                                            # Convert Citation objects to serializable format
+                                            sources = []
+                                            for source in chunk_data["sources"]:
+                                                if hasattr(source, '__dict__'):
+                                                    # Convert object to dict
+                                                    source_dict = {
+                                                        "id": getattr(source, 'id', ''),
+                                                        "chunk_id": getattr(source, 'chunk_id', ''),
+                                                        "document_id": getattr(source, 'document_id', ''),
+                                                        "text_snippet": getattr(source, 'text_snippet', ''),
+                                                        "relevance_score": getattr(source, 'relevance_score', 0),
+                                                        "chapter": getattr(source, 'chapter', ''),
+                                                        "section": getattr(source, 'section', ''),
+                                                        "confidence": getattr(source, 'confidence', 0)
+                                                    }
+                                                    sources.append(source_dict)
+                                                else:
+                                                    sources.append(source)
+                                            chunk_data["sources"] = sources
+                                        except Exception as serialize_error:
+                                            logger.warning(f"Failed to serialize sources: {serialize_error}")
+                                            chunk_data["sources"] = []
+
+                                    collected_response.update(chunk_data)
+                                    break
+                                elif chunk_data.get("type") == "chunk":
+                                    collected_response["answer"] += chunk_data.get("content", "")
+                                elif chunk_data.get("type") == "error":
+                                    collected_response["answer"] = chunk_data.get("message", "Error occurred")
+                                    break
+                            except json.JSONDecodeError:
+                                # If not JSON, treat as plain text
+                                if chunk.startswith("data: "):
+                                    text_part = chunk[6:].strip()
+                                    collected_response["answer"] += text_part
+
+                except Exception as e:
+                    logger.error(f"Error collecting streaming response: {e}")
+                    collected_response["answer"] = "I encountered an error while processing your request."
+                    collected_response["error"] = str(e)
+
+                return collected_response
+
+            return await collect_streaming_response()
     except ContentNotFoundError as e:
         # Specific error for when no relevant content is found
         logger.warning(f"No content found for query: {query[:100]}...")
@@ -800,6 +901,45 @@ async def create_chatkit_session(request: Request):
     # except Exception as e:
     #     logger.error("ChatKit endpoint error", error=str(e), exc_info=True)
     #     raise HTTPException(status_code=500, detail=f"ChatKit processing error: {str(e)}")
+
+
+async def schedule_cache_cleanup():
+    """
+    Schedule periodic cache cleanup task.
+    Runs every 24 hours to clear expired translation cache entries.
+    """
+    import logging
+
+    cache_logger = logging.getLogger(__name__)
+
+    while True:
+        try:
+            # Wait for 24 hours
+            await asyncio.sleep(86400)  # 24 hours in seconds
+
+            # Clean up expired cache entries
+            cleared_count = await cache_service.clear_expired_cache()
+
+            if cleared_count > 0:
+                cache_logger.info(
+                    f"Cache cleanup completed",
+                    cleared_entries=cleared_count,
+                    timestamp=datetime.utcnow().isoformat()
+                )
+            else:
+                cache_logger.debug(
+                    "Cache cleanup completed - no expired entries found",
+                    timestamp=datetime.utcnow().isoformat()
+                )
+
+        except Exception as e:
+            cache_logger.error(
+                "Cache cleanup failed",
+                error=str(e),
+                timestamp=datetime.utcnow().isoformat()
+            )
+            # Wait 1 hour before retrying on error
+            await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":

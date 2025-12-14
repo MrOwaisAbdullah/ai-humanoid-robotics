@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(git fetch:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__take_snapshot"
     ],
     "deny": [],
     "ask": []

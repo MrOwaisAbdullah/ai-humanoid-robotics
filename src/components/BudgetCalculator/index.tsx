@@ -503,15 +503,7 @@ const BudgetCalculator: React.FC = () => {
 
   // Component JSX
   return (
-    <div className="w-full max-w-6xl mx-auto p-6 bg-white dark:bg-zinc-900 rounded-lg shadow-lg">
-      <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
-        Robotics Hardware Budget Calculator
-      </h1>
-
-      <p className="text-zinc-600 dark:text-zinc-400 mb-8">
-        Plan your Physical AI & Humanoid Robotics hardware setup across different tiers and configurations.
-      </p>
-
+    <div className="w-full max-w-6xl mx-auto p-6 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700">
       {/* Tier Selection */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
@@ -636,7 +628,7 @@ const BudgetCalculator: React.FC = () => {
                   [prev.selectedTier]: parseInt(e.target.value) || 1
                 }
               }))}
-              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-[#10a37f] focus:border-transparent outline-none transition-colors"
             />
           </div>
         </div>
@@ -731,7 +723,7 @@ const BudgetCalculator: React.FC = () => {
                 ...prev,
                 cloudUsageHours: parseInt(e.target.value) || 0
               }))}
-              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:ring-2 focus:ring-[#10a37f] focus:border-transparent outline-none transition-colors"
             />
           </div>
         )}
@@ -782,160 +774,168 @@ const BudgetCalculator: React.FC = () => {
         </div>
       </div>
 
-      {/* Comparison Button */}
-      <div className="mb-8">
+      {/* Comparison Dropdown */}
+      <div className="mb-8 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
         <button
           onClick={() => setShowComparison(!showComparison)}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="w-full flex justify-between items-center p-4 bg-zinc-100 dark:bg-zinc-800 text-left hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
         >
-          {showComparison ? 'Hide' : 'Show'} Cloud vs On-Premise Comparison
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">Cloud vs On-Premise Comparison</span>
+          <svg
+            className={`w-5 h-5 text-zinc-500 transform transition-transform ${showComparison ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
-      </div>
+        
+        {showComparison && (
+          <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800">
+                <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-3">
+                  On-Premise (Hardware)
+                </h4>
+                <ul className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  <li className="flex items-start">
+                    <span className="text-[#10a37f] mr-2">✓</span>
+                    Full control over hardware
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-[#10a37f] mr-2">✓</span>
+                    No recurring monthly costs
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-[#10a37f] mr-2">✓</span>
+                    Complete data privacy
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-[#10a37f] mr-2">✓</span>
+                    Customizable and upgradable
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-red-500 mr-2">✗</span>
+                    High upfront investment
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-red-500 mr-2">✗</span>
+                    Maintenance required
+                  </li>
+                </ul>
+              </div>
 
-      {showComparison && (
-        <div className="mb-8 p-6 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
-          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-            Cloud vs On-Premise Comparison
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-3">
-                On-Premise (Hardware)
-              </h4>
-              <ul className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Full control over hardware
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  No recurring monthly costs
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Complete data privacy
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Customizable and upgradable
-                </li>
-                <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
-                  High upfront investment
-                </li>
-                <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
-                  Maintenance required
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-3">
-                Cloud Computing
-              </h4>
-              <ul className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Pay-as-you-go pricing
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  No hardware maintenance
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Access to latest GPUs
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Scalable resources
-                </li>
-                <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
-                  Recurring monthly costs
-                </li>
-                <li className="flex items-start">
-                  <span className="text-red-500 mr-2">✗</span>
-                  Data transfer costs
-                </li>
-              </ul>
+              <div className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800">
+                <h4 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-3">
+                  Cloud Computing
+                </h4>
+                <ul className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  <li className="flex items-start">
+                    <span className="text-[#10a37f] mr-2">✓</span>
+                    Pay-as-you-go pricing
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-[#10a37f] mr-2">✓</span>
+                    No hardware maintenance
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-[#10a37f] mr-2">✓</span>
+                    Access to latest GPUs
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-[#10a37f] mr-2">✓</span>
+                    Scalable resources
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-red-500 mr-2">✗</span>
+                    Recurring monthly costs
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-red-500 mr-2">✗</span>
+                    Data transfer costs
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Optimization Recommendations */}
-      <div className="mb-8">
-        <button
-          onClick={() => setShowOptimizations(!showOptimizations)}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          {showOptimizations ? 'Hide' : 'Show'} Optimization Recommendations
-        </button>
+        )}
       </div>
 
-      {showOptimizations && (
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-            Optimization Recommendations
-          </h3>
+      {/* Optimization Recommendations Dropdown */}
+      <div className="mb-8 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+        <button
+          onClick={() => setShowOptimizations(!showOptimizations)}
+          className="w-full flex justify-between items-center p-4 bg-zinc-100 dark:bg-zinc-800 text-left hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+        >
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100">Optimization Recommendations</span>
+          <svg
+            className={`w-5 h-5 text-zinc-500 transform transition-transform ${showOptimizations ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
-          {generateRecommendations.length > 0 ? (
-            <div className="space-y-4">
-              {generateRecommendations.map((rec, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {rec.title}
-                    </h4>
-                    <span className={`px-2 py-1 text-xs rounded ${
-                      rec.type === 'cost-saving'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : rec.type === 'performance'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                    }`}>
-                      {rec.type}
-                    </span>
-                  </div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">
-                    {rec.description}
-                  </p>
-                  {rec.potentialSavings > 0 && (
-                    <p className="text-sm font-semibold text-green-600 dark:text-green-400 mb-2">
-                      Potential Savings: ${rec.potentialSavings.toFixed(2)}
+        {showOptimizations && (
+          <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-700">
+            {generateRecommendations.length > 0 ? (
+              <div className="space-y-4">
+                {generateRecommendations.map((rec, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {rec.title}
+                      </h4>
+                      <span className={`px-2 py-1 text-xs rounded ${
+                        rec.type === 'cost-saving'
+                          ? 'bg-[#10a37f]/10 text-[#10a37f]'
+                          : rec.type === 'performance'
+                          ? 'bg-[#10a37f]/10 text-[#10a37f]'
+                          : 'bg-[#10a37f]/10 text-[#10a37f]'
+                      }`}>
+                        {rec.type}
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">
+                      {rec.description}
                     </p>
-                  )}
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    <strong>Implementation:</strong> {rec.implementation}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Your current configuration is well-optimized! No specific recommendations at this time.
-            </p>
-          )}
-        </div>
-      )}
+                    {rec.potentialSavings > 0 && (
+                      <p className="text-sm font-semibold text-[#10a37f] mb-2">
+                        Potential Savings: ${rec.potentialSavings.toFixed(2)}
+                      </p>
+                    )}
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      <strong>Implementation:</strong> {rec.implementation}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Your current configuration is well-optimized! No specific recommendations at this time.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Export Options */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 justify-end mt-8 pt-6 border-t border-zinc-200 dark:border-zinc-700">
         <button
           onClick={exportToCSV}
-          className="px-6 py-2 bg-zinc-600 text-white rounded-lg hover:bg-zinc-700 transition-colors"
+          className="px-6 py-2 bg-[#10a37f] text-white rounded-lg hover:bg-[#0d8f6c] transition-colors w-full sm:w-auto"
         >
           Export to CSV
         </button>
         <button
           onClick={exportToJSON}
-          className="px-6 py-2 bg-zinc-600 text-white rounded-lg hover:bg-zinc-700 transition-colors"
+          className="px-6 py-2 bg-[#10a37f] text-white rounded-lg hover:bg-[#0d8f6c] transition-colors w-full sm:w-auto"
         >
           Export to JSON
         </button>

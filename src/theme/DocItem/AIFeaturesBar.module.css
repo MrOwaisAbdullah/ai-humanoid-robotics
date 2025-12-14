@@ -1,0 +1,159 @@
+/* Container Layout & Shared Styles */
+.aiFeaturesBar {
+  border-radius: 10px;
+  padding: 12px 20px;
+  margin: 24px 0;
+  position: sticky;
+  top: 80px; /* Navbar offset */
+  z-index: 90;
+  transition: all 0.3s ease;
+  background-color: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Header Styling */
+.header {
+  color: var(--ifm-color-emphasis-600);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Shared Button Styles */
+.featureBtn,
+.voiceBtn button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px; /* Fixed height for consistency */
+  padding: 0 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+/* Specific Button Tweaks */
+.voiceBtn :global(button.tts-button) {
+  /* Ensure TTS button matches others */
+  height: 36px;
+  padding: 0 16px;
+}
+
+/* Hover States - Fix Blending */
+.featureBtn:not(:disabled):hover,
+.voiceBtn button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+/* Primary Button Hover */
+.featureBtn.button--primary:not(:disabled):hover {
+  background-color: var(--ifm-color-primary-dark);
+  border-color: var(--ifm-color-primary-dark);
+}
+
+/* All Buttons Hover - Light Mode */
+:global(html[data-theme='light']) .aiFeaturesBar :global(.button):not(:disabled):hover {
+  background-color: #5eead4 !important; /* Teal 300 */
+  color: #0f766e !important; /* Teal 700 */
+  border-color: #0f766e !important;
+}
+
+/* All Buttons Hover - Dark Mode */
+:global(html[data-theme='dark']) .aiFeaturesBar :global(.button):not(:disabled):hover {
+  background-color: #0f766e !important; /* Teal 700 */
+  color: #ffffff !important;
+  border-color: #5eead4 !important;
+}
+
+.btnText {
+  display: inline;
+}
+
+.disabledNotice {
+  font-size: 12px;
+  padding: 6px 10px;
+  background: var(--ifm-color-warning-lightest);
+  color: var(--ifm-color-warning-dark);
+  border-radius: 6px;
+  font-weight: normal;
+  border: 1px solid var(--ifm-color-warning-light);
+  white-space: nowrap;
+}
+
+/* =========================================
+   DESKTOP LAYOUT (Default / >768px)
+   ========================================= */
+.actionsWrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topButtons {
+  display: flex;
+  gap: 12px;
+}
+
+.voiceBtn {
+  width: auto;
+}
+
+/* =========================================
+   MOBILE LAYOUT (<768px)
+   ========================================= */
+@media (max-width: 768px) {
+  .aiFeaturesBar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .header {
+    margin-bottom: 4px;
+  }
+
+  .actionsWrapper {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  /* Row 1: Personalize & Translate */
+  .topButtons {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .topButtons .featureBtn {
+    flex: 1;
+    font-size: 13px; /* Slightly smaller on mobile */
+    padding: 0 8px;
+  }
+
+  /* Row 2: Voice Button */
+  .voiceBtn {
+    width: 100%;
+  }
+
+  .voiceBtn :global(button) {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  
+  .voiceBtn :global(.tts-controls) {
+    width: 100% !important;
+    justify-content: center;
+  }
+}

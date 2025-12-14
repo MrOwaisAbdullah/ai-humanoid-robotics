@@ -24,7 +24,7 @@ from jose import jwt
 # Import modules to test
 from main import app
 from database.config import get_db, Base
-from models.auth import User, Session, UserPreferences
+from src.models.auth import User, Session, UserPreferences
 from auth.auth import create_access_token, verify_token
 from middleware.csrf import CSRFMiddleware
 from middleware.auth import AuthMiddleware

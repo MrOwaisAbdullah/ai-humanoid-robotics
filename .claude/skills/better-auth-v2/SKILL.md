@@ -13,17 +13,19 @@ dependencies:
 
 ## Purpose
 
-Provides **cutting-edge authentication templates** using Better Auth v2 that include:
-- Email/password and OAuth authentication with enhanced security
+Provides **cutting-edge authentication templates** and **expert integration guidance** using Better Auth v2. This skill analyzes your project architecture and implements a full-featured authentication system including:
+- Email/password and OAuth authentication (Google, Apple, Facebook, X, etc.)
 - Advanced OAuth token encryption and account linking
 - Multi-factor authentication (2FA) support
 - Role-Based Access Control (RBAC) with fine-grained permissions
 - Multi-tenant architecture with organizations
 - Session management with enhanced security
 - Production-ready security configurations
+- **Personalized onboarding flows** for user background collection
 
 ## What This Skill Provides
 
+✅ **Automated Implementation Plan**: Analyzes project structure (framework, DB, backend) and provides a tailored integration strategy.
 ✅ **Latest Better Auth v2 configuration templates**
 ✅ **Enhanced database schemas** (Prisma, Drizzle, Kysely, MongoDB)
 ✅ **Modern React/Vue/Svelte authentication clients**
@@ -32,12 +34,13 @@ Provides **cutting-edge authentication templates** using Better Auth v2 that inc
 ✅ **OAuth provider setup with token encryption**
 ✅ **2FA and passkey authentication templates**
 ✅ **Advanced security configurations**
+✅ **Separate Backend Creation**: For static/SSR-incompatible sites, creates a dedicated Hono + Node.js backend.
 
 ## What This Skill Does NOT Provide
 
 ❌ Custom business logic implementation (use better-auth-specialist subagent)
-❌ Database migration scripts execution
-❌ OAuth credential provisioning
+❌ Database migration scripts execution (provides the scripts, does not run them)
+❌ OAuth credential provisioning (you must provide Client IDs/Secrets)
 ❌ Production deployment without security review
 
 ## When to Use This Skill
@@ -49,11 +52,107 @@ Use this skill when:
 - Setting up multi-tenant SaaS applications
 - Requiring advanced OAuth features like token encryption
 - Needing 2FA or passkey authentication
+- User wants personalized onboarding questions after signup
+- Project uses Next.js, Remix, Astro, Vite, SvelteKit, Nuxt, or pure React
 
 **How to use:**
 ```
 Load the better-auth-v2 skill and use the [template-name] for [framework] with [database-adapter]
+OR
+Simply ask: "Add Better-Auth to my project" to start the automated integrator flow.
 ```
+
+## How This Skill Works (Step-by-Step Execution)
+
+1. **Project Analysis Phase**
+   - Detect framework (Next.js App Router, Pages Router, Remix, Astro, SvelteKit, etc.)
+   - Determine if SSR/SSG/static
+   - Check for existing backend (Node/Express, tRPC, Hono, etc.)
+   - Detect existing database setup and ORM (Prisma, Drizzle, TypeORM, raw SQL, etc.)
+
+2. **Database Strategy**
+   - If a database is already configured → ask for connection string/credentials (only after explicit user confirmation)
+   - If no database → ask user preference (PostgreSQL recommended) and guide creation (e.g., Supabase, Neon, Railway, PlanetScale)
+   - Only after user says “yes, go ahead”, create required Better-Auth tables/schema automatically
+
+3. **Backend Setup**
+   - If project supports SSR/API routes → add Better-Auth directly inside the project
+   - If static or incompatible → create separate backend repo/folder using Hono + Node.js/Express (deployable to Vercel, Railway, Fly.io, etc.)
+   - Always use Drizzle ORM (Better-Auth’s preferred adapter) with PostgreSQL
+
+4. **Better-Auth Core Implementation**
+   - Install `better-auth` + `better-auth-ui` + required plugins (google, apple, facebook, twitter)
+   - Configure env variables for all OAuth providers
+   - Set up email/password + magic links as fallback
+   - Add user metadata table/extension for background questionnaire answers
+
+5. **Onboarding Flow**
+   - After first successful sign-up → redirect to `/onboarding`
+   - Multi-step form asking:
+     - Years of programming experience
+     - Primary languages/frameworks
+     - Hardware (Mac/Windows/Linux, CPU, GPU, RAM)
+     - Development focus (frontend/backend/full-stack/AI/ML/mobile)
+   - Store answers in `user_metadata` table for future personalization
+
+6. **UI Integration (Better-Auth-UI)**
+   - Create `/sign-in`, `/sign-up` pages with `<AuthUI />`
+   - Add header component with dynamic auth buttons:
+     - Guest → “Sign In” | “Sign Up”
+     - Logged in → Avatar + Dropdown with “Profile”, “Settings”, “Sign Out”
+   - Fully responsive, accessible, dark mode ready
+
+7. **Session Management & Protection**
+   - Server-side session validation
+   - `authClient` React hook for frontend state
+   - Protected routes middleware (Next.js middleware or route guards)
+
+## Output You Will Receive
+
+After activation, I will deliver:
+
+- Complete step-by-step implementation plan tailored to your exact project
+- Exact terminal commands to run
+- File-by-file code changes/additions
+- `.env.example` with all required variables
+- Database schema (Drizzle migrations)
+- Separate backend repo link (if needed)
+- Ready-to-copy onboarding questionnaire component
+- Header component with conditional auth UI
+- Fully working, production-ready authentication system
+
+## Example Usage
+
+**User says:**  
+“I have a Next.js 14 App Router site using Prisma + PostgreSQL on Supabase. Add Better-Auth with Google, Apple, Facebook, X login and ask users about their dev experience after signup.”
+
+**This Skill Instantly Activates → Delivers:**
+
+- Confirmed DB usage (no new DB needed)
+- Prisma → Drizzle migration plan (or dual-ORM strategy if preferred)
+- `/src/auth` folder structure with full Better-Auth config
+- All OAuth callbacks configured
+- `/app/(auth)/sign-in/[[...better-auth]]/page.tsx` using `<AuthUI />`
+- Header with dynamic auth state
+- `/app/onboarding/page.tsx` with questionnaire
+- Protected route example using middleware
+
+**User says:**  
+“My site is a static Astro + React site. Just add login with social providers.”
+
+**This Skill Responds:**  
+→ Creates separate `better-auth-backend/` folder (Hono + Node)  
+→ Deploys in < 2 minutes to Vercel  
+→ Adds minimal client `authClient` to Astro  
+→ Injects header buttons + modal sign-in using Better-Auth-UI  
+→ Full social login working on a 100% static frontend
+
+## Activate This Skill By Saying
+
+- “Add Better-Auth to my project”
+- “Implement signup and login with Google/Apple/Facebook/X”
+- “I want Better-Auth with onboarding questions”
+- “Set up authentication for my [Next.js/Astro/Remix/etc.] site”
 
 ## Available Templates
 
@@ -1171,6 +1270,122 @@ PASSKEY_ORIGIN=https://yourdomain.com
 - [ ] Test password reset flow
 - [ ] Verify OAuth callback URLs
 
+## ⚠️ Critical Implementation Lessons Learned
+
+Based on real-world OAuth implementation challenges, avoid these common pitfalls:
+
+### 1. Database Schema Conflicts
+**Problem**: Using reserved attribute names like `metadata` in SQLAlchemy models
+```python
+# ❌ Causes error
+class ChatMessage(Base):
+    metadata = Column(JSON, nullable=True)  # SQLAlchemy reserves this!
+
+# ✅ Fixed version
+class ChatMessage(Base):
+    message_metadata = Column(JSON, nullable=True)  # Use different name
+```
+
+### 2. OAuth Redirect URI Configuration
+**Critical Issues**:
+- Always include the full path with trailing slash removal
+- For cross-platform deployments (GitHub Pages + HuggingFace):
+  ```env
+  # OAuth callback to backend
+  AUTH_REDIRECT_URI=https://your-hf-space.hf.space/backend/auth/google/callback
+  # Frontend redirect after auth
+  FRONTEND_URL=https://your-username.github.io/your-repo
+  ```
+
+### 3. Session Middleware Requirements
+**Must-Have**: OAuth requires SessionMiddleware for state parameter
+```python
+from starlette.middleware.sessions import SessionMiddleware
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.jwt_secret_key,
+    session_cookie="session_id",
+    max_age=3600,
+    same_site="lax",
+    https_only=False,  # Set true in production
+)
+```
+
+### 4. Docusaurus Base Path Handling
+**Issue**: Static sites have base paths that affect OAuth callbacks
+```typescript
+// Docusaurus config
+baseUrl: '/ai-humanoid-robotics/',  // This affects ALL routes
+
+// Must match in environment
+FRONTEND_URL=https://username.github.io/ai-humanoid-robotics
+```
+
+### 5. Google OAuth Response Structure
+**Problem**: Provider account ID (`sub`) field might be missing
+```python
+def create_or_update_account(db: Session, user: User, provider: str, account_info: dict) -> Account:
+    provider_account_id = account_info.get('sub')  # Primary: Google ID
+    if not provider_account_id:
+        # Fallback to email
+        provider_account_id = account_info.get('email')
+    if not provider_account_id:
+        # Final fallback
+        provider_account_id = str(user.id)
+```
+
+### 6. GitHub Pages Static Route Handling
+**Problem**: Cannot create dynamic routes on static sites
+```typescript
+// Create static page: src/pages/auth/callback.tsx
+export default function AuthCallbackPage() {
+  return <OAuthCallbackHandler />;
+}
+```
+
+### 7. Dependency Management
+**Missing Dependencies Cause Failures**:
+```toml
+# pyproject.toml
+dependencies = [
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "python-jose[cryptography]>=3.3.0",
+    "authlib>=1.2.1",
+    "itsdangerous>=2.1.0",  # Required for SessionMiddleware
+]
+```
+
+### 8. CORS Configuration Checklist
+**Essential for Cross-Platform**:
+```python
+# main.py
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://username.github.io",
+    "https://huggingface.co",
+    "https://your-hf-space.hf.space",
+]
+```
+
+### 9. JWT Secret Key Requirements
+**Must Configure**:
+```python
+class Settings(BaseSettings):
+    # Add to your settings class
+    jwt_secret_key: str = "your-super-secret-jwt-key-at-least-32-characters-long"
+```
+
+### 10. Production Deployment Checklist
+- [ ] Test OAuth in production environment (localhost may work with wrong URLs)
+- [ ] Verify redirect URIs match EXACTLY in provider console
+- [ ] Include base path in frontend URLs for static sites
+- [ ] Set up proper session middleware before OAuth routes
+- [ ] Configure CORS for all deployment domains
+- [ ] Enable HTTPS in production
+- [ ] Set proper cookie attributes (SameSite, Secure, HttpOnly)
+
 ## Next Steps
 
 1. Customize the templates for your application
@@ -1179,5 +1394,6 @@ PASSKEY_ORIGIN=https://yourdomain.com
 4. Set up monitoring and analytics
 5. Add custom email templates
 6. Configure webhooks for your business logic
+7. **Review the lessons learned above to avoid common pitfalls**
 
 For detailed documentation and advanced configurations, visit the [Better Auth documentation](https://better-auth.com/docs).

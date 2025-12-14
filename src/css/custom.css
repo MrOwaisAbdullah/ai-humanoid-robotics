@@ -10,6 +10,9 @@
 /* Import Tailwind CSS v4 */
 @import "tailwindcss";
 
+/* Force dark mode to respect Docusaurus data-theme attribute, overriding system preference */
+@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* Import glassmorphism styles for ChatWidget */
 @import "../styles/glassmorphism.css";
 
@@ -51,8 +54,8 @@
   --ifm-background-color: #ffffff;
   --ifm-background-surface-color: #fafafa;
   --ifm-font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
-  --ifm-font-color-base: #1A1A1A; /* Dark Gray instead of pure black */
-  --ifm-heading-color: #1A1A1A; /* Dark Gray instead of pure black */
+  --ifm-font-color-base: #18181b; /* Zinc 900 instead of pure black */
+  --ifm-heading-color: #18181b; /* Zinc 900 instead of pure black */
   
   /* Borders & UI */
   --ifm-border-color: #e4e4e7; /* Zinc 200 */
@@ -62,7 +65,7 @@
   /* Secondary/Accents - Clean Gray */
   --ifm-color-secondary: #f4f4f5;
   --ifm-color-secondary-contrast-background: #f4f4f5;
-  --ifm-color-secondary-contrast-foreground: #1A1A1A;
+  --ifm-color-secondary-contrast-foreground: #18181b;
 
   /* Button Overrides - Minimalist */
   --ifm-button-border-radius: 0.375rem; /* Slightly softer corners (6px) */
@@ -103,6 +106,11 @@
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ensure proper Tailwind Integration for bg-white */
+.bg-white {
+  /* Removed !important to allow dark mode overrides */
 }
 
 /* Utility Classes */
@@ -214,6 +222,28 @@ html[data-theme='dark'] .glass-bar {
   color: var(--ifm-color-primary); /* Teal on hover */
 }
 
+/* Level 2 Category Headers (Modules) */
+.theme-doc-sidebar-item-category-level-2 > .menu__list-item-collapsible > .menu__link {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  color: #52525b; /* Zinc 600: Distinct dark gray for light mode */
+  padding-left: 0.75rem; /* Distinct indentation */
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Dark Mode Override for Module Headers */
+html[data-theme='dark'] .theme-doc-sidebar-item-category-level-2 > .menu__list-item-collapsible > .menu__link {
+  color: #d4d4d8; /* Zinc 300: Distinct light gray for dark mode */
+}
+
+.theme-doc-sidebar-item-category-level-2 > .menu__list-item-collapsible > .menu__link:hover {
+  background: transparent;
+  color: var(--ifm-color-primary);
+}
+
 /* Category Caret/Arrow */
 .menu__caret {
   opacity: 0.5;
@@ -299,9 +329,22 @@ html[data-theme='dark'] .glass-bar {
   display: none !important; 
 }
 
-/* Hide GitHub link on mobile in navbar if it still appears */
+/* Hide GitHub link and Read Book link on mobile */
 @media (max-width: 996px) {
   .header-github-link {
+    display: none !important;
+  }
+  /* Hide Desktop-only items on mobile */
+  .desktop-only {
+    display: none !important;
+  }
+  /* More specific selector for Read Book link */
+  .navbar__items .navbar__item.desktop-only {
+    display: none !important;
+  }
+  /* Hide any link that contains "GitHub" or "Read Book" text */
+  .navbar__link[href*="github"],
+  .navbar__item:has(.navbar__link[href*="docs"]) {
     display: none !important;
   }
 }
@@ -568,7 +611,7 @@ html[data-theme='dark'] .footer {
 .footer__copyright {
   padding-top: 1.5rem !important; /* Spacing above credits */
   margin-bottom: 0 !important; /* Ensure no extra margin below credits */
-  padding-bottom: 0 !important; /* Ensure no extra padding below credits */
+  padding-bottom: 3px !important; /* Ensure no extra padding below credits */
   text-align: center; /* Center align copyright text */
   color: var(--color-fg-muted); /* Ensure proper color */
 }
@@ -727,4 +770,264 @@ article ul ol {
   font-weight: 600;
   color: var(--ifm-color-primary);
   margin-right: 0.5em;
+}
+/* Language Selector Styles */
+.language-selector {
+  position: relative;
+  display: inline-block;
+}
+
+.language-selector-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--ifm-color-content);
+  transition: all 0.2s ease;
+}
+
+.language-selector-trigger:hover {
+  background: var(--ifm-color-emphasis-100);
+  border-color: var(--ifm-color-primary);
+}
+
+.language-selector-icon {
+  opacity: 0.7;
+}
+
+.language-selector-flag {
+  font-size: 1.2em;
+}
+
+.language-selector-text {
+  font-weight: 500;
+}
+
+.language-selector-chevron {
+  transition: transform 0.2s ease;
+  opacity: 0.5;
+}
+
+.language-selector-chevron.open {
+  transform: rotate(180deg);
+}
+
+.language-selector-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1000;
+  min-width: 200px;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.language-selector-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--ifm-color-content);
+  transition: all 0.2s ease;
+}
+
+.language-selector-option:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+.language-selector-option.active {
+  background: var(--ifm-color-primary-light);
+  color: white;
+}
+
+.language-option-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.language-option-native {
+  font-weight: 500;
+}
+
+.language-option-english {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.language-option-check {
+  color: var(--ifm-color-primary);
+  font-weight: bold;
+}
+
+.language-selector-option.active .language-option-check {
+  color: white;
+}
+
+.language-selector-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: transparent;
+}
+
+/* RTL Support */
+.language-selector.rtl .language-selector-dropdown {
+  right: auto;
+  left: 0;
+}
+
+.language-selector.rtl .language-option-content {
+  align-items: flex-end;
+}
+
+/* Mobile Language Selector */
+.mobile-language-selector {
+  padding: 1rem;
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.mobile-language-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.mobile-language-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mobile-language-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--ifm-color-content);
+  transition: all 0.2s ease;
+}
+
+.mobile-language-option:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+.mobile-language-option.active {
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: white;
+}
+
+.mobile-language-flag {
+  font-size: 1.2em;
+}
+
+.mobile-language-name {
+  font-weight: 500;
+}
+
+/* Compact Language Selector */
+.compact-language-selector {
+  position: relative;
+}
+
+.compact-language-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 1.2em;
+  color: var(--ifm-color-content);
+  transition: all 0.2s ease;
+}
+
+.compact-language-trigger:hover {
+  background: var(--ifm-color-emphasis-100);
+  border-color: var(--ifm-color-primary);
+}
+
+.compact-language-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1000;
+  min-width: 150px;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.compact-language-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--ifm-color-content);
+  transition: all 0.2s ease;
+}
+
+.compact-language-option:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+.compact-language-option.active {
+  background: var(--ifm-color-primary-light);
+  color: white;
+}
+
+/* Urdu font support */
+[dir="rtl"] .language-selector-text,
+[dir="rtl"] .animated-language-name,
+[dir="rtl"] .mobile-language-name {
+  font-family: 'Noto Nastaliq Urdu', 'Noto Sans Arabic', sans-serif;
+  font-size: 1.1em;
+  line-height: 1.6;
+}
+
+/* --- Reader Features Styles --- */
+
+
+/* Keep RTL only for actual Urdu content in focus mode */
+.focus-mode__content[dir="rtl"] {
+  direction: rtl !important;
+  text-align: right !important;
 }
