@@ -14,14 +14,15 @@ const getApiBaseUrl = (): string => {
     // For production/preview deployments on GitHub Pages
     if (window.location.hostname.includes('github.io')) {
       // Use the deployed backend URL
-      return process.env.REACT_APP_API_URL || 'https://mrowaisabdullah-ai-humanoid-robotics.hf.space';
+      return 'https://mrowaisabdullah-ai-humanoid-robotics.hf.space';
     }
     // For other environments (HuggingFace Spaces, etc.)
-    return process.env.REACT_APP_API_URL || window.location.origin;
+    return window.location.origin;
   }
 
   // For server-side rendering (if applicable)
-  return process.env.REACT_APP_API_URL || 'http://localhost:7860';
+  // Note: This won't be used in browser builds
+  return 'http://localhost:7860';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
