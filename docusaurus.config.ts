@@ -19,19 +19,7 @@ const config: Config = {
     },
   },
 
-  i18n: {
-    defaultLocale: "en",
-    locales: ["en", "ur"],
-    localeConfigs: {
-      ur: {
-        label: "اردو",
-        direction: "rtl",
-        htmlLang: "ur-PK",
-        calendar: "gregory"
-      }
-    }
-  },
-
+  
   presets: [
     [
       "classic",
