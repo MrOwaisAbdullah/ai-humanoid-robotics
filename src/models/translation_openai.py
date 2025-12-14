@@ -20,7 +20,7 @@ from sqlalchemy import (
     Index, Boolean, Numeric, JSON, BigInteger, CheckConstraint, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.sql import func
 
 from src.database.base import Base
@@ -74,7 +74,7 @@ class TranslationJob(Base):
     # Primary key and identifiers
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id = Column(String(64), unique=True, nullable=False, index=True)  # External job ID
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     session_id = Column(String(128), nullable=True, index=True)
 
     # Content identifiers for caching
@@ -253,7 +253,7 @@ class TranslationError(Base):
     error_type = Column(String(50), nullable=False, index=True)  # e.g., "api_error", "timeout", "rate_limit"
     error_code = Column(String(50), nullable=True)  # API error code
     error_message = Column(Text, nullable=False)
-    error_details = Column(JSONB, nullable=True)  # Additional error context
+    error_details = Column(JSON, nullable=True)  # Additional error context
 
     # Severity and categorization
     severity = Column(String(20), default=ErrorSeverity.MEDIUM.value, nullable=False, index=True)
@@ -266,12 +266,12 @@ class TranslationError(Base):
     next_retry_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     # Context information
-    request_payload = Column(JSONB, nullable=True)  # Sanitized request data
-    response_payload = Column(JSONB, nullable=True)  # Sanitized response data
+    request_payload = Column(JSON, nullable=True)  # Sanitized request data
+    response_payload = Column(JSON, nullable=True)  # Sanitized response data
 
     # Stack trace and debugging
     stack_trace = Column(Text, nullable=True)
-    debug_info = Column(JSONB, nullable=True)
+    debug_info = Column(JSON, nullable=True)
 
     # Resolution
     resolved_at = Column(DateTime(timezone=True), nullable=True)
@@ -313,7 +313,7 @@ class TranslationSession(Base):
     # Primary key and identifiers
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(String(128), unique=True, nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
 
     # Session information
     started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -341,7 +341,7 @@ class TranslationSession(Base):
     country_code = Column(String(2), nullable=True)
 
     # Session preferences (stored as JSON)
-    preferences = Column(JSONB, nullable=True)
+    preferences = Column(JSON, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="translation_sessions")
@@ -350,7 +350,7 @@ class TranslationSession(Base):
     __table_args__ = (
         Index('idx_user_sessions', 'user_id', 'is_active'),
         Index('idx_session_expiry', 'expires_at', 'is_active'),
-        Index('idx_ip_sessions', 'ip_address', 'created_at'),
+        Index('idx_ip_sessions', 'ip_address', 'started_at'),
         CheckConstraint('request_count >= 0', name='check_request_count'),
         CheckConstraint('character_count >= 0', name='check_character_count'),
         CheckConstraint('requests_per_minute > 0', name='check_rate_limit_requests'),
@@ -444,7 +444,7 @@ class TranslationMetrics(Base):
     # Primary key and identifiers
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id = Column(UUID(as_uuid=True), ForeignKey("translation_jobs.id"), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
 
     # Time period
     metric_date = Column(DateTime(timezone=True), nullable=False, index=True)
@@ -481,7 +481,7 @@ class TranslationMetrics(Base):
     # Error metrics
     error_count = Column(Integer, default=0, nullable=False)
     error_rate = Column(Numeric(5, 2), default=0.0, nullable=False)
-    top_error_types = Column(JSONB, nullable=True)  # Top 5 error types with counts
+    top_error_types = Column(JSON, nullable=True)  # Top 5 error types with counts
 
     # Additional dimensions
     source_language = Column(String(10), nullable=True, index=True)
