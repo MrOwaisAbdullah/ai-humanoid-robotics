@@ -11,7 +11,12 @@ const getApiBaseUrl = (): string => {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:7860';
     }
-    // For production/preview deployments
+    // For production/preview deployments on GitHub Pages
+    if (window.location.hostname.includes('github.io')) {
+      // Use the deployed backend URL
+      return process.env.REACT_APP_API_URL || 'https://mrowaisabdullah-ai-humanoid-robotics.hf.space';
+    }
+    // For other environments (HuggingFace Spaces, etc.)
     return process.env.REACT_APP_API_URL || window.location.origin;
   }
 
