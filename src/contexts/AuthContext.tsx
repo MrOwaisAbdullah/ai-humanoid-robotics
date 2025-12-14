@@ -59,7 +59,7 @@ axios.defaults.timeout = 10000; // 10 seconds
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
-    isLoading: true,
+    isLoading: false, // Start with false for static deployments
     isAuthenticated: false,
   });
 
@@ -71,6 +71,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check authentication on mount
   useEffect(() => {
+    // Skip auth check for static deployments (GitHub Pages)
+    if (typeof window !== 'undefined' && window.location.hostname === 'mrowaisabdullah.github.io') {
+      setState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+      return;
+    }
+
     // Only check auth if we haven't already checked
     if (!isCheckingAuth.current) {
       checkAuth();

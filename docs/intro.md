@@ -15,7 +15,7 @@ Unlike traditional AI that exists purely in digital realms, Physical AI embodies
 
 This course is structured into five distinct modules, taking you from the fundamentals of embodied intelligence to advanced applications in humanoid robotics.
 
-### [Module 1: Foundations](/docs/category/module-1-foundations)
+### [Module 1: Foundation](/docs/module-1-foundation)
 Establish the core concepts of Physical AI.
 - **Chapter 1**: Introduction to Physical AI & Embodied Intelligence
 - **Chapter 2**: Sensors & Perception (LiDAR, Cameras, IMU)
@@ -23,24 +23,31 @@ Establish the core concepts of Physical AI.
 - **Chapter 4**: Motion Planning
 - **Chapter 5**: System Integration
 
-### [Module 2: The Nervous System](/docs/category/module-2-nervous-system)
+### [Module 2: The Nervous System](/docs/module-2-nervous-system)
 Dive into the software architecture that powers modern robots.
 - **Chapter 6**: ROS 2 Architecture & Core Concepts
 - **Chapter 7**: Building ROS 2 Nodes with Python
 - **Chapter 8**: Launch Systems & Parameter Management
 
-### [Module 3: Motion and Control](/docs/category/module-3-motion-control)
+### [Module 3: Motion and Control](/docs/module-3-motion-control)
 Master the physics and control strategies for movement.
 - **Chapter 9**: Kinematics & Dynamics
 - **Chapter 10**: Balance & Locomotion
 - **Chapter 11**: Manipulation & Grasping
 
-### [Module 4: Applications & Advanced Topics](/docs/category/module-4-applications)
+### [Module 4: Applications & Advanced Topics](/docs/module-4-applications)
 Explore cutting-edge applications and future trends.
 - **Chapter 12**: Computer Vision for Robotics
 - **Chapter 13**: Machine Learning & Reinforcement Learning
 - **Chapter 14**: Human-Robot Interaction (HRI)
 - **Chapter 15**: The Future of Physical AI
+
+### [Module 5: Advanced Humanoids](/docs/module-5-advanced-humanoids)
+Deep dive into bipedal robots and advanced locomotion.
+- **Chapter 16**: Bipedal Robot Mechanics
+- **Chapter 17**: Advanced Locomotion Strategies
+- **Chapter 18**: Whole-Body Control
+- **Chapter 19**: Case Studies & Real-World Applications
 
 ## 🎯 Who Is This For?
 
@@ -57,4 +64,4 @@ To get the most out of this course, you should have:
 
 Ready to begin your journey into Embodied Intelligence?
 
-[**Start reading Chapter 1 →**](/docs/module-1-foundations/chapter-1-introduction)
+[**Start reading Chapter 1 →**](/docs/part-1-foundations/chapter-1-introduction)
