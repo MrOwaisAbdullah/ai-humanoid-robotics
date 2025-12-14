@@ -37,11 +37,11 @@ const sidebars: SidebarsConfig = {
           label: 'MODULE 1: FOUNDATIONS',
           collapsed: false,
           items: [
-            'part-1-foundations/chapter-1-introduction',
-            'part-1-foundations/chapter-2-sensors-perception',
-            'part-1-foundations/chapter-3-state-estimation',
-            'part-1-foundations/chapter-4-motion-planning',
-            'part-1-foundations/chapter-5-integration',
+            'module-1-foundation/chapter-1-introduction',
+            'module-1-foundation/chapter-2-sensors-perception',
+            'module-1-foundation/chapter-3-state-estimation',
+            'module-1-foundation/chapter-4-motion-planning',
+            'module-1-foundation/chapter-5-integration',
           ],
         },
         {
@@ -49,9 +49,9 @@ const sidebars: SidebarsConfig = {
           label: 'MODULE 2: NERVOUS SYSTEM',
           collapsed: true,
           items: [
-            'part-2-nervous-system/chapter-6-ros2-architecture',
-            'part-2-nervous-system/chapter-7-ros2-nodes-python',
-            'part-2-nervous-system/chapter-8-launch-systems',
+            'module-2-nervous-system/chapter-6-ros2-architecture',
+            'module-2-nervous-system/chapter-7-ros2-nodes-python',
+            'module-2-nervous-system/chapter-8-launch-systems',
           ],
         },
         {
@@ -59,9 +59,9 @@ const sidebars: SidebarsConfig = {
           label: 'MODULE 3: MOTION AND CONTROL',
           collapsed: true,
           items: [
-            'part-3-motion-control/chapter-9-kinematics-dynamics',
-            'part-3-motion-control/chapter-10-balance-locomotion',
-            'part-3-motion-control/chapter-11-manipulation-grasping',
+            'module-3-motion-control/chapter-9-kinematics-dynamics',
+            'module-3-motion-control/chapter-10-balance-locomotion',
+            'module-3-motion-control/chapter-11-manipulation-grasping',
           ],
         },
         {
@@ -69,10 +69,21 @@ const sidebars: SidebarsConfig = {
           label: 'MODULE 4: APPLICATIONS AND ADVANCED TOPICS',
           collapsed: true,
           items: [
-            'part-4-applications/chapter-12-computer-vision',
-            'part-4-applications/chapter-13-machine-learning',
-            'part-4-applications/chapter-14-human-robot-interaction',
-            'part-4-applications/chapter-15-future-physical-ai',
+            'module-4-applications/chapter-12-computer-vision',
+            'module-4-applications/chapter-13-machine-learning',
+            'module-4-applications/chapter-14-human-robot-interaction',
+            'module-4-applications/chapter-15-future-physical-ai',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'MODULE 5: ADVANCED HUMANOIDS',
+          collapsed: true,
+          items: [
+            'module-5-advanced-humanoids/chapter-16-bipedal-mechanics',
+            'module-5-advanced-humanoids/chapter-17-advanced-locomotion',
+            'module-5-advanced-humanoids/chapter-18-whole-body-control',
+            'module-5-advanced-humanoids/chapter-19-case-studies',
           ],
         },
       ],

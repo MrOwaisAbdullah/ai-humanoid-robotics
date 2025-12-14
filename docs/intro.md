@@ -15,39 +15,39 @@ Unlike traditional AI that exists purely in digital realms, Physical AI embodies
 
 This course is structured into five distinct modules, taking you from the fundamentals of embodied intelligence to advanced applications in humanoid robotics.
 
-### [Module 1: Foundation](/docs/module-1-foundation)
+### [Module 1: Foundation](/docs/module-1-foundation/chapter-1-introduction)
 Establish the core concepts of Physical AI.
-- **Chapter 1**: Introduction to Physical AI & Embodied Intelligence
-- **Chapter 2**: Sensors & Perception (LiDAR, Cameras, IMU)
-- **Chapter 3**: State Estimation & Localization
-- **Chapter 4**: Motion Planning
-- **Chapter 5**: System Integration
+- **[Chapter 1](/docs/module-1-foundation/chapter-1-introduction)**: Introduction to Physical AI & Embodied Intelligence
+- **[Chapter 2](/docs/module-1-foundation/chapter-2-sensors-perception)**: Sensors & Perception (LiDAR, Cameras, IMU)
+- **[Chapter 3](/docs/module-1-foundation/chapter-3-state-estimation)**: State Estimation & Localization
+- **[Chapter 4](/docs/module-1-foundation/chapter-4-motion-planning)**: Motion Planning
+- **[Chapter 5](/docs/module-1-foundation/chapter-5-integration)**: System Integration
 
-### [Module 2: The Nervous System](/docs/module-2-nervous-system)
+### [Module 2: The Nervous System](/docs/module-2-nervous-system/chapter-6-ros2-architecture)
 Dive into the software architecture that powers modern robots.
-- **Chapter 6**: ROS 2 Architecture & Core Concepts
-- **Chapter 7**: Building ROS 2 Nodes with Python
-- **Chapter 8**: Launch Systems & Parameter Management
+- **[Chapter 6](/docs/module-2-nervous-system/chapter-6-ros2-architecture)**: ROS 2 Architecture & Core Concepts
+- **[Chapter 7](/docs/module-2-nervous-system/chapter-7-ros2-nodes-python)**: Building ROS 2 Nodes with Python
+- **[Chapter 8](/docs/module-2-nervous-system/chapter-8-launch-systems)**: Launch Systems & Parameter Management
 
-### [Module 3: Motion and Control](/docs/module-3-motion-control)
+### [Module 3: Motion and Control](/docs/module-3-motion-control/chapter-9-kinematics-dynamics)
 Master the physics and control strategies for movement.
-- **Chapter 9**: Kinematics & Dynamics
-- **Chapter 10**: Balance & Locomotion
-- **Chapter 11**: Manipulation & Grasping
+- **[Chapter 9](/docs/module-3-motion-control/chapter-9-kinematics-dynamics)**: Kinematics & Dynamics
+- **[Chapter 10](/docs/module-3-motion-control/chapter-10-balance-locomotion)**: Balance & Locomotion
+- **[Chapter 11](/docs/module-3-motion-control/chapter-11-manipulation-grasping)**: Manipulation & Grasping
 
-### [Module 4: Applications & Advanced Topics](/docs/module-4-applications)
+### [Module 4: Applications & Advanced Topics](/docs/module-4-applications/chapter-12-computer-vision)
 Explore cutting-edge applications and future trends.
-- **Chapter 12**: Computer Vision for Robotics
-- **Chapter 13**: Machine Learning & Reinforcement Learning
-- **Chapter 14**: Human-Robot Interaction (HRI)
-- **Chapter 15**: The Future of Physical AI
+- **[Chapter 12](/docs/module-4-applications/chapter-12-computer-vision)**: Computer Vision for Robotics
+- **[Chapter 13](/docs/module-4-applications/chapter-13-machine-learning)**: Machine Learning & Reinforcement Learning
+- **[Chapter 14](/docs/module-4-applications/chapter-14-human-robot-interaction)**: Human-Robot Interaction (HRI)
+- **[Chapter 15](/docs/module-4-applications/chapter-15-future-physical-ai)**: The Future of Physical AI
 
-### [Module 5: Advanced Humanoids](/docs/module-5-advanced-humanoids)
+### [Module 5: Advanced Humanoids](/docs/module-5-advanced-humanoids/chapter-16-bipedal-mechanics)
 Deep dive into bipedal robots and advanced locomotion.
-- **Chapter 16**: Bipedal Robot Mechanics
-- **Chapter 17**: Advanced Locomotion Strategies
-- **Chapter 18**: Whole-Body Control
-- **Chapter 19**: Case Studies & Real-World Applications
+- **[Chapter 16](/docs/module-5-advanced-humanoids/chapter-16-bipedal-mechanics)**: Bipedal Robot Mechanics
+- **[Chapter 17](/docs/module-5-advanced-humanoids/chapter-17-advanced-locomotion)**: Advanced Locomotion Strategies
+- **[Chapter 18](/docs/module-5-advanced-humanoids/chapter-18-whole-body-control)**: Whole-Body Control
+- **[Chapter 19](/docs/module-5-advanced-humanoids/chapter-19-case-studies)**: Case Studies & Real-World Applications
 
 ## 🎯 Who Is This For?
 
@@ -64,4 +64,4 @@ To get the most out of this course, you should have:
 
 Ready to begin your journey into Embodied Intelligence?
 
-[**Start reading Chapter 1 →**](/docs/part-1-foundations/chapter-1-introduction)
+[**Start reading Chapter 1 →**](/docs/module-1-foundation/chapter-1-introduction)
