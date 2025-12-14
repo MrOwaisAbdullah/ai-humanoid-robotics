@@ -128,7 +128,8 @@ export default function AIFeaturesBar() {
   };
 
   const handleTranslate = async () => {
-    
+    console.log('Translate button clicked, translationEnabled:', translationEnabled);
+
     if (!translationEnabled) {
             showToast('Translation is disabled. Please enable it in settings.');
       return;
@@ -136,6 +137,7 @@ export default function AIFeaturesBar() {
 
     // Extract content from the page
     const originalText = extractContent();
+    console.log('Extracted text length:', originalText?.length);
 
     if (!originalText || originalText.trim().length < 20) {
       showToast('Not enough content to translate. Please select a page with more text.');
@@ -148,19 +150,16 @@ export default function AIFeaturesBar() {
       ? originalText.substring(0, maxLength) + '...'
       : originalText;
 
-    // Always translate to Urdu for now
-    // TODO: Make this dynamic based on user selection
-    const targetLang = 'ur';
-    
+    console.log('Text to translate length:', truncatedText.length);
+
     setIsTranslating(true);
 
     try {
       // Show translation in focus mode
       // The FocusModeContext will handle the actual translation
-      await showTranslation(truncatedText, {
-        sourceLanguage: 'en',
-        targetLanguage: targetLang
-      });
+      console.log('Calling showTranslation...');
+      await showTranslation(truncatedText, {});
+      console.log('showTranslation completed');
     } catch (error) {
       console.error('Translation failed:', error);
       showToast('Translation failed. Please try again.');
@@ -239,7 +238,7 @@ export default function AIFeaturesBar() {
           ) : (
             <>
               <Globe size={16} />
-              Translate to {language === 'ur' ? 'English' : 'اردو'}
+              Translate to Urdu
             </>
           )}
         </button>
