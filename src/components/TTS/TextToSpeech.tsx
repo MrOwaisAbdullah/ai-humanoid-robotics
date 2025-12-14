@@ -12,6 +12,7 @@ export default function TextToSpeech({ content, className = '' }: TextToSpeechPr
   const [isLoading, setIsLoading] = useState(false);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
   const [speechSupported, setSpeechSupported] = useState(true);
+  const isIntentionallyStopped = useRef(false);
 
   // Check if speech synthesis is supported
   useEffect(() => {
@@ -106,6 +107,8 @@ export default function TextToSpeech({ content, className = '' }: TextToSpeechPr
 
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
+    // Reset intentional stop flag
+    isIntentionallyStopped.current = false;
 
     setIsLoading(true);
 
@@ -145,7 +148,10 @@ export default function TextToSpeech({ content, className = '' }: TextToSpeechPr
       setIsSpeaking(false);
       setIsPaused(false);
       setIsLoading(false);
-      showToast('Failed to start text-to-speech');
+      // Don't show error message if user intentionally stopped
+      if (!isIntentionallyStopped.current) {
+        showToast('Failed to start text-to-speech');
+      }
     };
 
     utterance.onpause = () => {
@@ -166,6 +172,8 @@ export default function TextToSpeech({ content, className = '' }: TextToSpeechPr
   const stop = useCallback(() => {
     if (!speechSupported) return;
 
+    // Mark as intentionally stopped before canceling
+    isIntentionallyStopped.current = true;
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
     setIsPaused(false);
