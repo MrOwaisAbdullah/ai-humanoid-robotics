@@ -71,7 +71,7 @@ Every piece of knowledge has one authoritative representation. If you need to ma
 Use utility-first CSS (Tailwind CSS) for all custom components. Avoid writing custom CSS/CSS Modules unless absolutely necessary for complex animations or Docusaurus internal overrides.
 
 ### 8. Documentation Research & Fact-Checking Principle
-Always use Context7 MCP for latest documentation and Web Search for fact-checking technical data. Never rely on cached knowledge or internal knowledge for external library documentation or technical specifications.
+Always use Context7 MCP for latest documentation and Web Search for fact-checking technical data. Never rely on cached knowledge or internal knowledge for external library documentation or technical specifications. For debugging and checking the live site, always use Playwright and Chrome DevTools MCP.
 
 **Application for Documentation**: Use `mcp__context7__get-library-docs` for all framework documentation:
 - Docusaurus: Use library ID "docusaurus" for latest docs at https://docusaurus.io/docs
@@ -79,8 +79,7 @@ Always use Context7 MCP for latest documentation and Web Search for fact-checkin
 - FastAPI: Use library ID "fastapi" for framework documentation
 - Qdrant: Use library ID "qdrant" for vector database documentation
 - React: Use library ID "react" for component patterns
-- ChatKit JS: Use library ID "chatkit-js" for latest docs at https://github.com/openai/chatkit-js
-
+- ChatKit python: Use library ID "chatkit-python"
 **Application for Fact-Checking**: Use Web Search for all technical data, pricing, specifications, and current information:
 - AWS pricing: Verify against official AWS pricing pages
 - Hardware specifications: Cross-reference with manufacturer documentation

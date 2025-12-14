@@ -1,0 +1,554 @@
+openapi: 3.0.3
+info:
+  title: OpenAI Translation API
+  description: API for translating book content using OpenAI Agents SDK with Gemini
+  version: 1.0.0
+  contact:
+    name: Translation API Support
+    email: support@example.com
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging-api.example.com/v1
+    description: Staging server
+
+paths:
+  /translation:
+    post:
+      summary: Translate page content
+      description: Translates a full page or specific content from English to Urdu
+      operationId: translateContent
+      tags:
+        - Translation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslationRequest'
+      responses:
+        '200':
+          description: Translation successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /translation/{jobId}:
+    get:
+      summary: Get translation status
+      description: Retrieves the current status and progress of a translation job
+      operationId: getTranslationStatus
+      tags:
+        - Translation
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Translation status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationStatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /translation/{jobId}/stream:
+    get:
+      summary: Stream translation progress
+      description: Streams real-time updates for a translation job
+      operationId: streamTranslation
+      tags:
+        - Translation
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Streaming updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /translation/cache:
+    post:
+      summary: Check translation cache
+      description: Checks if a translation exists in cache
+      operationId: checkCache
+      tags:
+        - Cache
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CacheCheckRequest'
+      responses:
+        '200':
+          description: Cache check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheCheckResponse'
+
+  /translation/cache:
+    delete:
+      summary: Clear translation cache
+      description: Clears cached translations for a specific URL or all cache
+      operationId: clearCache
+      tags:
+        - Cache
+      parameters:
+        - name: pageUrl
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+          description: Specific page URL to clear (omit to clear all)
+      responses:
+        '200':
+          description: Cache cleared successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CacheClearResponse'
+
+  /translation/metrics:
+    get:
+      summary: Get translation metrics
+      description: Retrieves usage and performance metrics
+      operationId: getMetrics
+      tags:
+        - Metrics
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [hourly, daily, weekly, monthly]
+            default: daily
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Metrics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+
+  /translation/health:
+    get:
+      summary: Health check
+      description: Checks the health of the translation service
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+    TranslationRequest:
+      type: object
+      required:
+        - pageUrl
+        - content
+      properties:
+        pageUrl:
+          type: string
+          format: uri
+          description: URL of the page being translated
+          example: https://example.com/book/chapter-1
+        content:
+          type: string
+          description: HTML content to translate
+          example: <h1>Chapter 1</h1><p>This is the content...</p>
+        sourceLanguage:
+          type: string
+          default: en
+          description: Source language code
+          example: en
+        targetLanguage:
+          type: string
+          default: ur
+          description: Target language code
+          example: ur
+        preserveCodeBlocks:
+          type: boolean
+          default: true
+          description: Whether to preserve code blocks untranslated
+        callbackUrl:
+          type: string
+          format: uri
+          description: Webhook URL for completion notification
+          example: https://example.com/webhooks/translation-complete
+        sessionId:
+          type: string
+          description: Session identifier for rate limiting
+          example: abc123def456
+
+    TranslationResponse:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+          format: uuid
+          description: Unique translation job identifier
+          example: 123e4567-e89b-12d3-a456-426614174000
+        status:
+          $ref: '#/components/schemas/TranslationStatus'
+        message:
+          type: string
+          description: Status message
+          example: Translation started successfully
+        estimatedDuration:
+          type: integer
+          description: Estimated completion time in seconds
+          example: 5
+        cached:
+          type: boolean
+          description: Whether result came from cache
+          example: false
+
+    TranslationStatusResponse:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TranslationStatus'
+        progress:
+          type: object
+          properties:
+            totalChunks:
+              type: integer
+              example: 5
+            completedChunks:
+              type: integer
+              example: 3
+            percentage:
+              type: number
+              format: float
+              example: 60
+        result:
+          type: object
+          properties:
+            translatedContent:
+              type: string
+              description: Full translated HTML content
+            qualityScore:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+              example: 0.95
+            tokenUsage:
+              type: integer
+              example: 1500
+            cost:
+              type: number
+              format: decimal
+              example: 0.005
+        error:
+          $ref: '#/components/schemas/ErrorInfo'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    TranslationStatus:
+      type: string
+      enum:
+        - PENDING
+        - QUEUED
+        - PROCESSING
+        - CHUNK_PROCESSING
+        - COMPLETED
+        - FAILED
+        - CANCELLED
+        - RETRY
+
+    CacheCheckRequest:
+      type: object
+      required:
+        - pageUrl
+        - contentHash
+      properties:
+        pageUrl:
+          type: string
+          format: uri
+        contentHash:
+          type: string
+          description: SHA-256 hash of the content
+        targetLanguage:
+          type: string
+          default: ur
+
+    CacheCheckResponse:
+      type: object
+      properties:
+        cached:
+          type: boolean
+          example: true
+        translatedContent:
+          type: string
+          description: Cached translation content
+          nullable: true
+        qualityScore:
+          type: number
+          format: float
+          nullable: true
+        cachedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CacheClearResponse:
+      type: object
+      properties:
+        cleared:
+          type: boolean
+          example: true
+        count:
+          type: integer
+          example: 42
+
+    MetricsResponse:
+      type: object
+      properties:
+        period:
+          type: string
+          example: daily
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              translations:
+                type: integer
+                example: 150
+              tokens:
+                type: integer
+                example: 45000
+              cost:
+                type: number
+                format: decimal
+                example: 0.15
+              averageLatency:
+                type: number
+                format: float
+                example: 2.5
+              cacheHitRate:
+                type: number
+                format: float
+                example: 0.75
+              errorRate:
+                type: number
+                format: float
+                example: 0.02
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          example: healthy
+        version:
+          type: string
+          example: 1.0.0
+        uptime:
+          type: integer
+          description: Uptime in seconds
+          example: 86400
+        checks:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [pass, fail, warn]
+              example: pass
+            cache:
+              type: string
+              enum: [pass, fail, warn]
+              example: pass
+            external_api:
+              type: string
+              enum: [pass, fail, warn]
+              example: pass
+
+    ErrorInfo:
+      type: object
+      properties:
+        code:
+          type: string
+          example: RATE_LIMIT_EXCEEDED
+        message:
+          type: string
+          example: Rate limit exceeded. Please try again later.
+        details:
+          type: object
+          additionalProperties: true
+        retryAfter:
+          type: integer
+          description: Seconds to wait before retrying
+          example: 60
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                $ref: '#/components/schemas/ErrorInfo'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: UNAUTHORIZED
+                  message:
+                    type: string
+                    example: Invalid or missing API key
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: NOT_FOUND
+                  message:
+                    type: string
+                    example: Translation job not found
+
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: RATE_LIMITED
+                  message:
+                    type: string
+                    example: Too many requests. Try again later.
+                  retryAfter:
+                    type: integer
+                    example: 60
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: INTERNAL_ERROR
+                  message:
+                    type: string
+                    example: An unexpected error occurred
+                  requestId:
+                    type: string
+                    example: req_123abc
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Translation
+    description: Translation operations
+  - name: Cache
+    description: Cache management
+  - name: Metrics
+    description: Usage and performance metrics
+  - name: System
+    description: System operations

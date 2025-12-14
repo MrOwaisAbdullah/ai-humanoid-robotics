@@ -24,7 +24,7 @@ export const OnboardingManager: React.FC = () => {
         const createdTime = new Date(background.created_at);
         const timeDiff = (now.getTime() - createdTime.getTime()) / (1000 * 60); // minutes
 
-        if (!background.id || timeDiff < 5) {
+        if (!background || !background.id || timeDiff < 5) {
           setShowModal(true);
         }
       } catch (error) {

@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react';
 import Content from '@theme-original/DocItem/Content';
 import type {Props} from '@theme/DocItem/Content';
 import ReadDuration from '@site/src/components/ReadDuration';
+import AIFeaturesBar from '../AIFeaturesBar';
 import {useLocation} from '@docusaurus/router';
 
 function ReadDurationHeader(props: Props) {
@@ -93,7 +94,12 @@ function ReadDurationHeader(props: Props) {
     };
   }, [shouldShowReadDuration]);
 
-  return <Content {...props} />;
+  return (
+    <>
+      <AIFeaturesBar />
+      <Content {...props} />
+    </>
+  );
 }
 
 // Helper function to calculate reading time

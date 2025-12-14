@@ -7,7 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Create the declarative base
+# Create the declarative base - this will be the single source of truth
 Base = declarative_base()
 
 # Database URL from environment

@@ -155,3 +155,12 @@ test-results/
 backend/database/*.db
 backend/database/*.sqlite
 backend/database/*.sqlite3
+
+# SQLite logs
+*.db-shm
+*.db-wal
+backend/database/*.db-shm
+backend/database/*.db-wal
+
+.playwright-mcp
+.gemini

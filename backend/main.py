@@ -25,6 +25,7 @@ from rag.chat import ChatHandler
 from rag.qdrant_client import QdrantManager
 from rag.tasks import TaskManager
 from api.exceptions import ContentNotFoundError, RAGException
+from src.services.translation_cache import cache_service
 
 # Import security middleware
 from middleware.csrf import CSRFMiddleware
@@ -60,6 +61,7 @@ logger = structlog.get_logger()
 
 # Load environment variables
 load_dotenv()
+print(f"*** Environment loaded. GEMINI_API_KEY exists: {bool(os.getenv('GEMINI_API_KEY'))} ***")
 
 
 class Settings(BaseSettings):
@@ -91,11 +93,14 @@ class Settings(BaseSettings):
     # CORS Configuration
     allowed_origins: str = os.getenv(
         "ALLOWED_ORIGINS",
-        "http://localhost:3000,http://localhost:8080,https://mrowaisabdullah.github.io,https://huggingface.co"
+        "http://localhost:3000,http://localhost:3001,http://localhost:8080,https://mrowaisabdullah.github.io,https://huggingface.co"
     )
 
     # JWT Configuration
     jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key")
+
+    # Google AI Configuration
+    google_ai_api_key: str = os.getenv("GEMINI_API_KEY", "")
 
     # Conversation Context
     max_context_messages: int = int(os.getenv("MAX_CONTEXT_MESSAGES", "3"))
@@ -182,6 +187,9 @@ async def lifespan(app: FastAPI):
         )
         await task_manager.start()
 
+        # Start background task for cache cleanup (runs daily)
+        asyncio.create_task(schedule_cache_cleanup())
+
         logger.info("RAG backend initialized successfully")
 
         yield
@@ -237,13 +245,13 @@ app.add_middleware(
     httponly=False,
     samesite="lax",
     max_age=3600,
-    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth/login", "/auth/register", "/api/chat", "/auth/logout", "/auth/me", "/auth/preferences", "/auth/refresh"],
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth/login", "/auth/register", "/api/chat", "/auth/logout", "/auth/me", "/auth/preferences", "/auth/refresh", "/api/v1/translation"],
 )
 
 app.add_middleware(
     AuthMiddleware,
     anonymous_limit=3,
-    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth"],
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth", "/api/v1/translation"],
     anonymous_header="X-Anonymous-Session-ID",
 )
 
@@ -252,6 +260,14 @@ app.include_router(auth.router)
 
 # Include new chat routes
 app.include_router(chat.router)
+
+# Include reader features routes
+from src.api.v1 import reader_features
+app.include_router(reader_features.router, prefix="/api/v1")
+
+# Include translation routes
+from src.api.v1 import translation
+app.include_router(translation.router, prefix="/api/v1")
 
 
 # Optional API key security for higher rate limits
@@ -885,6 +901,45 @@ async def create_chatkit_session(request: Request):
     # except Exception as e:
     #     logger.error("ChatKit endpoint error", error=str(e), exc_info=True)
     #     raise HTTPException(status_code=500, detail=f"ChatKit processing error: {str(e)}")
+
+
+async def schedule_cache_cleanup():
+    """
+    Schedule periodic cache cleanup task.
+    Runs every 24 hours to clear expired translation cache entries.
+    """
+    import logging
+
+    cache_logger = logging.getLogger(__name__)
+
+    while True:
+        try:
+            # Wait for 24 hours
+            await asyncio.sleep(86400)  # 24 hours in seconds
+
+            # Clean up expired cache entries
+            cleared_count = await cache_service.clear_expired_cache()
+
+            if cleared_count > 0:
+                cache_logger.info(
+                    f"Cache cleanup completed",
+                    cleared_entries=cleared_count,
+                    timestamp=datetime.utcnow().isoformat()
+                )
+            else:
+                cache_logger.debug(
+                    "Cache cleanup completed - no expired entries found",
+                    timestamp=datetime.utcnow().isoformat()
+                )
+
+        except Exception as e:
+            cache_logger.error(
+                "Cache cleanup failed",
+                error=str(e),
+                timestamp=datetime.utcnow().isoformat()
+            )
+            # Wait 1 hour before retrying on error
+            await asyncio.sleep(3600)
 
 
 if __name__ == "__main__":

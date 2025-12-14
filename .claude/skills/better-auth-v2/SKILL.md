@@ -13,17 +13,19 @@ dependencies:
 
 ## Purpose
 
-Provides **cutting-edge authentication templates** using Better Auth v2 that include:
-- Email/password and OAuth authentication with enhanced security
+Provides **cutting-edge authentication templates** and **expert integration guidance** using Better Auth v2. This skill analyzes your project architecture and implements a full-featured authentication system including:
+- Email/password and OAuth authentication (Google, Apple, Facebook, X, etc.)
 - Advanced OAuth token encryption and account linking
 - Multi-factor authentication (2FA) support
 - Role-Based Access Control (RBAC) with fine-grained permissions
 - Multi-tenant architecture with organizations
 - Session management with enhanced security
 - Production-ready security configurations
+- **Personalized onboarding flows** for user background collection
 
 ## What This Skill Provides
 
+✅ **Automated Implementation Plan**: Analyzes project structure (framework, DB, backend) and provides a tailored integration strategy.
 ✅ **Latest Better Auth v2 configuration templates**
 ✅ **Enhanced database schemas** (Prisma, Drizzle, Kysely, MongoDB)
 ✅ **Modern React/Vue/Svelte authentication clients**
@@ -32,12 +34,13 @@ Provides **cutting-edge authentication templates** using Better Auth v2 that inc
 ✅ **OAuth provider setup with token encryption**
 ✅ **2FA and passkey authentication templates**
 ✅ **Advanced security configurations**
+✅ **Separate Backend Creation**: For static/SSR-incompatible sites, creates a dedicated Hono + Node.js backend.
 
 ## What This Skill Does NOT Provide
 
 ❌ Custom business logic implementation (use better-auth-specialist subagent)
-❌ Database migration scripts execution
-❌ OAuth credential provisioning
+❌ Database migration scripts execution (provides the scripts, does not run them)
+❌ OAuth credential provisioning (you must provide Client IDs/Secrets)
 ❌ Production deployment without security review
 
 ## When to Use This Skill
@@ -49,11 +52,107 @@ Use this skill when:
 - Setting up multi-tenant SaaS applications
 - Requiring advanced OAuth features like token encryption
 - Needing 2FA or passkey authentication
+- User wants personalized onboarding questions after signup
+- Project uses Next.js, Remix, Astro, Vite, SvelteKit, Nuxt, or pure React
 
 **How to use:**
 ```
 Load the better-auth-v2 skill and use the [template-name] for [framework] with [database-adapter]
+OR
+Simply ask: "Add Better-Auth to my project" to start the automated integrator flow.
 ```
+
+## How This Skill Works (Step-by-Step Execution)
+
+1. **Project Analysis Phase**
+   - Detect framework (Next.js App Router, Pages Router, Remix, Astro, SvelteKit, etc.)
+   - Determine if SSR/SSG/static
+   - Check for existing backend (Node/Express, tRPC, Hono, etc.)
+   - Detect existing database setup and ORM (Prisma, Drizzle, TypeORM, raw SQL, etc.)
+
+2. **Database Strategy**
+   - If a database is already configured → ask for connection string/credentials (only after explicit user confirmation)
+   - If no database → ask user preference (PostgreSQL recommended) and guide creation (e.g., Supabase, Neon, Railway, PlanetScale)
+   - Only after user says “yes, go ahead”, create required Better-Auth tables/schema automatically
+
+3. **Backend Setup**
+   - If project supports SSR/API routes → add Better-Auth directly inside the project
+   - If static or incompatible → create separate backend repo/folder using Hono + Node.js/Express (deployable to Vercel, Railway, Fly.io, etc.)
+   - Always use Drizzle ORM (Better-Auth’s preferred adapter) with PostgreSQL
+
+4. **Better-Auth Core Implementation**
+   - Install `better-auth` + `better-auth-ui` + required plugins (google, apple, facebook, twitter)
+   - Configure env variables for all OAuth providers
+   - Set up email/password + magic links as fallback
+   - Add user metadata table/extension for background questionnaire answers
+
+5. **Onboarding Flow**
+   - After first successful sign-up → redirect to `/onboarding`
+   - Multi-step form asking:
+     - Years of programming experience
+     - Primary languages/frameworks
+     - Hardware (Mac/Windows/Linux, CPU, GPU, RAM)
+     - Development focus (frontend/backend/full-stack/AI/ML/mobile)
+   - Store answers in `user_metadata` table for future personalization
+
+6. **UI Integration (Better-Auth-UI)**
+   - Create `/sign-in`, `/sign-up` pages with `<AuthUI />`
+   - Add header component with dynamic auth buttons:
+     - Guest → “Sign In” | “Sign Up”
+     - Logged in → Avatar + Dropdown with “Profile”, “Settings”, “Sign Out”
+   - Fully responsive, accessible, dark mode ready
+
+7. **Session Management & Protection**
+   - Server-side session validation
+   - `authClient` React hook for frontend state
+   - Protected routes middleware (Next.js middleware or route guards)
+
+## Output You Will Receive
+
+After activation, I will deliver:
+
+- Complete step-by-step implementation plan tailored to your exact project
+- Exact terminal commands to run
+- File-by-file code changes/additions
+- `.env.example` with all required variables
+- Database schema (Drizzle migrations)
+- Separate backend repo link (if needed)
+- Ready-to-copy onboarding questionnaire component
+- Header component with conditional auth UI
+- Fully working, production-ready authentication system
+
+## Example Usage
+
+**User says:**  
+“I have a Next.js 14 App Router site using Prisma + PostgreSQL on Supabase. Add Better-Auth with Google, Apple, Facebook, X login and ask users about their dev experience after signup.”
+
+**This Skill Instantly Activates → Delivers:**
+
+- Confirmed DB usage (no new DB needed)
+- Prisma → Drizzle migration plan (or dual-ORM strategy if preferred)
+- `/src/auth` folder structure with full Better-Auth config
+- All OAuth callbacks configured
+- `/app/(auth)/sign-in/[[...better-auth]]/page.tsx` using `<AuthUI />`
+- Header with dynamic auth state
+- `/app/onboarding/page.tsx` with questionnaire
+- Protected route example using middleware
+
+**User says:**  
+“My site is a static Astro + React site. Just add login with social providers.”
+
+**This Skill Responds:**  
+→ Creates separate `better-auth-backend/` folder (Hono + Node)  
+→ Deploys in < 2 minutes to Vercel  
+→ Adds minimal client `authClient` to Astro  
+→ Injects header buttons + modal sign-in using Better-Auth-UI  
+→ Full social login working on a 100% static frontend
+
+## Activate This Skill By Saying
+
+- “Add Better-Auth to my project”
+- “Implement signup and login with Google/Apple/Facebook/X”
+- “I want Better-Auth with onboarding questions”
+- “Set up authentication for my [Next.js/Astro/Remix/etc.] site”
 
 ## Available Templates
 

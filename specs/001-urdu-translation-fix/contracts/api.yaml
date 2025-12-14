@@ -1,0 +1,481 @@
+openapi: 3.0.3
+info:
+  title: Urdu Translation and Personalization API
+  version: 1.0.0
+  description: API for translating content to Urdu and personalizing user experience
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+paths:
+  /translation:
+    post:
+      tags:
+        - Translation
+      summary: Translate content to Urdu
+      description: Translates the given text content to Urdu using Gemini LLM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslationRequest'
+      responses:
+        '200':
+          description: Successful translation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /translation/{translationId}/feedback:
+    post:
+      tags:
+        - Translation
+      summary: Submit feedback for translation
+      description: Submit thumbs up/down feedback for a translation
+      parameters:
+        - name: translationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '201':
+          description: Feedback submitted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /personalization/profile:
+    get:
+      tags:
+        - Personalization
+      summary: Get user personalization profile
+      description: Retrieve the current user's personalization preferences
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalizationProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Personalization
+      summary: Update user personalization profile
+      description: Update the current user's personalization preferences
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonalizationProfileUpdate'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalizationProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /personalization/content:
+    post:
+      tags:
+        - Personalization
+      summary: Personalize content for user
+      description: Adapt content based on user's personalization preferences
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonalizationRequest'
+      responses:
+        '200':
+          description: Content personalized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalizationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /cache/clear:
+    delete:
+      tags:
+        - Cache
+      summary: Clear translation cache
+      description: Clear cached translations (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: content_hash
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Specific content hash to clear (optional)
+      responses:
+        '204':
+          description: Cache cleared successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  schemas:
+    TranslationRequest:
+      type: object
+      required:
+        - text
+        - source_language
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 50000
+          description: Text content to translate
+        source_language:
+          type: string
+          enum: [en, ur, ur-roman]
+          description: Source language code
+        target_language:
+          type: string
+          enum: [ur, ur-roman]
+          default: ur
+          description: Target language code
+        preserve_code_blocks:
+          type: boolean
+          default: true
+          description: Whether to skip translation for code blocks
+        user_id:
+          type: string
+          format: uuid
+          description: User ID for personalized translations (optional)
+
+    TranslationResponse:
+      type: object
+      required:
+        - translated_text
+        - content_hash
+      properties:
+        translated_text:
+          type: string
+          description: Translated text content
+        content_hash:
+          type: string
+          description: SHA-256 hash of original content
+        chunks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationChunk'
+          description: Translation chunks (if content was split)
+        processing_time_ms:
+          type: number
+          description: Time taken to process translation
+        cached:
+          type: boolean
+          description: Whether response was from cache
+
+    TranslationChunk:
+      type: object
+      properties:
+        index:
+          type: integer
+          description: Chunk index
+        original_text:
+          type: string
+          description: Original text for this chunk
+        translated_text:
+          type: string
+          description: Translated text for this chunk
+        start_position:
+          type: integer
+          description: Start position in original text
+        end_position:
+          type: integer
+          description: End position in original text
+
+    FeedbackRequest:
+      type: object
+      required:
+        - rating
+      properties:
+        rating:
+          type: integer
+          enum: [-1, 1]
+          description: -1 for thumbs down, 1 for thumbs up
+        comment:
+          type: string
+          maxLength: 280
+          description: Optional feedback comment
+
+    PersonalizationProfile:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User identifier
+        reading_level:
+          $ref: '#/components/schemas/ReadingLevel'
+        preferred_language:
+          type: string
+          enum: [en, ur, ur-roman]
+          default: en
+        focus_areas:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+          description: Topics user is interested in
+        learning_style:
+          $ref: '#/components/schemas/LearningStyle'
+        enable_transliteration:
+          type: boolean
+          default: true
+          description: Enable technical term transliteration
+        technical_term_handling:
+          $ref: '#/components/schemas/TermHandling'
+        font_size:
+          type: integer
+          minimum: 12
+          maximum: 24
+          default: 16
+        focus_mode_preferences:
+          type: object
+          properties:
+            auto_simplify:
+              type: boolean
+              default: false
+            show_progress:
+              type: boolean
+              default: true
+            enable_tts:
+              type: boolean
+              default: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PersonalizationProfileUpdate:
+      type: object
+      properties:
+        reading_level:
+          $ref: '#/components/schemas/ReadingLevel'
+        focus_areas:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        learning_style:
+          $ref: '#/components/schemas/LearningStyle'
+        enable_transliteration:
+          type: boolean
+        technical_term_handling:
+          $ref: '#/components/schemas/TermHandling'
+        font_size:
+          type: integer
+          minimum: 12
+          maximum: 24
+        focus_mode_preferences:
+          type: object
+          properties:
+            auto_simplify:
+              type: boolean
+            show_progress:
+              type: boolean
+            enable_tts:
+              type: boolean
+
+    PersonalizationRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          description: Content to personalize
+        content_type:
+          type: string
+          enum: [markdown, html, plain]
+          default: markdown
+        context:
+          type: object
+          properties:
+            page_url:
+              type: string
+              format: uri
+            section_title:
+              type: string
+            previous_content:
+              type: string
+              description: Previous content for context
+
+    PersonalizationResponse:
+      type: object
+      properties:
+        personalized_content:
+          type: string
+          description: Content adapted to user preferences
+        adaptations_made:
+          type: array
+          items:
+            $ref: '#/components/schemas/Adaptation'
+          description: List of adaptations applied
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence in personalization quality
+
+    Adaptation:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [simplified, expanded_examples, restructured, highlighted_terms]
+        description:
+          type: string
+          description: Description of adaptation
+        original_text:
+          type: string
+          description: Original text before adaptation
+        adapted_text:
+          type: string
+          description: Text after adaptation
+
+    ReadingLevel:
+      type: string
+      enum:
+        - beginner
+        - intermediate
+        - advanced
+
+    LearningStyle:
+      type: string
+      enum:
+        - visual
+        - practical
+        - theoretical
+        - balanced
+
+    TermHandling:
+      type: string
+      enum:
+        - translate
+        - transliterate
+        - keep_english
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        error_code:
+          type: string
+          description: Application-specific error code
+        details:
+          type: object
+          description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+tags:
+  - name: Translation
+    description: Translation endpoints
+  - name: Personalization
+    description: Personalization endpoints
+  - name: Cache
+    description: Cache management endpoints

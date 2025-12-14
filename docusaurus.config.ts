@@ -21,7 +21,15 @@ const config: Config = {
 
   i18n: {
     defaultLocale: "en",
-    locales: ["en"],
+    locales: ["en", "ur"],
+    localeConfigs: {
+      ur: {
+        label: "اردو",
+        direction: "rtl",
+        htmlLang: "ur-PK",
+        calendar: "gregory"
+      }
+    }
   },
 
   presets: [
@@ -76,7 +84,7 @@ const config: Config = {
           className: "desktop-only",
         },
         {
-          href: "https://github.com/mrowaisabdullah/ai-humanoid-robotics",
+          href: "https://github.com/mrowaisabdullah",
           label: "GitHub",
           position: "right",
           className: "header-github-link desktop-only", // Class to control mobile visibility
@@ -106,7 +114,7 @@ const config: Config = {
           items: [
             {
               label: "LinkedIn",
-              href: "https://www.linkedin.com/in/mrowaisabdullah/",
+              href: "https://www.linkedin.com/in/mrowaisabdullah",
             },
           ],
         },
@@ -124,7 +132,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Physical AI & Humanoid Robotics. Developed with ❤️ by Owais Abdullah.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Physical AI & Humanoid Robotics. Made with ❤️ by Owais Abdullah.`,
     },
     prism: {
       theme: prismThemes.github,

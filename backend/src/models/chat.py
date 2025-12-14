@@ -30,7 +30,7 @@ class ChatMessage(Base):
     chat_session_id = Column(String(36), ForeignKey("chat_sessions.id"), nullable=False)
     role = Column(SQLEnum(Role), nullable=False)
     content = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True)
+    message_metadata = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
