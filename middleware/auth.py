@@ -71,9 +71,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     async def _authenticate_user(self, request: Request) -> Optional[dict]:
         """
-        Authenticate user from JWT token in cookie.
+        Authenticate user from JWT token in cookie or header.
         """
         token = request.cookies.get("access_token")
+        
+        # Check header if no cookie
+        if not token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+        
         if not token:
             return None
 
@@ -84,12 +91,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # In a real implementation, fetch user from database
         # For now, return payload as user representation
         return {
-            "id": int(payload.get("sub")),
+            "id": payload.get("sub"),
             "email": payload.get("email"),
             "name": payload.get("name", ""),
         }
 
-    async def _get_user_session_id(self, user_id: int, db: Session) -> Optional[str]:
+    async def _get_user_session_id(self, user_id: str, db: Session) -> Optional[str]:
         """Get active session ID for user."""
         session = db.query(AuthSession).filter(
             AuthSession.user_id == user_id,

@@ -13,7 +13,7 @@ from auth.auth import (
     invalidate_user_sessions, get_current_active_user,
     verify_password, get_password_hash
 )
-from src.models.auth import User, UserPreferences
+from src.models.auth import User, UserPreferences, AnonymousSession
 from src.services.session_migration import SessionMigrationService, migrate_anonymous_session_on_auth
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -61,6 +61,27 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+@router.get("/anonymous-session/{session_id}")
+async def get_anonymous_session(session_id: str, db: Session = Depends(get_db)):
+    """Get anonymous session data including message count."""
+    
+    session = db.query(AnonymousSession).filter(
+        AnonymousSession.id == session_id
+    ).first()
+    
+    if session:
+        return {
+            "id": session.id,
+            "message_count": session.message_count,
+            "exists": True
+        }
+    
+    return {
+        "id": session_id,
+        "message_count": 0,
+        "exists": False
+    }
 
 @router.post("/register")
 @limiter.limit("5/minute")

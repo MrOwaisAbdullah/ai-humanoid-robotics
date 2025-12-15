@@ -20,6 +20,32 @@ from datetime import datetime
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from contextlib import asynccontextmanager
+import logging
+import structlog
+from typing import Dict, Any, Optional
+import asyncio
+import os
+import time
+import json
+import aiohttp
+import base64
+from datetime import datetime
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
+
+# Load environment variables first
+load_dotenv()
+print(f"*** Environment loaded. GEMINI_API_KEY exists: {bool(os.getenv('GEMINI_API_KEY'))} ***")
+
 from rag.ingestion import DocumentIngestor
 from rag.chat import ChatHandler
 from rag.qdrant_client import QdrantManager
@@ -34,6 +60,7 @@ from middleware.auth import AuthMiddleware
 # Import auth routes
 from routes import auth
 from src.api.routes import chat
+from src.api.routes import users
 
 # Import ChatKit server
 # from chatkit_server import get_chatkit_server
@@ -58,10 +85,6 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
-
-# Load environment variables
-load_dotenv()
-print(f"*** Environment loaded. GEMINI_API_KEY exists: {bool(os.getenv('GEMINI_API_KEY'))} ***")
 
 
 class Settings(BaseSettings):
@@ -258,6 +281,9 @@ app.add_middleware(
 # Include auth routes
 app.include_router(auth.router)
 
+# Include users routes
+app.include_router(users.router, prefix="/api/v1")
+
 # Include new chat routes
 app.include_router(chat.router)
 
@@ -268,6 +294,10 @@ app.include_router(reader_features.router, prefix="/api/v1")
 # Include translation routes
 from src.api.v1 import translation
 app.include_router(translation.router, prefix="/api/v1")
+
+# Include personalization routes
+from src.api.routes import personalization
+app.include_router(personalization.router, prefix="/api/v1")
 
 
 # Optional API key security for higher rate limits

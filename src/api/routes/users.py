@@ -11,25 +11,23 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from src.database.config import get_db
+from src.database.base import get_db
 from src.models.auth import User, UserBackground, OnboardingResponse, UserPreferences
 from src.schemas.auth import (
-    User as UserSchema,
-    UserBackground as UserBackgroundSchema,
+    UserResponse as UserSchema,
+    UserBackgroundResponse,
     UserBackgroundCreate,
     UserBackgroundUpdate,
-    UserBackgroundResponse,
-    OnboardingResponse as OnboardingResponseSchema,
+    OnboardingResponseResponse as OnboardingResponseSchema,
     OnboardingResponseCreate,
     OnboardingBatch,
-    UserPreferences as UserPreferencesSchema,
-    UserPreferencesUpdate,
     UserPreferencesResponse,
+    UserPreferencesUpdate,
     SuccessResponse
 )
 from src.security.dependencies import get_current_active_user
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(tags=["users"])
 
 
 @router.get("/me", response_model=UserSchema)
@@ -119,16 +117,16 @@ async def get_user_background(
 
     if not background:
         # Return default background
-        return UserBackgroundResponse(
-            id="",
-            user_id=current_user.id,
-            experience_level="beginner",
-            years_experience=0,
-            preferred_languages=[],
-            hardware_expertise={"cpu": "none", "gpu": "none", "networking": "none"},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
+        return {
+            "id": "",
+            "user_id": current_user.id,
+            "experience_level": "beginner",
+            "years_experience": 0,
+            "preferred_languages": [],
+            "hardware_expertise": {"cpu": "none", "gpu": "none", "networking": "none"},
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
 
     return background
 
@@ -313,19 +311,19 @@ async def get_user_preferences(
 
     if not preferences:
         # Return default preferences
-        return UserPreferencesResponse(
-            id="",
-            user_id=current_user.id,
-            theme="auto",
-            language="en",
-            notification_settings={
+        return {
+            "id": "",
+            "user_id": current_user.id,
+            "theme": "auto",
+            "language": "en",
+            "notification_settings": {
                 "email_responses": False,
                 "browser_notifications": True,
                 "marketing_emails": False
             },
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
 
     return preferences
 

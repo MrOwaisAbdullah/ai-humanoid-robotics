@@ -7,12 +7,18 @@ Provides content adaptation based on user experience level and preferences.
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import uuid
+import hashlib
+import time
 
 from sqlalchemy.orm import Session
 from src.models.user_preferences import UserPreference
 from src.models.reading_progress import ReadingProgress
+from src.models.personalization import SavedPersonalization
+from src.models.user import User
 from src.utils.errors import NotFoundError, ValidationError
 from src.utils.logging import get_logger
+from src.agents.personalization_agent import PersonalizationAgent
+from src.cache.personization import get_personalization_cache
 
 logger = get_logger(__name__)
 
@@ -399,7 +405,381 @@ class PersonalizationService:
         return min_diff <= content_difficulty <= max_diff
 
 
+class PersonalizationEngine:
+    """
+    Service for orchestrating content personalization using AI agents
+    """
+
+    def __init__(self, db: Session):
+        """
+        Initialize the personalization engine
+
+        Args:
+            db: Database session
+        """
+        self.db = db
+        self.agent = PersonalizationAgent()
+        self.cache = get_personalization_cache()
+
+    async def personalize_content(
+        self,
+        content: str,
+        user_id: str,
+        context: Optional[str] = None,
+        save_result: bool = False,
+        target_length: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Personalize content for a user
+
+        Args:
+            content: The original content to personalize
+            user_id: The user ID
+            context: Additional context about the content
+            save_result: Whether to save the result
+            target_length: Target word count for personalized content
+
+        Returns:
+            Dictionary with personalized content and metadata
+        """
+        # Get user and their background
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise NotFoundError(f"User {user_id} not found")
+
+        # Get user background or use defaults
+        user_profile = await self._get_user_profile(user)
+
+        # Check cache first
+        cache_key_data = {
+            "content": content,
+            "context": context,
+            "target_length": target_length
+        }
+        cached_result = await self.cache.get(
+            json.dumps(cache_key_data, sort_keys=True),
+            user_profile
+        )
+        if cached_result:
+            logger.info(f"Cache hit for user {user_id}")
+            return cached_result
+
+        # Start timing
+        start_time = time.time()
+
+        try:
+            # Generate personalized content
+            result = await self.agent.personalize_content(
+                content=content,
+                user_profile=user_profile
+            )
+
+            if result.get("error"):
+                logger.error(f"Personalization failed for user {user_id}: {result['error']}")
+                return {
+                    "success": False,
+                    "error": result["error"],
+                    "personalized_content": None,
+                    "adaptations_made": []
+                }
+
+            # Calculate processing time
+            processing_time = time.time() - start_time
+
+            # Add metadata
+            content_hash = hashlib.sha256(content.encode()).hexdigest()
+
+            # Prepare response
+            response = {
+                "success": True,
+                "personalized_content": result["personalized_content"],
+                "adaptations_made": result["adaptations_made"],
+                "original_length": result["original_length"],
+                "personalized_length": result["personalized_length"],
+                "processing_time": processing_time,
+                "content_hash": content_hash,
+                "user_profile": {
+                    "experience_level": user_profile.get("experience_level"),
+                    "primary_expertise": user_profile.get("primary_expertise"),
+                    "hardware_expertise": user_profile.get("hardware_expertise")
+                },
+                "tokens_used": 0  # Would be populated by agent response
+            }
+
+            # Cache the result
+            await self.cache.set(
+                json.dumps(cache_key_data, sort_keys=True),
+                user_profile,
+                response,
+                ttl=3600  # 1 hour cache
+            )
+
+            # Save if requested
+            if save_result:
+                saved_id = await self._save_personalization(
+                    user_id=user_id,
+                    content_hash=content_hash,
+                    content_url=context or "",
+                    content_title="Personalized Content",
+                    personalized_content=response["personalized_content"],
+                    personalization_metadata={
+                        "target_length": target_length,
+                        "processing_time": processing_time
+                    },
+                    adaptations_applied=response["adaptations_made"]
+                )
+                response["saved_id"] = saved_id
+
+            # Update user stats
+            await self._update_user_stats(user_id)
+
+            logger.info(
+                f"Successfully personalized content for user {user_id}",
+                processing_time=processing_time,
+                adaptations=len(response["adaptations_made"])
+            )
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Unexpected error in personalization: {str(e)}")
+            return {
+                "success": False,
+                "error": "An unexpected error occurred during personalization",
+                "personalized_content": None,
+                "adaptations_made": []
+            }
+
+    async def _get_user_profile(self, user: User) -> Dict[str, Any]:
+        """
+        Get user's profile for personalization
+
+        Args:
+            user: User object
+
+        Returns:
+            User profile dictionary
+        """
+        # Get user background if available
+        profile = {}
+        if hasattr(user, 'background') and user.background:
+            profile = {
+                "experience_level": user.background.experience_level.value if user.background.experience_level else "intermediate",
+                "years_of_experience": user.background.years_of_experience or 0,
+                "primary_expertise": user.background.primary_interest or "general",
+                "hardware_expertise": user.background.hardware_expertise.value if user.background.hardware_expertise else "none",
+                "preferred_languages": user.background.preferred_languages or []
+            }
+        else:
+            # Default profile for users without background
+            profile = {
+                "experience_level": "intermediate",
+                "years_of_experience": 0,
+                "primary_expertise": "general",
+                "hardware_expertise": "none",
+                "preferred_languages": []
+            }
+
+        return profile
+
+    async def _save_personalization(
+        self,
+        user_id: str,
+        content_hash: str,
+        content_url: str,
+        content_title: str,
+        personalized_content: str,
+        personalization_metadata: Dict[str, Any],
+        adaptations_applied: List[str]
+    ) -> str:
+        """
+        Save personalized content to database
+
+        Args:
+            user_id: User ID
+            content_hash: Hash of original content
+            content_url: URL of original content
+            content_title: Title of the content
+            personalized_content: The personalized content
+            personalization_metadata: Metadata about personalization
+            adaptations_applied: List of adaptations applied
+
+        Returns:
+            ID of saved personalization
+        """
+        try:
+            # Check if already exists
+            existing = self.db.query(SavedPersonalization).filter(
+                SavedPersonalization.user_id == user_id,
+                SavedPersonalization.original_content_hash == content_hash
+            ).first()
+
+            if existing:
+                # Update existing
+                existing.personalized_content = personalized_content
+                existing.personalization_metadata = personalization_metadata
+                existing.adaptations_applied = adaptations_applied
+                existing.last_accessed = datetime.utcnow()
+                self.db.commit()
+                logger.info(f"Updated existing personalization for user {user_id}")
+                return str(existing.id)
+            else:
+                # Create new
+                saved = SavedPersonalization(
+                    user_id=user_id,
+                    original_content_hash=content_hash,
+                    content_url=content_url,
+                    content_title=content_title,
+                    personalized_content=personalized_content,
+                    personalization_metadata=personalization_metadata,
+                    adaptations_applied=adaptations_applied
+                )
+                self.db.add(saved)
+                self.db.commit()
+                logger.info(f"Saved new personalization for user {user_id}")
+                return str(saved.id)
+
+        except Exception as e:
+            logger.error(f"Failed to save personalization: {str(e)}")
+            return None
+
+    async def _update_user_stats(self, user_id: str) -> None:
+        """
+        Update user's personalization statistics
+
+        Args:
+            user_id: User ID to update stats for
+        """
+        try:
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if user:
+                # Update total personalizations if column exists
+                if hasattr(user, 'total_personalizations'):
+                    user.total_personalizations += 1
+                self.db.commit()
+        except Exception as e:
+            logger.error(f"Failed to update user stats: {str(e)}")
+
+    async def get_saved_personalizations(
+        self,
+        user_id: str,
+        page: int = 1,
+        per_page: int = 10
+    ) -> Dict[str, Any]:
+        """
+        Get user's saved personalizations
+
+        Args:
+            user_id: User ID
+            page: Page number
+            per_page: Items per page
+
+        Returns:
+            Dictionary with saved personalizations
+        """
+        try:
+            query = self.db.query(SavedPersonalization).filter(
+                SavedPersonalization.user_id == user_id
+            ).order_by(SavedPersonalization.created_at.desc())
+
+            total = query.count()
+            saved = query.offset((page - 1) * per_page).limit(per_page).all()
+
+            return {
+                "personalizations": [
+                    {
+                        "id": str(item.id),
+                        "content_title": item.content_title,
+                        "content_url": item.content_url,
+                        "user_rating": item.user_rating,
+                        "created_at": item.created_at.isoformat(),
+                        "last_accessed": item.last_accessed.isoformat(),
+                        "adaptations_applied": item.adaptations_applied
+                    }
+                    for item in saved
+                ],
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": (total + per_page - 1) // per_page
+            }
+        except Exception as e:
+            logger.error(f"Failed to get saved personalizations: {str(e)}")
+            return {"personalizations": [], "total": 0, "page": 1, "per_page": 10, "total_pages": 0}
+
+    async def delete_saved_personalization(
+        self,
+        user_id: str,
+        personalization_id: str
+    ) -> bool:
+        """
+        Delete a saved personalization
+
+        Args:
+            user_id: User ID
+            personalization_id: Personalization ID to delete
+
+        Returns:
+            True if deleted successfully
+        """
+        try:
+            saved = self.db.query(SavedPersonalization).filter(
+                SavedPersonalization.id == personalization_id,
+                SavedPersonalization.user_id == user_id
+            ).first()
+
+            if saved:
+                self.db.delete(saved)
+                self.db.commit()
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Failed to delete personalization: {str(e)}")
+            return False
+
+    async def rate_saved_personalization(
+        self,
+        user_id: str,
+        personalization_id: str,
+        rating: int,
+        feedback: Optional[str] = None
+    ) -> bool:
+        """
+        Rate a saved personalization
+
+        Args:
+            user_id: User ID
+            personalization_id: Personalization ID to rate
+            rating: Rating (1-5)
+            feedback: Optional feedback text
+
+        Returns:
+            True if rated successfully
+        """
+        try:
+            saved = self.db.query(SavedPersonalization).filter(
+                SavedPersonalization.id == personalization_id,
+                SavedPersonalization.user_id == user_id
+            ).first()
+
+            if saved:
+                saved.user_rating = max(1, min(5, rating))
+                if feedback:
+                    saved.user_feedback = feedback
+                self.db.commit()
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Failed to rate personalization: {str(e)}")
+            return False
+
+
 # Dependency injection function
 def get_personalization_service(db: Session = Depends(get_db)) -> PersonalizationService:
     """Get personalization service instance."""
     return PersonalizationService(db)
+
+
+def get_personalization_engine(db: Session = Depends(get_db)) -> PersonalizationEngine:
+    """Get personalization engine instance."""
+    return PersonalizationEngine(db)

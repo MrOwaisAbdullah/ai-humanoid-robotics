@@ -15,11 +15,7 @@ from sqlalchemy.orm import Session
 
 from src.database.base import get_db
 from src.models.auth import User
-
-# Configuration
-SECRET_KEY = "your-secret-key-here"  # Should be in environment variables
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from src.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -72,18 +68,22 @@ async def get_current_user(
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
+            detail="Not authenticated - No credentials provided",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     token = credentials.credentials
+    # Debug logging
+    print(f"DEBUG: Received token: {token[:20]}..." if len(token) > 20 else f"DEBUG: Received token: {token}")
+
     payload = decode_token(token)
+    print(f"DEBUG: Token payload: {payload}")
 
     user_id: str = payload.get("sub")
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail="Could not validate credentials - No user ID in token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -91,7 +91,7 @@ async def get_current_user(
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail=f"User not found with ID: {user_id}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
