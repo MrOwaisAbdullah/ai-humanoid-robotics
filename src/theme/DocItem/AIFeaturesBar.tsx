@@ -1,16 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFocusMode } from '../../contexts/FocusModeContext';
 import { useLocalization } from '../../contexts/LocalizationContext';
-import { Loader2, Globe } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { Loader2, Globe, Sparkles, Lock } from 'lucide-react';
 import { useLocation } from '@docusaurus/router';
 import TextToSpeech from '../../components/TTS/TextToSpeech';
+import { LoginButton } from '../../components/Auth/LoginButton';
+import { canPersonalize, getPersonalizationStatus } from '../../services/personalizationApi';
+import { extractCurrentPageContent, extractSelectedText } from '../../utils/contentExtractor';
+import { PersonalizationModal } from '../../components/Personalization/PersonalizationModal';
 import styles from './AIFeaturesBar.module.css';
 
 export default function AIFeaturesBar() {
   const { showTranslation } = useFocusMode();
   const { translationEnabled, language } = useLocalization();
+  const { isAuthenticated, user } = useAuth();
   const [isTranslating, setIsTranslating] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [pendingPersonalization, setPendingPersonalization] = useState(false);
+  const [showPersonalizationModal, setShowPersonalizationModal] = useState(false);
+  const [personalizationContent, setPersonalizationContent] = useState('');
+  const [personalizationContentType, setPersonalizationContentType] = useState<'selected' | 'page'>('page');
+  const [personalizationWordCount, setPersonalizationWordCount] = useState(0);
   const location = useLocation();
+
+  // Listen for authentication state changes
+  useEffect(() => {
+    console.log('Auth state changed in AIFeaturesBar:', { isAuthenticated, user });
+
+    // If we have a pending personalization and user just became authenticated
+    if (pendingPersonalization && isAuthenticated && user) {
+      console.log('Processing pending personalization after authentication');
+      setPendingPersonalization(false);
+      setShowLoginModal(false);
+
+      // Extract content and open personalization modal
+      try {
+        const selectedText = extractSelectedText();
+
+        if (selectedText && selectedText.length > 50) {
+          setPersonalizationContent(selectedText);
+          setPersonalizationContentType('selected');
+          setPersonalizationWordCount(selectedText.split(' ').length);
+          setShowPersonalizationModal(true);
+        } else {
+          const content = extractCurrentPageContent();
+          if (content && content.wordCount >= 50) {
+            setPersonalizationContent(content.text);
+            setPersonalizationContentType('page');
+            setPersonalizationWordCount(content.wordCount);
+            setShowPersonalizationModal(true);
+          } else {
+            showToast('Not enough content to personalize. Please select more text or choose a page with more content.');
+          }
+        }
+      } catch (error) {
+        console.error('Content extraction failed:', error);
+        showToast('Failed to extract content for personalization. Please try again.');
+      }
+    }
+  }, [isAuthenticated, user, pendingPersonalization]);
 
   // Only show on docs pages, not on other pages like blog, authentication, etc.
   if (!location.pathname.includes('/docs/') ||
@@ -171,9 +221,49 @@ export default function AIFeaturesBar() {
   };
 
   const handlePersonalize = () => {
-    showToast('Personalization feature coming soon!');
+    // Check if user is authenticated using AuthContext
+    console.log('handlePersonalize called - isAuthenticated:', isAuthenticated, 'user:', user);
+
+    if (!isAuthenticated) {
+      setPendingPersonalization(true);
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Clear any previous login errors and pending state
+    setLoginError(null);
+    setPendingPersonalization(false);
+
+    // Extract content for personalization
+    try {
+      // First try to get selected text
+      const selectedText = extractSelectedText();
+
+      if (selectedText && selectedText.length > 50) {
+        // Personalize selected text
+        setPersonalizationContent(selectedText);
+        setPersonalizationContentType('selected');
+        setPersonalizationWordCount(selectedText.split(' ').length);
+        setShowPersonalizationModal(true);
+      } else {
+        // Extract full page content
+        const content = extractCurrentPageContent();
+        if (content && content.wordCount >= 50) {
+          setPersonalizationContent(content.text);
+          setPersonalizationContentType('page');
+          setPersonalizationWordCount(content.wordCount);
+          setShowPersonalizationModal(true);
+        } else {
+          showToast('Not enough content to personalize. Please select more text or choose a page with more content.');
+        }
+      }
+    } catch (error) {
+      console.error('Content extraction failed:', error);
+      showToast('Failed to extract content for personalization. Please try again.');
+    }
   };
 
+  
   return (
     <div className={`ai-features-bar glass-bar ${styles.aiFeaturesBar}`}>
       <div className={styles.header}>
@@ -189,8 +279,9 @@ export default function AIFeaturesBar() {
             className={`button button--primary button--sm ${styles.featureBtn}`}
             onClick={handlePersonalize}
             disabled={isTranslating}
+            title="Personalize this content for you"
           >
-            <span style={{ fontSize: '16px' }}>✨</span>
+            <Sparkles size={16} />
             <span className={styles.btnText}>Personalize</span>
           </button>
           
@@ -221,6 +312,95 @@ export default function AIFeaturesBar() {
           </div>
         )}
       </div>
+
+      {/* Login Prompt Modal */}
+      {showLoginModal && (
+        <div className={styles.loginModalOverlay} onClick={() => {
+          setShowLoginModal(false);
+          setPendingPersonalization(false);
+        }}>
+          <div className={styles.loginModal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.loginModalHeader}>
+              <h3>Login Required</h3>
+              <button
+                className={styles.closeButton}
+                onClick={() => {
+                  setShowLoginModal(false);
+                  setPendingPersonalization(false);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div className={styles.loginModalBody}>
+              <div className={styles.loginIcon}>
+                <Lock size={48} />
+              </div>
+              <p>
+                Content personalization is available only to authenticated users.
+                Please login to access this feature.
+              </p>
+              <div className={styles.loginModalActions}>
+                <LoginButton
+                  className="button button--primary"
+                  onSuccess={() => {
+                    console.log('Login success callback triggered');
+
+                    // Clear any URL parameters that might cause redirects
+                    if (window.location.search.includes('redirect') || window.location.search.includes('action')) {
+                      const url = new URL(window.location.href);
+                      url.searchParams.delete('redirect');
+                      url.searchParams.delete('action');
+                      window.history.replaceState({}, '', url.toString());
+                    }
+
+                    showToast('Successfully logged in! You can now personalize content.');
+
+                    // The useEffect will handle the pending personalization
+                    // when the auth state updates
+                  }}
+                  onError={(error: string) => {
+                    setLoginError(error);
+                    showToast(`Login failed: ${error}`, 'error');
+                  }}
+                >
+                  Sign In
+                </LoginButton>
+                <button
+                  className="button button--outline"
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    setPendingPersonalization(false);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+
+              {/* Show login error if any */}
+              {loginError && (
+                <div className={styles.loginErrorMessage}>
+                  {loginError}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Personalization Modal */}
+      <PersonalizationModal
+        isOpen={showPersonalizationModal}
+        onClose={() => {
+          setShowPersonalizationModal(false);
+          setPersonalizationContent('');
+          setPersonalizationContentType('page');
+          setPersonalizationWordCount(0);
+        }}
+        content={personalizationContent}
+        contentType={personalizationContentType}
+        wordCount={personalizationWordCount}
+      />
     </div>
   );
 }

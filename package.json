@@ -33,6 +33,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.48.2",
+    "react-query": "^3.39.3",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
     "rehype-highlight": "^7.0.2",

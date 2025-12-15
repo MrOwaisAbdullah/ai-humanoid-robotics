@@ -18,7 +18,7 @@ interface UseTextSelectionOptions {
 export function useTextSelection({
   maxLength = 2000,
   debounceMs = 300,
-  enabled = true
+  enabled = true,
 }: UseTextSelectionOptions = {}) {
   const [selection, setSelection] = useState<TextSelectionState>({
     text: '',
@@ -26,7 +26,7 @@ export function useTextSelection({
     rect: null,
     isValid: false,
     isTooLong: false,
-    truncatedText: ''
+    truncatedText: '',
   });
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
@@ -56,7 +56,7 @@ export function useTextSelection({
           rect: null,
           isValid: false,
           isTooLong: false,
-          truncatedText: ''
+          truncatedText: '',
         });
         setIsTooltipVisible(false);
       }
@@ -72,7 +72,7 @@ export function useTextSelection({
           rect: null,
           isValid: false,
           isTooLong: false,
-          truncatedText: ''
+          truncatedText: '',
         });
         setIsTooltipVisible(false);
       }
@@ -91,7 +91,7 @@ export function useTextSelection({
             rect: null,
             isValid: false,
             isTooLong: false,
-            truncatedText: ''
+            truncatedText: '',
           });
           setIsTooltipVisible(false);
         }
@@ -103,15 +103,23 @@ export function useTextSelection({
       const endNode = range.endContainer;
 
       // Find the closest parent elements
-      const startElement = startNode.nodeType === Node.TEXT_NODE ? startNode.parentElement : startNode as Element;
-      const endElement = endNode.nodeType === Node.TEXT_NODE ? endNode.parentElement : endNode as Element;
+      const startElement =
+        startNode.nodeType === Node.TEXT_NODE
+          ? startNode.parentElement
+          : (startNode as Element);
+      const endElement =
+        endNode.nodeType === Node.TEXT_NODE
+          ? endNode.parentElement
+          : (endNode as Element);
 
       // Validate selection is within content areas (exclude buttons, inputs, etc.)
       const isInvalidElement = (element: Element | null) => {
         if (!element) return false;
         const tagName = element.tagName.toLowerCase();
         const invalidTags = ['button', 'input', 'textarea', 'select', 'option'];
-        return invalidTags.includes(tagName) || element.closest('.no-selection');
+        return (
+          invalidTags.includes(tagName) || element.closest('.no-selection')
+        );
       };
 
       if (isInvalidElement(startElement) || isInvalidElement(endElement)) {
@@ -122,7 +130,7 @@ export function useTextSelection({
             rect: null,
             isValid: false,
             isTooLong: false,
-            truncatedText: ''
+            truncatedText: '',
           });
           setIsTooltipVisible(false);
         }
@@ -150,11 +158,10 @@ export function useTextSelection({
           rect,
           isValid: true,
           isTooLong,
-          truncatedText
+          truncatedText,
         });
         setIsTooltipVisible(true);
       }
-
     } catch (error) {
       console.warn('Error processing text selection:', error);
       if (selection.text !== '') {
@@ -164,12 +171,19 @@ export function useTextSelection({
           rect: null,
           isValid: false,
           isTooLong: false,
-          truncatedText: ''
+          truncatedText: '',
         });
         setIsTooltipVisible(false);
       }
     }
-  }, [enabled, maxLength, selection.text, selection.isTooLong, selection.truncatedText, selection.rect]);
+  }, [
+    enabled,
+    maxLength,
+    selection.text,
+    selection.isTooLong,
+    selection.truncatedText,
+    selection.rect,
+  ]);
 
   // Debounced selection handler
   const handleSelectionChange = useCallback(() => {
@@ -206,7 +220,10 @@ export function useTextSelection({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (target.closest('.selection-tooltip') || target.closest('.no-selection')) {
+      if (
+        target.closest('.selection-tooltip') ||
+        target.closest('.no-selection')
+      ) {
         return;
       }
 
@@ -248,7 +265,7 @@ export function useTextSelection({
       rect: null,
       isValid: false,
       isTooLong: false,
-      truncatedText: ''
+      truncatedText: '',
     });
     setIsTooltipVisible(false);
   }, []);
@@ -257,6 +274,6 @@ export function useTextSelection({
     selection,
     isTooltipVisible,
     clearSelection,
-    setIsTooltipVisible
+    setIsTooltipVisible,
   };
 }

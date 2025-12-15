@@ -383,3 +383,52 @@ class TranslationRateLimitMiddleware(RateLimitMiddleware):
 
         # Apply rate limiting
         return await super().dispatch(request, call_next)
+
+
+class PersonalizationRateLimitMiddleware(RateLimitMiddleware):
+    """
+    Specialized rate limit middleware for personalization endpoints.
+
+    Implements optimized limits for personalization endpoints to manage
+    Gemini API quotas effectively while providing good user experience.
+    """
+
+    def __init__(
+        self,
+        app,
+        *,
+        redis_client=None
+    ):
+        """
+        Initialize personalization rate limit middleware.
+
+        Args:
+            app: FastAPI application
+            redis_client: Optional Redis client
+        """
+        # Optimized limits for personalization endpoints
+        super().__init__(
+            app,
+            requests_per_minute=30,   # 30 personalizations per minute
+            requests_per_hour=1000,  # 1000 personalizations per hour
+            redis_client=redis_client
+        )
+
+        logger.info(
+            "Personalization rate limit middleware initialized",
+            requests_per_minute=30,
+            requests_per_hour=1000
+        )
+
+    async def dispatch(self, request: Request, call_next):
+        """
+        Process request with personalization-specific rate limiting.
+
+        Only applies to personalization endpoints.
+        """
+        # Check if this is a personalization endpoint
+        if not request.url.path.startswith("/api/v1/personalize"):
+            return await call_next(request)
+
+        # Apply rate limiting
+        return await super().dispatch(request, call_next)

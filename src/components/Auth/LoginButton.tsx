@@ -37,11 +37,15 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 interface LoginButtonProps {
   className?: string;
   children?: React.ReactNode;
+  onSuccess?: () => void;
+  onError?: (error: string) => void;
 }
 
 export const LoginButton: React.FC<LoginButtonProps> = ({
   className = "",
-  children
+  children,
+  onSuccess,
+  onError
 }) => {
   const { login, register, isLoading } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -101,6 +105,11 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
       setIsModalOpen(false);
       loginForm.reset();
 
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+
       // Show migration success message if applicable
       if (migrationInfo && migrationInfo.migratedSessions && migrationInfo.migratedSessions > 0) {
         setSuccess(
@@ -108,7 +117,13 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         );
       }
     } catch (error: any) {
-      setError(error.response?.data?.detail || 'Login failed. Please try again.');
+      const errorMessage = error.response?.data?.detail || 'Login failed. Please try again.';
+      setError(errorMessage);
+
+      // Call onError callback if provided
+      if (onError) {
+        onError(errorMessage);
+      }
     }
   };
 
@@ -125,6 +140,11 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
       setIsModalOpen(false);
       registerForm.reset();
 
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+
       // Show migration success message if applicable
       if (migrationInfo && migrationInfo.migratedSessions && migrationInfo.migratedSessions > 0) {
         setSuccess(
@@ -132,7 +152,13 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         );
       }
     } catch (error: any) {
-      setError(error.response?.data?.detail || 'Registration failed. Please try again.');
+      const errorMessage = error.response?.data?.detail || 'Registration failed. Please try again.';
+      setError(errorMessage);
+
+      // Call onError callback if provided
+      if (onError) {
+        onError(errorMessage);
+      }
     }
   };
 

@@ -9,7 +9,9 @@
       "mcp__chrome-devtools__evaluate_script",
       "mcp__chrome-devtools__list_console_messages",
       "mcp__chrome-devtools__take_screenshot",
-      "mcp__chrome-devtools__take_snapshot"
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__web-search-prime__webSearchPrime",
+      "mcp__web-reader__webReader"
     ],
     "deny": [],
     "ask": []

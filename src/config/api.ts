@@ -9,7 +9,7 @@ const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     // For local development
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:7860';
+      return 'http://localhost:7860'; // Backend runs on port 7860
     }
     // For production/preview deployments on GitHub Pages
     if (window.location.hostname.includes('github.io')) {
@@ -20,9 +20,9 @@ const getApiBaseUrl = (): string => {
     return window.location.origin;
   }
 
-  // For server-side rendering (if applicable)
+  // Default for server-side rendering (if applicable)
   // Note: This won't be used in browser builds
-  return 'http://localhost:7860';
+  return 'http://localhost:7860'; // Backend runs on port 7860
 };
 
 export const API_BASE_URL = getApiBaseUrl();

@@ -4,8 +4,10 @@ PersonalizationProfile model for managing user preferences and learning styles.
 
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, UUID, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import ENUM as Enum
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from src.database.base import Base
 
 
@@ -62,3 +64,36 @@ class PersonalizationProfile(Base):
 
     def __repr__(self):
         return f"<PersonalizationProfile(user_id='{self.user_id}', reading_level='{self.reading_level}')>"
+
+
+class SavedPersonalization(Base):
+    """Model for saved personalized content"""
+
+    __tablename__ = "saved_personalizations"
+
+    # Primary key
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+
+    # User relationship
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # Content tracking
+    original_content_hash = Column(String(64), nullable=False, index=True)
+    content_url = Column(String(512), nullable=False)
+    content_title = Column(String(200), nullable=False)
+
+    # Personalization data
+    personalized_content = Column(Text, nullable=False)
+    personalization_metadata = Column(JSON, nullable=False)
+    adaptations_applied = Column(JSON, nullable=False)
+
+    # User feedback
+    user_rating = Column(Integer, nullable=True)  # 1-5 stars
+    user_feedback = Column(Text, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_accessed = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self):
+        return f"<SavedPersonalization(id={self.id}, user_id={self.user_id}, rating={self.user_rating})>"

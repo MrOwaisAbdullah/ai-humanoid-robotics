@@ -3,8 +3,8 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
-import axios from 'axios';
 import { api } from '../services/api';
+import { API_BASE_URL } from '../config/api';
 
 // Types
 export interface User {
@@ -45,15 +45,6 @@ interface AuthProviderProps {
 }
 
 // API base URL is now imported from config/api.ts
-
-// Configure axios defaults - using default baseURL from api.ts instance
-axios.defaults.withCredentials = true; // Important for cookies
-
-// Ensure all requests have proper headers
-axios.defaults.headers.common['Content-Type'] = 'application/json';
-
-// Set a reasonable timeout for requests
-axios.defaults.timeout = 10000; // 10 seconds
 
 // Auth Provider Component
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
@@ -112,9 +103,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const storedToken = localStorage.getItem('access_token');
 
       if (storedToken) {
-        // Set the authorization header
-        axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-
         // Try to get current user from API
         const response = await api.get('/auth/me');
 
@@ -148,7 +136,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('Authentication check failed:', error?.message || 'Unknown error');
       }
       localStorage.removeItem('access_token');
-      delete axios.defaults.headers.common['Authorization'];
       setState({
         user: null,
         isLoading: false,
@@ -183,7 +170,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers['X-Anonymous-Session-ID'] = anonymousSessionId;
       }
 
-      const response = await axios.post(
+      console.log('Attempting login to:', `${API_BASE_URL}/auth/login`);
+      console.log('Login data:', { email, password: '***' });
+      console.log('Headers:', headers);
+
+      const response = await api.post(
         '/auth/login',
         { email, password },
         { headers }
@@ -194,15 +185,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (response.data.access_token) {
           // Store token in localStorage (or you could use httpOnly cookies)
           localStorage.setItem('access_token', response.data.access_token);
-          // Set default authorization header for future requests
-          axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`;
         }
 
         // Clear anonymous session ID from storage
         localStorage.removeItem('anonymous_session_id');
 
-        // After successful login, fetch user data
-        await checkAuth();
+        // Set user data from login response if available
+        if (response.data.user) {
+          console.log('Setting user data from login response:', response.data.user);
+          setState(prevState => ({
+            ...prevState,
+            user: response.data.user,
+            isLoading: false,
+            isAuthenticated: true,
+          }));
+          console.log('State after setting user data');
+          // Start token refresh timer when authenticated
+          startTokenRefreshTimer();
+        } else {
+          console.log('No user data in response, calling checkAuth()');
+          // If no user data in response, try to fetch it
+          await checkAuth();
+        }
 
         // Return migration info
         return {
@@ -210,6 +214,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           migratedMessages: response.data.migrated_messages || 0
         };
       }
+      return { migratedSessions: 0, migratedMessages: 0 };
     } catch (error) {
       setState(prev => ({ ...prev, isLoading: false }));
       throw error;
@@ -245,7 +250,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers['X-Anonymous-Session-ID'] = anonymousSessionId;
       }
 
-      const response = await axios.post(
+      console.log('Attempting registration to:', `${API_BASE_URL}/auth/register`);
+
+      const response = await api.post(
         '/auth/register',
         {
           email,
@@ -264,8 +271,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (response.data.access_token) {
           // Store token in localStorage (or you could use httpOnly cookies)
           localStorage.setItem('access_token', response.data.access_token);
-          // Set default authorization header for future requests
-          axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`;
         }
 
         // Clear anonymous session ID from storage
@@ -280,6 +285,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           migratedMessages: response.data.migrated_messages || 0
         };
       }
+      return { migratedSessions: 0, migratedMessages: 0 };
     } catch (error) {
       setState(prev => ({ ...prev, isLoading: false }));
       throw error;
@@ -289,12 +295,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Refresh token function
   const refreshToken = async (): Promise<boolean> => {
     try {
-      const response = await axios.post('/auth/refresh');
+      const response = await api.post('/auth/refresh');
 
       if (response.data && response.data.token) {
         // Store new token
         localStorage.setItem('access_token', response.data.token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         return true;
       }
       return false;
@@ -342,7 +347,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
 
-      await axios.post('/auth/logout');
+      await api.post('/auth/logout');
     } catch (error) {
       // Even if logout request fails, clear local state
       console.error('Logout error:', error);
@@ -354,8 +359,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       // Clear token from localStorage
       localStorage.removeItem('access_token');
-      // Clear authorization header
-      delete axios.defaults.headers.common['Authorization'];
       // Clear auth state
       setState({
         user: null,
@@ -374,6 +377,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth,
     refreshToken,
   };
+
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('AuthContext state update:', state);
+  }
 
   return (
     <AuthContext.Provider value={value}>

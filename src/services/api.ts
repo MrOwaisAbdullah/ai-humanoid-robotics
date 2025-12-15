@@ -5,7 +5,7 @@ This module configures Axios with request/response interceptors
 for handling authentication tokens and error responses.
  */
 
-import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../config/api';
 
 // Create axios instance
@@ -19,9 +19,21 @@ const api = axios.create({
 
 // Request interceptor to add token to headers
 api.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
-    // Add token if available in cookies
-    const token = getCookie('access_token');
+  (config: InternalAxiosRequestConfig) => {
+    // Add token if available in cookies or localStorage
+    const cookieToken = getCookie('access_token');
+    const localToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const token = cookieToken || localToken;
+
+    // Debug logging for specific endpoints
+    if (config.url?.includes('/api/v1/background') || config.url?.includes('/auth/me')) {
+      console.log('API Request Debug:');
+      console.log('  - Cookie token:', cookieToken ? `${cookieToken.substring(0, 20)}...` : 'None');
+      console.log('  - LocalStorage token:', localToken ? `${localToken.substring(0, 20)}...` : 'None');
+      console.log('  - Using token:', token ? `${token.substring(0, 20)}...` : 'None');
+      console.log('  - URL:', config.url);
+    }
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -44,6 +56,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && originalRequest) {
       // Clear expired token
       deleteCookie('access_token');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+      }
 
       // Don't retry login requests to avoid infinite loops
       if (
@@ -54,8 +69,11 @@ api.interceptors.response.use(
       }
 
       // You could implement token refresh logic here if needed
-      // For now, just redirect to login
-      window.location.href = '/';
+      // For now, just log it
+      console.log('Authentication required for request:', originalRequest.url);
+      
+      // Do not redirect automatically, let the app handle the state change
+      // window.location.href = '/ai-humanoid-robotics/docs/intro';
     }
 
     // Handle 403 Forbidden errors

@@ -11,10 +11,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2Pas
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
-from src.database.config import get_db
+from src.database.base import get_db
 from src.models.auth import User, Session, AnonymousSession
-from src.services.auth import verify_token, SECRET_KEY, ALGORITHM
-from src.services.auth import verify_password, get_password_hash
+from src.services.auth import verify_token, verify_password, get_password_hash
+from src.config import SECRET_KEY, ALGORITHM
 from src.schemas.auth import TokenData
 
 # HTTP Bearer scheme for token authentication

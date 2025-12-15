@@ -157,3 +157,163 @@
     justify-content: center;
   }
 }
+
+/* =========================================
+   LOGIN MODAL STYLES
+   ========================================= */
+.loginModalOverlay {
+  position: fixed;
+  inset: 0; /* Modern shorthand for top: 0; left: 0; right: 0; bottom: 0; */
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  z-index: 50; /* Below the LoginButton modal (z-60) */
+  padding: 20px;
+  padding-top: 100px; /* Less spacing from top */
+  /* Ensure full viewport coverage */
+  min-height: 100vh;
+  /* Fix for any scroll issues */
+  overscroll-behavior: contain;
+}
+
+.loginModal {
+  background: white;
+  background: var(--ifm-background-color);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1); /* Low opacity border */
+  animation: modalSlideIn 0.3s ease-out;
+  /* Match LoginButton modal structure */
+}
+
+.loginModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.loginModalHeader h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ifm-color-emphasis-900);
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--ifm-color-emphasis-600);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.closeButton:hover {
+  color: var(--ifm-color-emphasis-900);
+  background-color: var(--ifm-color-emphasis-200);
+}
+
+.loginModalBody {
+  text-align: center;
+}
+
+.loginIcon {
+  margin: 0 auto 20px auto; /* Center horizontally */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #10a37f; /* The primary color used in LoginButton */
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1)); /* Add shadow to the icon */
+}
+
+.loginModalBody p {
+  margin: 0 0 32px;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+.loginModalActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.loginModalActions .button {
+  min-width: 120px;
+  padding: 10px 20px;
+  font-weight: 500;
+}
+
+.loginModalActions .button--primary {
+  background-color: #10a37f; /* bg-[#10a37f] */
+  color: white;
+  border: none;
+  transition: background-color 0.2s ease;
+}
+
+.loginModalActions .button--primary:hover {
+  background-color: #0d8f6c; /* hover:bg-[#0d8f6c] */
+}
+
+.loginModalActions .button--outline {
+  background-color: var(--ifm-background-color);
+  color: var(--ifm-color-emphasis-700);
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.loginModalActions .button--outline:hover {
+  background-color: var(--ifm-color-emphasis-100);
+}
+
+/* Dark mode support */
+:global(html[data-theme='dark']) .loginModalActions .button--outline {
+  background-color: var(--ifm-color-emphasis-800);
+  color: var(--ifm-color-emphasis-300);
+  border-color: var(--ifm-color-emphasis-600);
+}
+
+:global(html[data-theme='dark']) .loginModalActions .button--outline:hover {
+  background-color: var(--ifm-color-emphasis-700);
+}
+
+.loginErrorMessage {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Dark mode error message */
+:global(html[data-theme='dark']) .loginErrorMessage {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

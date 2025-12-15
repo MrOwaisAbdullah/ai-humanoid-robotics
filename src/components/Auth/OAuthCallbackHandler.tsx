@@ -20,7 +20,7 @@ export const OAuthCallbackHandler: React.FC = () => {
         if (!code) {
           setStatus('error');
           setTimeout(() => {
-            window.location.href = '/';
+            window.location.href = '/ai-humanoid-robotics/docs/intro';
           }, 3000);
           return;
         }
@@ -32,13 +32,13 @@ export const OAuthCallbackHandler: React.FC = () => {
 
         // Redirect to home page
         setTimeout(() => {
-          window.location.href = '/';
+          window.location.href = '/ai-humanoid-robotics/docs/intro';
         }, 1000);
       } catch (error) {
         console.error('OAuth callback error:', error);
         setStatus('error');
         setTimeout(() => {
-          window.location.href = '/';
+          window.location.href = '/ai-humanoid-robotics/docs/intro';
         }, 3000);
       }
     };

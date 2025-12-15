@@ -1,0 +1,465 @@
+openapi: 3.0.3
+info:
+  title: Content Personalization API
+  description: API for personalizing technical content based on user background
+  version: 1.0.0
+  contact:
+    name: AI Book Team
+    email: support@aibook.com
+
+servers:
+  - url: https://api.aibook.com/v1
+    description: Production server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+paths:
+  /personalize:
+    post:
+      tags:
+        - Personalization
+      summary: Personalize content for user
+      description: Generate personalized version of technical content based on user's background
+      operationId: personalizeContent
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonalizeRequest'
+            examples:
+              softwareExpert:
+                summary: Personalize for software expert
+                value:
+                  content: "ROS nodes are the fundamental computational units in ROS..."
+                  context: "Chapter about ROS fundamentals"
+                  target_length: 2000
+                  save_result: false
+      responses:
+        '200':
+          description: Successful personalization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalizeResponse'
+              examples:
+                success:
+                  summary: Personalized content generated
+                  value:
+                    success: true
+                    data:
+                      personalized_content: "For a software engineer, think of ROS nodes as microservices..."
+                      adaptations_made:
+                        - "Added Python code examples"
+                        - "Included software architecture analogies"
+                        - "Simplified hardware terminology"
+                      complexity_score: "intermediate"
+                      original_length: 1850
+                      personalized_length: 1920
+                      processing_time: 3.45
+                      tokens_used: 850
+                      relevance_score: 0.92
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /personalize/saved:
+    get:
+      tags:
+        - Personalization
+      summary: List saved personalizations
+      description: Get user's saved personalized content items
+      operationId: listSavedPersonalizations
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [created_at, last_accessed, user_rating]
+            default: created_at
+        - name: sort_order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of saved personalizations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSavedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Personalization
+      summary: Delete saved personalization
+      description: Delete a specific saved personalization item
+      operationId: deleteSavedPersonalization
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: personalization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Personalization deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /personalize/saved/{personalization_id}/rate:
+    post:
+      tags:
+        - Personalization
+      summary: Rate saved personalization
+      description: Rate a saved personalization item (1-5 stars)
+      operationId: ratePersonalization
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: personalization_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: Rating from 1 to 5 stars
+                feedback:
+                  type: string
+                  maxLength: 1000
+                  description: Optional feedback about the personalization
+              required:
+                - rating
+      responses:
+        '200':
+          description: Rating saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /personalize/stats:
+    get:
+      tags:
+        - Personalization
+      summary: Get personalization statistics
+      description: Get user's personalization usage statistics
+      operationId: getPersonalizationStats
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Personalization statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_personalizations:
+                    type: integer
+                    example: 45
+                  saved_items_count:
+                    type: integer
+                    example: 12
+                  average_rating_given:
+                    type: number
+                    format: float
+                    example: 4.2
+                  favorite_adaptations:
+                    type: array
+                    items:
+                      type: string
+                    example: ["code_examples", "software_analogies", "practical_examples"]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    PersonalizeRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 100
+          maxLength: 5000
+          description: Original content to personalize
+          example: "ROS nodes are the fundamental computational units in ROS..."
+        context:
+          type: string
+          maxLength: 500
+          description: Additional context about the content
+          example: "Chapter about ROS fundamentals"
+        target_length:
+          type: integer
+          minimum: 500
+          maximum: 3000
+          default: 2000
+          description: Target word count for personalized content
+        save_result:
+          type: boolean
+          default: false
+          description: Whether to save the personalization result
+
+    PersonalizeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/PersonalizationResult'
+        error:
+          type: string
+          description: Error message if request failed
+
+    PersonalizationResult:
+      type: object
+      required:
+        - personalized_content
+        - adaptations_made
+        - complexity_score
+        - original_length
+        - personalized_length
+        - processing_time
+      properties:
+        personalized_content:
+          type: string
+          description: Personalized version of content
+        adaptations_made:
+          type: array
+          items:
+            type: string
+          description: List of adaptations applied
+          example: ["Added Python code examples", "Included software architecture analogies"]
+        complexity_score:
+          type: string
+          enum: [basic, intermediate, advanced]
+          description: Complexity level of personalized content
+        original_length:
+          type: integer
+          description: Word count of original content
+        personalized_length:
+          type: integer
+          description: Word count of personalized content
+        processing_time:
+          type: number
+          format: float
+          description: Time taken to process (seconds)
+        tokens_used:
+          type: integer
+          description: Tokens consumed by LLM
+        relevance_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Relevance score to user profile
+
+    SavedPersonalization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content_url:
+          type: string
+          description: URL to original content
+        content_title:
+          type: string
+          description: Title of the content
+        personalized_content:
+          type: string
+          description: Personalized content
+        adaptations_applied:
+          type: array
+          items:
+            type: string
+          description: List of adaptations applied
+        user_rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: User rating (1-5 stars)
+        created_at:
+          type: string
+          format: date-time
+        last_accessed:
+          type: string
+          format: date-time
+
+    ListSavedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedPersonalization'
+        pagination:
+          $ref: '#/components/schemas/PaginationInfo'
+        error:
+          type: string
+
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 10
+        total_items:
+          type: integer
+          example: 25
+        total_pages:
+          type: integer
+          example: 3
+        has_next:
+          type: boolean
+          example: true
+        has_prev:
+          type: boolean
+          example: false
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Invalid content length"
+
+    Unauthorized:
+      description: Unauthorized access
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Authentication required"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Personalization not found"
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Rate limit exceeded. Please try again later."
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Internal server error"

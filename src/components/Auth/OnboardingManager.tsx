@@ -14,7 +14,7 @@ export const OnboardingManager: React.FC = () => {
 
       try {
         // Check if user has completed onboarding by checking background data
-        const response = await apiRequest.get('/users/background');
+        const response = await apiRequest.get('/api/v1/background');
         const background = response.data;
 
         // Show onboarding if user hasn't completed it
