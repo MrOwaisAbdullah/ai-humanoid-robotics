@@ -3,10 +3,13 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoginButton } from './LoginButton';
 import { UserProfile } from './UserProfile';
+import { PersonalizationLibraryModal } from '../Personalization/PersonalizationLibraryModal';
+import { BookOpen } from 'lucide-react';
 
 export const NavbarAuth: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const [container, setContainer] = useState<Element | null>(null);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   useEffect(() => {
     // Find the right-side navbar container
@@ -33,7 +36,20 @@ export const NavbarAuth: React.FC = () => {
   return createPortal(
     <div className="flex items-center gap-2 pl-4">
       {isAuthenticated ? (
-        <UserProfile />
+        <>
+          <button
+            onClick={() => setIsLibraryOpen(true)}
+            className="hidden md:flex items-center justify-center p-2 text-gray-500 hover:text-[#10a37f] dark:text-gray-400 dark:hover:text-[#10a37f] transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+            title="Saved Library"
+          >
+            <BookOpen className="w-5 h-5" />
+          </button>
+          <UserProfile />
+          <PersonalizationLibraryModal
+            isOpen={isLibraryOpen}
+            onClose={() => setIsLibraryOpen(false)}
+          />
+        </>
       ) : (
         <LoginButton />
       )}

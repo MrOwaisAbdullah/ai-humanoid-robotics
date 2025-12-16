@@ -89,24 +89,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check authentication status
   const checkAuth = async () => {
+    console.log('AuthContext: checkAuth started');
     // Prevent multiple simultaneous checks
     if (isCheckingAuth.current) {
+      console.log('AuthContext: checkAuth skipped - already checking');
       return;
     }
 
     isCheckingAuth.current = true;
 
     try {
+      console.log('AuthContext: Setting isLoading=true');
       setState(prev => ({ ...prev, isLoading: true }));
 
       // Check for stored token in localStorage
       const storedToken = localStorage.getItem('access_token');
+      console.log('AuthContext: Stored token present?', !!storedToken);
 
       if (storedToken) {
         // Try to get current user from API
+        console.log('AuthContext: Fetching /auth/me');
         const response = await api.get('/auth/me');
+        console.log('AuthContext: /auth/me response status:', response.status);
 
         if (response.data) {
+          console.log('AuthContext: User authenticated, setting state');
           setState({
             user: response.data,
             isLoading: false,
@@ -119,6 +126,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // No token or invalid token - user is not authenticated
+      console.log('AuthContext: No token or invalid response, clearing state');
       setState({
         user: null,
         isLoading: false,
@@ -126,6 +134,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
     } catch (error: any) {
+      console.error('AuthContext: checkAuth error:', error);
       // Not authenticated - clear stored token and auth header
       if (error?.code === 'ECONNABORTED') {
         console.error('Authentication check timed out - backend may be down');
@@ -143,6 +152,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
     } finally {
       isCheckingAuth.current = false;
+      console.log('AuthContext: checkAuth finished');
     }
   };
 

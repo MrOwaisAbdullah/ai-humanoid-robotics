@@ -54,17 +54,34 @@ const DEFAULT_EXCLUDE_SELECTORS = [
   '.sidebar',
   'script',
   'style',
+  'noscript',
   '[class*="nav"]',
   '[class*="menu"]',
   '[class*="toc"]',
   '[class*="sidebar"]',
   '[class*="footer"]',
   '[class*="header"]',
+  '[class*="toolbar"]',
+  '[class*="breadcrumb"]',
+  '[class*="pagination"]',
   '.ad',
   '.advertisement',
   '[data-ad]',
   '.social-share',
-  '.comments'
+  '.comments',
+  '.theme-doc-sidebar',
+  '.theme-doc-toc',
+  '.theme-doc-breadcrumbs',
+  '.theme-doc-footer',
+  '.theme-doc-pagination',
+  '.menu',
+  '.navbar',
+  '.btn',
+  '.button',
+  '.ai-features-bar',
+  '.ai-feature-btn',
+  '.theme-edit-this-page',
+  '.last-updated'
 ];
 
 /**
@@ -284,10 +301,32 @@ function extractTextContent(
     content = textParts.join('\n\n');
   }
 
-  // Clean up whitespace
+  // Clean up whitespace and remove UI patterns
   content = content
     .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
     .replace(/[ \t]{2,}/g, ' ') // Remove excessive spaces
+    .split('\n') // Split into lines for filtering
+    .filter(line => {
+      const trimmedLine = line.trim();
+      const lowerLine = trimmedLine.toLowerCase();
+
+      // Skip patterns that indicate UI elements
+      const skipPatterns = [
+        'personalize', 'translate', 'read aloud', 'min read', 'minute read',
+        'edit this page', 'last updated', 'previous', 'next',
+        'welcome on this page', 'ai features', 'share', 'copy link',
+        'table of contents', 'on this page', 'breadcrumbs',
+        'facebook', 'twitter', 'linkedin', 'github'
+      ];
+
+      const hasSkipPattern = skipPatterns.some(pattern => lowerLine.includes(pattern));
+      const isTooShort = trimmedLine.length < 3;
+      const isJustNumber = /^\d+$/.test(trimmedLine);
+
+      return !hasSkipPattern && !isTooShort && !isJustNumber;
+    })
+    .join('\n')
+    .replace(/\b(min read|edit this page|last updated|ai features)\b/gi, '') // Clean up any remaining patterns
     .trim();
 
   // Enforce maximum length
@@ -448,7 +487,40 @@ export const extractSelectedText = (): string | null => {
     return null;
   }
 
-  return selection.toString().trim();
+  const selectedText = selection.toString().trim();
+
+  // Filter out UI elements and noise from selected text
+  const lines = selectedText.split('\n').filter(line => {
+    const trimmedLine = line.trim();
+    const lowerLine = trimmedLine.toLowerCase();
+
+    // Skip if line contains UI text patterns
+    const skipPatterns = [
+      'personalize', 'translate', 'read aloud', 'min read', 'minute read',
+      'edit this page', 'last updated', 'previous', 'next',
+      'welcome on this page', 'ai features', 'share', 'copy link',
+      'table of contents', 'on this page', 'breadcrumbs',
+      'facebook', 'twitter', 'linkedin', 'github'
+    ];
+
+    const hasSkipPattern = skipPatterns.some(pattern => lowerLine.includes(pattern));
+
+    // Skip if line is too short (likely UI debris)
+    const isTooShort = trimmedLine.length < 3;
+
+    // Skip if line is just a number or single character
+    const isJustNumber = /^\d+$/.test(trimmedLine);
+
+    return !hasSkipPattern && !isTooShort && !isJustNumber;
+  });
+
+  const cleanedText = lines.join('\n');
+
+  // Final cleanup of common UI patterns
+  return cleanedText
+    .replace(/\b(min read|edit this page|last updated|ai features)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim() || null;
 };
 
 /**

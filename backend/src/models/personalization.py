@@ -4,8 +4,7 @@ PersonalizationProfile model for managing user preferences and learning styles.
 
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, UUID, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import ENUM as Enum
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, UUID, Text, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.database.base import Base
@@ -42,16 +41,16 @@ class PersonalizationProfile(Base):
     user_id = Column(String(36), unique=True, nullable=False, index=True)
 
     # Reading preferences
-    reading_level = Column(Enum(ReadingLevel), default=ReadingLevel.INTERMEDIATE)
+    reading_level = Column(SQLEnum(ReadingLevel), default=ReadingLevel.INTERMEDIATE)
     preferred_language = Column(String(10), default='en')
 
     # Content preferences
     focus_areas = Column(JSON)  # Array of topics user cares about
-    learning_style = Column(Enum(LearningStyle), default=LearningStyle.BALANCED)
+    learning_style = Column(SQLEnum(LearningStyle), default=LearningStyle.BALANCED)
 
     # Translation preferences
     enable_transliteration = Column(Boolean, default=True)
-    technical_term_handling = Column(Enum(TermHandling), default=TermHandling.TRANSLITERATE)
+    technical_term_handling = Column(SQLEnum(TermHandling), default=TermHandling.TRANSLITERATE)
 
     # UI preferences
     font_size = Column(Integer, default=16)

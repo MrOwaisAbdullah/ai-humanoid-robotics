@@ -9,6 +9,7 @@ import { formatChatRequest, APIError } from './utils/api';
 import { withPerformanceMonitoring, usePerformanceMonitor } from './utils/performanceMonitor';
 import { useAuth } from '../../contexts/AuthContext';
 import { sessionStorage } from '../../utils/sessionStorage';
+import { API_BASE_URL } from '../../config/api';
 
 interface ChatWidgetContainerInnerProps extends ChatWidgetContainerProps {
   apiUrl?: string;
@@ -312,7 +313,7 @@ function ChatWidgetContainerInner({
           anonymousSessionIdRef.current = sessionResult.id;
 
           // Fetch session data from backend to get current message count
-          const response = await fetch(`/api/auth/anonymous-session/${sessionResult.id}`);
+          const response = await fetch(`${API_BASE_URL}/auth/anonymous-session/${sessionResult.id}`);
 
           if (response.ok) {
             const sessionData = await response.json();

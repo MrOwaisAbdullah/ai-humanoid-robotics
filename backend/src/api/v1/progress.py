@@ -14,7 +14,7 @@ from src.database.base import get_db
 from src.middleware.auth import get_current_active_user, require_user
 from src.models.auth import User
 from src.models.reading_progress import ReadingProgress
-from src.models.user_preferences import UserPreference
+from src.models.auth import UserPreferences
 from src.services.progress import ReadingProgressService
 from src.services.personalization import PersonalizationService
 from src.utils.errors import handle_errors, NotFoundError, ValidationError

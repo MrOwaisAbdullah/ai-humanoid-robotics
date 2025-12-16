@@ -111,6 +111,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               label={<span className="text-xs font-medium">Password</span>}
               className="px-2 py-1.5 text-sm"
               placeholder="••••••••"
+              autoComplete="new-password"
             />
           </div>
         </div>

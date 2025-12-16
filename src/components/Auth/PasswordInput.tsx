@@ -10,6 +10,7 @@ interface PasswordInputProps {
   minLength?: number;
   className?: string;
   label?: string;
+  autoComplete?: string;
   [key: string]: any; // Allow any additional props for react-hook-form
 }
 
@@ -22,7 +23,8 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   required = false,
   minLength,
   className = "",
-  label
+  label,
+  autoComplete = "current-password"
 }) => {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -46,6 +48,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
           onChange={onChange}
           required={required}
           minLength={minLength}
+          autoComplete={autoComplete}
           className={`mt-1 block w-full pr-12 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors ${className}`}
           placeholder={placeholder}
         />

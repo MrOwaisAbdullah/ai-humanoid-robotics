@@ -273,22 +273,23 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     setError(null);
 
     try {
-      // Submit onboarding data to API
-      const responses = [
-        { question_key: 'experience_level_selection', response_value: data.experience_level },
-        { question_key: 'years_of_experience', response_value: data.years_experience },
-        { question_key: 'preferred_languages', response_value: data.preferred_languages },
-        { question_key: 'cpu_expertise', response_value: data.cpu_expertise },
-        { question_key: 'gpu_expertise', response_value: data.gpu_expertise },
-        { question_key: 'networking_expertise', response_value: data.networking_expertise }
-      ];
+      // Format responses for API
+      const responses = Object.entries(data).map(([key, value]) => {
+        let mappedKey = key;
+        if (key === 'experience_level') mappedKey = 'experience_level_selection';
+        if (key === 'years_experience') mappedKey = 'years_of_experience';
+        
+        return {
+          question_key: mappedKey,
+          response_value: value
+        };
+      });
 
-      await apiRequest.post('/users/onboarding', { responses });
+      // Submit to backend
+      await apiRequest.post('/api/v1/onboarding', { responses });
 
       // Call onComplete callback
-      if (onComplete) {
-        onComplete(data);
-      }
+      onComplete();
 
       onClose();
       reset();
@@ -329,7 +330,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   const modalContent = isOpen && mounted ? (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[99999] overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4">
         {/* Background overlay */}
         <div

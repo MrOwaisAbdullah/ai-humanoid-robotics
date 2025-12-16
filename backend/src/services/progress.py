@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, asc
 
 from src.models.reading_progress import ReadingProgress
-from src.models.user_preferences import UserPreference
+from src.models.auth import UserPreferences
 from src.utils.errors import NotFoundError, ValidationError, handle_errors
 from src.utils.logging import get_logger
 
@@ -527,6 +527,6 @@ class ReadingProgressService:
 
 
 # Dependency injection function
-def get_progress_service(db: Session = Depends(get_db)) -> ReadingProgressService:
+def get_progress_service(db: Session) -> ReadingProgressService:
     """Get progress service instance."""
     return ReadingProgressService(db)

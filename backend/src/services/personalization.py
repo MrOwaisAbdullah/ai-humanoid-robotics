@@ -11,14 +11,15 @@ import hashlib
 import time
 
 from sqlalchemy.orm import Session
-from src.models.user_preferences import UserPreference
+from fastapi import Depends
+from src.database.base import get_db
 from src.models.reading_progress import ReadingProgress
 from src.models.personalization import SavedPersonalization
-from src.models.user import User
+from src.models.auth import User, UserBackground, UserPreferences
 from src.utils.errors import NotFoundError, ValidationError
 from src.utils.logging import get_logger
 from src.agents.personalization_agent import PersonalizationAgent
-from src.cache.personization import get_personalization_cache
+from src.cache.personalization import get_personalization_cache
 
 logger = get_logger(__name__)
 
@@ -63,8 +64,8 @@ class PersonalizationService:
     ) -> Dict[str, Any]:
         """Get personalization settings for a user."""
         # Get user preferences
-        preferences = self.db.query(UserPreference).filter(
-            UserPreference.user_id == user_id
+        preferences = self.db.query(UserPreferences).filter(
+            UserPreferences.user_id == user_id
         ).first()
 
         if not preferences:
@@ -279,9 +280,9 @@ class PersonalizationService:
 
         return recommendations[:limit]
 
-    async def _create_default_preferences(self, user_id: str) -> UserPreference:
+    async def _create_default_preferences(self, user_id: str) -> UserPreferences:
         """Create default user preferences."""
-        preferences = UserPreference(
+        preferences = UserPreferences(
             id=str(uuid.uuid4()),
             user_id=user_id,
             language="en",
@@ -563,8 +564,12 @@ class PersonalizationEngine:
         # Get user background if available
         profile = {}
         if hasattr(user, 'background') and user.background:
+            # Handle experience level - normalize to lowercase for consistency
+            exp_level = user.background.experience_level.value if user.background.experience_level else "intermediate"
+            exp_level = exp_level.lower() if exp_level else "intermediate"
+
             profile = {
-                "experience_level": user.background.experience_level.value if user.background.experience_level else "intermediate",
+                "experience_level": exp_level,
                 "years_of_experience": user.background.years_of_experience or 0,
                 "primary_expertise": user.background.primary_interest or "general",
                 "hardware_expertise": user.background.hardware_expertise.value if user.background.hardware_expertise else "none",

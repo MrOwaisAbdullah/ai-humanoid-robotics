@@ -112,12 +112,20 @@ class LoginRequest(BaseSchema):
     password: str
 
 
+class EmailLoginRequest(BaseSchema):
+    """Schema for email-based login request."""
+    email: EmailStr = Field(..., description="Email address")
+    password: str = Field(..., description="Password")
+
+
 class LoginResponse(BaseSchema):
     """Schema for login response."""
     access_token: str
     token_type: str
     expires_in: int
     user: UserResponse
+    migrated_sessions: Optional[int] = 0
+    migrated_messages: Optional[int] = 0
 
 
 # User background schemas

@@ -45,11 +45,13 @@ export default function AIFeaturesBar() {
           setPersonalizationWordCount(selectedText.split(' ').length);
           setShowPersonalizationModal(true);
         } else {
-          const content = extractCurrentPageContent();
-          if (content && content.wordCount >= 50) {
-            setPersonalizationContent(content.text);
+          // Use the same extractContent function for consistency
+          const fallbackContent = extractContent();
+          if (fallbackContent && fallbackContent.length >= 100) {
+            const wordCount = fallbackContent.split(' ').length;
+            setPersonalizationContent(fallbackContent);
             setPersonalizationContentType('page');
-            setPersonalizationWordCount(content.wordCount);
+            setPersonalizationWordCount(wordCount);
             setShowPersonalizationModal(true);
           } else {
             showToast('Not enough content to personalize. Please select more text or choose a page with more content.');
@@ -70,110 +72,197 @@ export default function AIFeaturesBar() {
   }
 
   const extractContent = (): string => {
-    // Try multiple selectors to get the main content - more comprehensive list
-    const selectors = [
-      // Docusaurus specific
-      'article',
-      '.markdown',
+    // Try to find the main content element more specifically
+    const contentSelectors = [
       '.theme-doc-markdown',
-      '.theme-doc-content',
-      '.theme-doc-markdown-content',
+      'article',
       '[role="main"]',
       'main',
-      // General content selectors
-      '.content',
-      '.page-content',
-      '.doc-content',
-      '.post-content',
-      '#content',
-      '.entry-content',
-      // Fallbacks
-      'body > div',
-      '.container',
-      '.wrapper',
-      // Specific page types
-      '.hero__subtitle',
-      '.hero__description',
-      '.section-title',
-      'h1, h2, h3, h4, h5, h6',
-      'p',
-      'li'
+      '.markdown',
+      '.theme-doc-content-container'
     ];
 
     let bestContent = '';
+    let bestSelector = '';
 
-    for (const selector of selectors) {
-      try {
-        const elements = document.querySelectorAll(selector);
-
-        // For single selectors like 'article', 'main', take the whole element
-        if (elements.length === 1 && ['article', 'main', '[role="main"]', '.theme-doc-markdown', '.theme-doc-content'].includes(selector)) {
-          const element = elements[0];
-          const textContent = getCleanTextFromElement(element);
-          if (textContent && textContent.length > bestContent.length) {
-            bestContent = textContent;
-          }
+    // Try each content selector
+    for (const selector of contentSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const textContent = getCleanTextFromElement(element);
+        console.log(`[DEBUG] Selector "${selector}" found element with ${textContent?.length || 0} chars`);
+        if (textContent && textContent.length > bestContent.length) {
+          bestContent = textContent;
+          bestSelector = selector;
         }
-        // For multiple selectors (like 'p', 'h1', etc.), combine them
-        else if (elements.length > 0) {
-          const texts: string[] = [];
-          elements.forEach(el => {
-            const text = el.textContent?.trim();
-            if (text && text.length > 5) { // Only substantial text
-              texts.push(text);
-            }
-          });
-          const combinedText = texts.join('\n');
-          if (combinedText.length > bestContent.length) {
-            bestContent = combinedText;
-          }
-        }
-      } catch (error) {
-        console.warn(`Selector ${selector} failed:`, error);
       }
     }
 
-    // If still no content, try to get all text from body as last resort
-    if (!bestContent || bestContent.length < 50) {
-      const bodyText = document.body.textContent || '';
-      bestContent = bodyText
-        .replace(/\s+/g, ' ')
-        .replace(/[\r\n]+/g, '\n')
-        .trim();
-    }
+    console.log(`[DEBUG] Best selector: ${bestSelector}, content length: ${bestContent.length}`);
+    console.log(`[DEBUG] First 500 chars of extracted content:`, bestContent.substring(0, 500));
 
-    // Clean up the final content
-    if (bestContent) {
-      const lines = bestContent.split('\n').filter(line => {
-        const lowerLine = line.toLowerCase().trim();
-        return !lowerLine.includes('previous') &&
-               !lowerLine.includes('next') &&
-               !lowerLine.includes('edit this page') &&
-               !lowerLine.includes('last updated') &&
-               !lowerLine.includes('skip to main content') &&
-               !lowerLine.includes('navigation') &&
-               line.length > 5; // Reduced minimum length
+    // If still no substantial content, try extracting specific elements
+    if (!bestContent || bestContent.length < 50) {
+      console.log('[DEBUG] Primary extraction failed or too short, using fallback elements');
+      // Extract headings and paragraphs specifically
+      const contentElements = document.querySelectorAll('.theme-doc-markdown h1, .theme-doc-markdown h2, .theme-doc-markdown h3, .theme-doc-markdown p, .theme-doc-markdown li');
+      const texts: string[] = [];
+
+      contentElements.forEach(el => {
+        const text = el.textContent?.trim();
+        if (text && text.length > 10) {
+          texts.push(text);
+        }
       });
 
-      return lines.join('\n').trim();
+      const combinedText = texts.join('\n');
+      if (combinedText.length > bestContent.length) {
+        bestContent = combinedText;
+      }
+    }
+
+    console.log('[DEBUG] Final extracted content length:', bestContent.length);
+    console.log('[DEBUG] Content preview:', bestContent.substring(0, 100));
+
+    // Final aggressive cleaning
+    if (bestContent) {
+      const lines = bestContent.split('\n');
+      const filteredLines = lines.filter(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || trimmedLine.length < 3) return false;
+
+        const lowerLine = trimmedLine.toLowerCase();
+
+        // Expanded list of UI patterns to skip
+        const uiPatterns = [
+          'personalize', 'translate to', 'read aloud', 'min read', 'minute read',
+          'edit this page', 'last updated', 'previous', 'next',
+          'welcome on this page', 'ai features', 'share', 'copy link',
+          'table of contents', 'on this page', 'breadcrumbs',
+          'course content', 'module', 'chapter', 'on this page',
+          'facebook', 'twitter', 'linkedin', 'github', 'skip to main content',
+          'navigation', 'menu', 'home', 'search', 'theme', 'toggle',
+          'light mode', 'dark mode', 'documentation', 'docs'
+        ];
+
+        // Skip if any UI pattern is found
+        if (uiPatterns.some(pattern => lowerLine.includes(pattern))) {
+          return false;
+        }
+
+        // Skip if it looks like navigation or UI element
+        if (/^\d+ of \d+$/.test(trimmedLine) || // "1 of 10"
+            /^\d+:\d+$/.test(trimmedLine) || // Time stamps
+            /^[\d\s\-\/]+$/.test(trimmedLine) || // Dates
+            trimmedLine.startsWith('/') || // Paths
+            trimmedLine.includes(' → ') || // Breadcrumbs
+            /^[a-z]+(\s[a-z]+)?\s*$/i.test(trimmedLine) && trimmedLine.length < 15) { // Single words
+          return false;
+        }
+
+        return true;
+      });
+
+      bestContent = filteredLines.join('\n');
     }
 
     return bestContent;
   };
 
+  // Helper function to detect UI-like text
+  const looksLikeUIText = (text: string): boolean => {
+    const lower = text.toLowerCase();
+    const uiPatterns = [
+      'personalize', 'translate', 'read', 'edit', 'share', 'copy',
+      'min read', 'last updated', 'previous', 'next', 'menu',
+      'home', 'search', 'theme', 'toggle', 'navigation'
+    ];
+    return uiPatterns.some(pattern => lower.includes(pattern));
+  };
+
   const getCleanTextFromElement = (element: Element): string => {
     // Remove script tags and other unwanted elements
     const clonedElement = element.cloneNode(true) as Element;
-    const unwantedTags = clonedElement.querySelectorAll('script, style, nav, .pagination, .theme-doc-footer, .toolbar, .navbar, .footer, menu, button, .breadcrumbs');
-    unwantedTags.forEach(tag => tag.remove());
+
+    // Comprehensive list of unwanted selectors
+    const unwantedSelectors = [
+      'script', 'style', 'noscript',
+      'nav', '.navbar', '.navigation', '.menu', '.sidebar',
+      '.pagination', '.theme-doc-footer', '.toolbar', '.footer',
+      'button', '.btn', '.button',
+      '.breadcrumbs', '.breadcrumb',
+      '.ai-features-bar', '.ai-feature-btn',
+      '.header', '.menu__link', '.navbar__item',
+      '.theme-edit-this-page', '.last-updated',
+      '.toc', '.table-of-contents',
+      '.social-icons', '.share-buttons',
+      '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]',
+      '.theme-doc-version-badge', '.theme-doc-breadcrumbs',
+      '.doc-sidebar-container', '.menu_SIkG',
+      '.footer', '.col', '.row'
+    ];
+
+    // Remove unwanted elements
+    unwantedSelectors.forEach(selector => {
+      const elements = clonedElement.querySelectorAll(selector);
+      elements.forEach(el => el.remove());
+    });
+
+    // Also remove elements with specific text patterns
+    const allElements = clonedElement.querySelectorAll('*');
+    allElements.forEach(el => {
+      // Skip checking large containers to avoid removing main content
+      // If an element has a lot of text, it's likely content, not just a UI button/label
+      if (el.textContent && el.textContent.length > 200) {
+        return;
+      }
+
+      const text = el.textContent?.trim().toLowerCase() || '';
+      if (
+        text.includes('edit this page') ||
+        text.includes('last updated') ||
+        text.includes('previous') ||
+        text.includes('next') ||
+        text.includes('personalize') ||
+        text.includes('translate') ||
+        text.includes('read aloud') ||
+        text.includes('min read') ||
+        text.includes('ai features') ||
+        text.includes('welcome on this page') ||
+        (text.length < 3 && el.tagName !== 'CODE' && el.tagName !== 'IMG') // Remove very short text
+      ) {
+        // Check if this element is likely a UI element
+        const tagName = el.tagName.toLowerCase();
+        const elClassName = typeof el.className === 'string' ? el.className : ''; // Ensure it's a string
+        const hasClass = elClassName && (
+          elClassName.includes('btn') ||
+          elClassName.includes('button') ||
+          elClassName.includes('nav') ||
+          elClassName.includes('menu') ||
+          elClassName.includes('header') ||
+          elClassName.includes('footer') ||
+          elClassName.includes('sidebar') ||
+          elClassName.includes('toolbar') ||
+          elClassName.includes('ai-feature')
+        );
+
+        if (['BUTTON', 'NAV', 'FOOTER', 'HEADER', 'ASIDE'].includes(tagName) || hasClass) {
+          el.remove();
+        }
+      }
+    });
 
     // Get clean text content
     let textContent = clonedElement.textContent || '';
 
-    // Clean up whitespace
+    // Clean up whitespace and remove unwanted patterns
     textContent = textContent
       .replace(/\s+/g, ' ')
       .replace(/\n\s*\n/g, '\n')
+      .replace(/\b(min read|minute read|reading time)\b/gi, '')
+      .replace(/\b(edit this page|last updated|previous|next)\b/gi, '')
+      .replace(/\b(personalize|translate|read aloud|ai features)\b/gi, '')
+      .replace(/\b(welcome on this page)\b/gi, '')
       .trim();
 
     return textContent;
@@ -190,6 +279,7 @@ export default function AIFeaturesBar() {
     // Extract content from the page
     const originalText = extractContent();
     console.log('Extracted text length:', originalText?.length);
+    console.log('Extracted text preview:', originalText?.substring(0, 200));
 
     if (!originalText || originalText.trim().length < 20) {
       showToast('Not enough content to translate. Please select a page with more text.');
@@ -222,8 +312,6 @@ export default function AIFeaturesBar() {
 
   const handlePersonalize = () => {
     // Check if user is authenticated using AuthContext
-    console.log('handlePersonalize called - isAuthenticated:', isAuthenticated, 'user:', user);
-
     if (!isAuthenticated) {
       setPendingPersonalization(true);
       setShowLoginModal(true);
@@ -233,6 +321,21 @@ export default function AIFeaturesBar() {
     // Clear any previous login errors and pending state
     setLoginError(null);
     setPendingPersonalization(false);
+
+    // Use the proper content extraction with filtering
+    const extractedContent = extractContent();
+
+    if (extractedContent && extractedContent.length > 200) {
+      const words = extractedContent.trim().split(/\s+/).filter(w => w.length > 0);
+      if (words.length >= 50) {
+        console.log('[DEBUG] Using extractContent() method, cleaned length:', extractedContent.length);
+        setPersonalizationContent(extractedContent);
+        setPersonalizationContentType('page');
+        setPersonalizationWordCount(words.length);
+        setShowPersonalizationModal(true);
+        return;
+      }
+    }
 
     // Extract content for personalization
     try {
@@ -246,20 +349,39 @@ export default function AIFeaturesBar() {
         setPersonalizationWordCount(selectedText.split(' ').length);
         setShowPersonalizationModal(true);
       } else {
-        // Extract full page content
-        const content = extractCurrentPageContent();
-        if (content && content.wordCount >= 50) {
-          setPersonalizationContent(content.text);
+        // Use the same extractContent function for consistency
+        const fallbackContent = extractContent();
+
+        if (fallbackContent && fallbackContent.length >= 50) {
+          const wordCount = fallbackContent.split(' ').length;
+          console.log('[DEBUG] Using fallback content, length:', fallbackContent.length);
+          setPersonalizationContent(fallbackContent);
           setPersonalizationContentType('page');
-          setPersonalizationWordCount(content.wordCount);
+          setPersonalizationWordCount(wordCount);
           setShowPersonalizationModal(true);
         } else {
           showToast('Not enough content to personalize. Please select more text or choose a page with more content.');
         }
       }
     } catch (error) {
-      console.error('Content extraction failed:', error);
-      showToast('Failed to extract content for personalization. Please try again.');
+      // Try a simpler fallback extraction
+      const fallbackContent = document.querySelector('.markdown')?.textContent ||
+                              document.querySelector('article')?.textContent ||
+                              document.querySelector('main')?.textContent ||
+                              document.body.textContent;
+
+      if (fallbackContent && fallbackContent.length > 100) {
+        const words = fallbackContent.split(' ').filter(w => w.length > 0);
+        if (words.length >= 50) {
+          setPersonalizationContent(fallbackContent.substring(0, 2000)); // Limit to first 2000 chars
+          setPersonalizationContentType('page');
+          setPersonalizationWordCount(words.length);
+          setShowPersonalizationModal(true);
+          return;
+        }
+      }
+
+      showToast('Failed to extract enough content for personalization. Please try selecting text instead.');
     }
   };
 

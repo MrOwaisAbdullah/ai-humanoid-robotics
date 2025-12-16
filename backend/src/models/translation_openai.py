@@ -145,7 +145,7 @@ class TranslationJob(Base):
         Index('idx_job_status_created', 'status', 'created_at'),
         Index('idx_user_status', 'user_id', 'status'),
         Index('idx_content_lookup', 'content_hash', 'source_language', 'target_language'),
-        Index('idx_page_cache', 'page_url', 'content_hash'),
+        Index('idx_job_page_cache', 'page_url', 'content_hash'),
         Index('idx_activity', 'last_activity_at'),
         Index('idx_progress', 'status', 'progress_percentage'),
         CheckConstraint('progress_percentage >= 0 AND progress_percentage <= 100', name='check_progress_range'),
