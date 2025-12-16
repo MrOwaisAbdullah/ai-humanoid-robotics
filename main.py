@@ -268,7 +268,7 @@ app.add_middleware(
     httponly=False,
     samesite="lax",
     max_age=3600,
-    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth/login", "/auth/register", "/api/chat", "/auth/logout", "/auth/me", "/auth/preferences", "/auth/refresh", "/api/v1/translation"],
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth/login", "/auth/register", "/api/chat", "/auth/logout", "/auth/me", "/auth/preferences", "/auth/refresh", "/api/v1/translation", "/api/v1/onboarding", "/api/v1/personalization"],
 )
 
 app.add_middleware(

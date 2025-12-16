@@ -128,7 +128,17 @@ async def get_user_background(
             "updated_at": datetime.utcnow()
         }
 
-    return background
+    # Convert background to dict to handle enum values properly
+    return {
+        "id": background.id,
+        "user_id": background.user_id,
+        "experience_level": background.experience_level.value.lower() if background.experience_level else "beginner",
+        "years_experience": background.years_of_experience,
+        "preferred_languages": background.preferred_languages or [],
+        "hardware_expertise": background.hardware_expertise or {"cpu": "none", "gpu": "none", "networking": "none"},
+        "created_at": background.created_at,
+        "updated_at": background.updated_at
+    }
 
 
 @router.post("/background", response_model=UserBackgroundResponse)
@@ -155,16 +165,34 @@ async def create_or_update_user_background(
 
     if background:
         # Update existing background
-        background.experience_level = background_data.experience_level
+        if background_data.experience_level:
+            # Normalize experience level
+            exp_level = str(background_data.experience_level).lower()
+            if exp_level == "beginner":
+                background.experience_level = UserBackground.ExperienceLevel.BEGINNER
+            elif exp_level == "intermediate":
+                background.experience_level = UserBackground.ExperienceLevel.INTERMEDIATE
+            elif exp_level == "advanced":
+                background.experience_level = UserBackground.ExperienceLevel.ADVANCED
         background.years_experience = background_data.years_experience
         background.preferred_languages = background_data.preferred_languages
         background.hardware_expertise = background_data.hardware_expertise
         background.updated_at = datetime.utcnow()
     else:
         # Create new background
+        exp_level_enum = UserBackground.ExperienceLevel.INTERMEDIATE
+        if background_data.experience_level:
+            exp_level = str(background_data.experience_level).lower()
+            if exp_level == "beginner":
+                exp_level_enum = UserBackground.ExperienceLevel.BEGINNER
+            elif exp_level == "intermediate":
+                exp_level_enum = UserBackground.ExperienceLevel.INTERMEDIATE
+            elif exp_level == "advanced":
+                exp_level_enum = UserBackground.ExperienceLevel.ADVANCED
+
         background = UserBackground(
             user_id=current_user.id,
-            experience_level=background_data.experience_level,
+            experience_level=exp_level_enum,
             years_experience=background_data.years_experience,
             preferred_languages=background_data.preferred_languages,
             hardware_expertise=background_data.hardware_expertise
@@ -219,7 +247,17 @@ async def submit_onboarding(
     # Map onboarding responses to background fields
     background_update = {}
     if "experience_level_selection" in background_responses:
-        background_update["experience_level"] = background_responses["experience_level_selection"]
+        # Normalize experience level to match enum (capitalize first letter)
+        exp_level = background_responses["experience_level_selection"]
+        if isinstance(exp_level, str):
+            exp_level = exp_level.lower()
+            if exp_level == "beginner":
+                exp_level = "Beginner"
+            elif exp_level == "intermediate":
+                exp_level = "Intermediate"
+            elif exp_level == "advanced":
+                exp_level = "Advanced"
+        background_update["experience_level"] = exp_level
     if "years_of_experience" in background_responses:
         background_update["years_experience"] = int(background_responses["years_of_experience"])
     if "preferred_languages" in background_responses:
@@ -244,23 +282,43 @@ async def submit_onboarding(
         ).first()
 
         if background:
-            # Update existing background
+            # Update existing background - handle enum specially
+            if "experience_level" in background_update:
+                exp_level = background_update["experience_level"]
+                if isinstance(exp_level, str):
+                    exp_level = exp_level.lower()
+                    if exp_level == "beginner":
+                        background.experience_level = UserBackground.ExperienceLevel.BEGINNER
+                    elif exp_level == "intermediate":
+                        background.experience_level = UserBackground.ExperienceLevel.INTERMEDIATE
+                    elif exp_level == "advanced":
+                        background.experience_level = UserBackground.ExperienceLevel.ADVANCED
+
             for key, value in background_update.items():
-                if hasattr(background, key):
+                if key != "experience_level" and hasattr(background, key):
                     setattr(background, key, value)
             background.updated_at = datetime.utcnow()
         else:
-            # Create new background
-            # Set default values for missing fields
-            full_background = {
-                "user_id": current_user.id,
-                "experience_level": "beginner",
-                "years_experience": 0,
-                "preferred_languages": [],
-                "hardware_expertise": {"cpu": "none", "gpu": "none", "networking": "none"},
-                **background_update
-            }
-            background = UserBackground(**full_background)
+            # Create new background - handle enum properly
+            exp_level_enum = UserBackground.ExperienceLevel.BEGINNER
+            if "experience_level" in background_update:
+                exp_level = background_update["experience_level"]
+                if isinstance(exp_level, str):
+                    exp_level = exp_level.lower()
+                    if exp_level == "beginner":
+                        exp_level_enum = UserBackground.ExperienceLevel.BEGINNER
+                    elif exp_level == "intermediate":
+                        exp_level_enum = UserBackground.ExperienceLevel.INTERMEDIATE
+                    elif exp_level == "advanced":
+                        exp_level_enum = UserBackground.ExperienceLevel.ADVANCED
+
+            background = UserBackground(
+                user_id=current_user.id,
+                experience_level=exp_level_enum,
+                years_of_experience=background_update.get("years_of_experience", 0),
+                preferred_languages=background_update.get("preferred_languages", []),
+                hardware_expertise=background_update.get("hardware_expertise", {"cpu": "none", "gpu": "none", "networking": "none"})
+            )
             db.add(background)
 
         db.commit()

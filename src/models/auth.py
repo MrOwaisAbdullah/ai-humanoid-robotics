@@ -45,6 +45,7 @@ class User(Base):
     translation_jobs = relationship("TranslationJob", back_populates="user", cascade="all, delete-orphan")
     translation_sessions = relationship("TranslationSession", back_populates="user", cascade="all, delete-orphan")
     translation_metrics = relationship("TranslationMetrics", back_populates="user", cascade="all, delete-orphan")
+    reading_progress = relationship("ReadingProgress", back_populates="user", cascade="all, delete-orphan")
 
 
 class Account(Base):
@@ -74,9 +75,9 @@ class UserBackground(Base):
     __tablename__ = "user_backgrounds"
 
     class ExperienceLevel(str, Enum):
-        BEGINNER = "Beginner"
-        INTERMEDIATE = "Intermediate"
-        ADVANCED = "Advanced"
+        BEGINNER = "beginner"
+        INTERMEDIATE = "intermediate"
+        ADVANCED = "advanced"
 
     class HardwareExpertise(str, Enum):
         NONE = "None"
@@ -88,7 +89,7 @@ class UserBackground(Base):
     experience_level = Column(SQLEnum(ExperienceLevel), nullable=False)
     years_of_experience = Column(Integer, nullable=False, default=0)
     preferred_languages = Column(JSON, nullable=False, default=list)
-    hardware_expertise = Column(SQLEnum(HardwareExpertise), nullable=False, default=HardwareExpertise.NONE)
+    hardware_expertise = Column(JSON, nullable=False, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

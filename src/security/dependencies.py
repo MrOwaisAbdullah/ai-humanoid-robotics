@@ -103,7 +103,8 @@ def get_current_user(
         )
 
     # Check if user is verified (optional)
-    if not user.email_verified:
+    import os
+    if not user.email_verified and os.getenv("ENVIRONMENT") != "development":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email not verified. Please verify your email first."

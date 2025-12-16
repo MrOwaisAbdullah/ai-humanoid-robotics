@@ -19,6 +19,7 @@ from src.schemas.auth import (
     UserResponse,
     Token,
     LoginRequest,
+    EmailLoginRequest,
     LoginResponse,
     PasswordResetRequest,
     PasswordResetConfirm,
@@ -40,7 +41,7 @@ from src.security.dependencies import get_current_user, get_current_active_user,
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=LoginResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserCreate,
     response: Response,
@@ -134,14 +135,21 @@ async def register(
     #         os.getenv("FRONTEND_URL", "http://localhost:3000")
     #     )
 
-    return db_user
+    return {
+        "user": db_user,
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": int(access_token_expires.total_seconds()),
+        "migrated_sessions": 0,
+        "migrated_messages": 0
+    }
 
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
+    login_data: EmailLoginRequest,
     response: Response,
-    db: Session = Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    db: Session = Depends(get_db)
 ) -> Any:
     """
     Authenticate user with email and password.
@@ -149,7 +157,7 @@ async def login(
     Args:
         response: FastAPI response object for setting cookies
         db: Database session
-        form_data: OAuth2PasswordRequestForm with username (email) and password
+        login_data: EmailLoginRequest with email and password
 
     Returns:
         Login response with token and user data
@@ -158,8 +166,8 @@ async def login(
         HTTPException: If authentication fails
     """
     # Find user by email
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
+    user = db.query(User).filter(User.email == login_data.email).first()
+    if not user or not verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -203,7 +211,9 @@ async def login(
         "access_token": access_token,
         "token_type": "bearer",
         "expires_in": int(access_token_expires.total_seconds()),
-        "user": user
+        "user": user,
+        "migrated_sessions": 0,
+        "migrated_messages": 0
     }
 
 

@@ -4,8 +4,7 @@ Content localization model for tracking translation status of content pages.
 
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, JSON, Index
-from sqlalchemy.dialects.postgresql import ENUM as Enum
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, JSON, Index, Enum as SQLEnum
 from src.database.base import Base
 
 
@@ -40,7 +39,7 @@ class ContentLocalization(Base):
 
     # Processing metadata
     chunk_count = Column(Integer, default=1)
-    processing_status = Column(Enum(ProcessingStatus), default=ProcessingStatus.PENDING)
+    processing_status = Column(SQLEnum(ProcessingStatus), default=ProcessingStatus.PENDING)
 
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow)

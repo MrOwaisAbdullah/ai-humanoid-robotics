@@ -12,7 +12,7 @@ from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 
-from database.config import get_db
+from database.config import SessionLocal
 from src.models.auth import Session as AuthSession
 from auth.auth import verify_token
 
@@ -55,7 +55,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if user:
             request.state.user = user
             request.state.authenticated = True
-            request.state.session_id = await self._get_user_session_id(user.id, get_db())
+            
+            # Create a DB session to get user session ID
+            db = SessionLocal()
+            try:
+                request.state.session_id = await self._get_user_session_id(user["id"], db)
+            finally:
+                db.close()
+                
             return await call_next(request)
 
         # Handle anonymous access
@@ -102,7 +109,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             AuthSession.user_id == user_id,
             AuthSession.expires_at > datetime.utcnow()
         ).first()
-        return session.token if session else None
+        return session.id if session else None
 
     async def _handle_anonymous_request(self, request: Request):
         """Handle requests from anonymous users."""
