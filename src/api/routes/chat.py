@@ -5,6 +5,7 @@ Chat API routes with authentication support.
 from datetime import datetime
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import json
@@ -132,11 +133,57 @@ async def send_message(
     db.add(user_message)
     db.commit()
 
-    # Process the message through RAG system
-    try:
-        # Get session ID for context
-        session_id_for_context = chat_request.session_id if chat_request.session_id else str(chat_session.id)
+    # Get session ID for context
+    session_id_for_context = chat_request.session_id if chat_request.session_id else str(chat_session.id)
 
+    if chat_request.stream:
+        async def stream_and_persist():
+            accumulated_content = ""
+            try:
+                async for chunk in chat_handler.stream_chat(
+                    query=chat_request.message,
+                    session_id=session_id_for_context,
+                    k=chat_request.k,
+                    context_window=chat_request.context_window
+                ):
+                    yield chunk
+                    
+                    # Parse chunk to accumulate content
+                    if chunk.startswith("data: "):
+                        try:
+                            data_str = chunk[6:].strip()
+                            if data_str != "[DONE]":
+                                data = json.loads(data_str)
+                                if data.get("type") == "chunk" and data.get("content"):
+                                    accumulated_content += data["content"]
+                                elif data.get("type") == "final" and data.get("answer"):
+                                    accumulated_content = data["answer"]
+                        except:
+                            pass
+                
+                # Persist the accumulated message
+                if accumulated_content:
+                    ai_response = ChatMessage(
+                        chat_session_id=chat_session.id,
+                        role="assistant",
+                        content=accumulated_content,
+                        created_at=datetime.utcnow()
+                    )
+                    db.add(ai_response)
+                    db.commit()
+                    
+                    # Update session timestamp
+                    chat_session.updated_at = datetime.utcnow()
+                    db.commit()
+                    
+            except Exception as e:
+                logger.error(f"Streaming failed: {str(e)}")
+                # Optionally handle persistence of partial content or error state here
+
+        return StreamingResponse(stream_and_persist(), media_type="text/event-stream")
+
+    # Process the message through RAG system (Non-streaming)
+    try:
         # Get response from chat handler
         response = await chat_handler.chat(
             query=chat_request.message,
