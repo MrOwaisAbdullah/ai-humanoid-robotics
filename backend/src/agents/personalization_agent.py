@@ -143,7 +143,16 @@ class PersonalizationAgent:
 
         except Exception as e:
             # Log error and provide fallback response
-            print(f"Error in personalization: {str(e)}")
+            error_msg = str(e)
+            print(f"Error in personalization: {error_msg}")
+
+            # Check for specific quota limit errors
+            if "quota" in error_msg.lower() or "limit" in error_msg.lower() or "rate" in error_msg.lower():
+                note = "Fallback generated due to API quota limit. Please try again later."
+                adaptations = ["API quota limit reached - using fallback personalization"]
+            else:
+                note = "Fallback generated due to API error"
+                adaptations = ["Generated fallback personalization due to API limitation"]
 
             # Fallback simple personalization
             expertise_level = user_profile.get("experience_level", "Beginner").lower()
@@ -151,13 +160,13 @@ class PersonalizationAgent:
 
             return {
                 "personalized_content": fallback_response,
-                "adaptations_made": ["Generated fallback personalization due to API limitation"],
+                "adaptations_made": adaptations,
                 "original_length": len(content.split()),
                 "personalized_length": len(fallback_response.split()),
                 "processing_metadata": {
                     "model": "fallback",
-                    "max_turns": 1,
-                    "note": "Fallback generated due to API limitation"
+                    "error": error_msg,
+                    "note": note
                 }
             }
 
@@ -270,6 +279,26 @@ class PersonalizationAgent:
         """
         Generate a simple fallback personalization when the API is not available
         """
+        # Log the content length for debugging
+        print(f"[DEBUG] Fallback personalization - content length: {len(content)}")
+        print(f"[DEBUG] First 200 chars of content: {content[:200]}")
+
+        # If content is empty or too short, provide a more useful message
+        if not content or len(content.strip()) < 20:
+            return """
+            **Content Not Available**
+
+            The content could not be extracted for personalization. This might be due to:
+            - The page having mostly UI elements
+            - Content filtering being too aggressive
+            - The page requiring login to access
+
+            Please try:
+            - Selecting specific text to personalize
+            - Navigating to a page with more substantial content
+            - Checking if the content is properly displayed
+            """
+
         # Simple prefix based on expertise level
         if expertise_level == "beginner":
             prefix = """📚 **For Beginners**: Let me break this down in simple terms.

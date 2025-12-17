@@ -139,10 +139,9 @@ export default function AIFeaturesBar() {
           'edit this page', 'last updated', 'previous', 'next',
           'welcome on this page', 'ai features', 'share', 'copy link',
           'table of contents', 'on this page', 'breadcrumbs',
-          'course content', 'module', 'chapter', 'on this page',
-          'facebook', 'twitter', 'linkedin', 'github', 'skip to main content',
-          'navigation', 'menu', 'home', 'search', 'theme', 'toggle',
-          'light mode', 'dark mode', 'documentation', 'docs'
+          'skip to main content',
+          'facebook', 'twitter', 'linkedin', 'github',
+          'light mode', 'dark mode'
         ];
 
         // Skip if any UI pattern is found
@@ -181,6 +180,7 @@ export default function AIFeaturesBar() {
   };
 
   const getCleanTextFromElement = (element: Element): string => {
+    console.log('[DEBUG] Cleaning element:', element.tagName, element.className);
     // Remove script tags and other unwanted elements
     const clonedElement = element.cloneNode(true) as Element;
 
@@ -208,11 +208,12 @@ export default function AIFeaturesBar() {
       elements.forEach(el => el.remove());
     });
 
+    // TEMPORARILY DISABLED AGGRESSIVE TEXT-BASED REMOVAL FOR DEBUGGING
+    /*
     // Also remove elements with specific text patterns
     const allElements = clonedElement.querySelectorAll('*');
     allElements.forEach(el => {
       // Skip checking large containers to avoid removing main content
-      // If an element has a lot of text, it's likely content, not just a UI button/label
       if (el.textContent && el.textContent.length > 200) {
         return;
       }
@@ -233,7 +234,7 @@ export default function AIFeaturesBar() {
       ) {
         // Check if this element is likely a UI element
         const tagName = el.tagName.toLowerCase();
-        const elClassName = typeof el.className === 'string' ? el.className : ''; // Ensure it's a string
+        const elClassName = typeof el.className === 'string' ? el.className : '';
         const hasClass = elClassName && (
           elClassName.includes('btn') ||
           elClassName.includes('button') ||
@@ -251,9 +252,11 @@ export default function AIFeaturesBar() {
         }
       }
     });
+    */
 
     // Get clean text content
     let textContent = clonedElement.textContent || '';
+    console.log('[DEBUG] Raw text content length:', textContent.length);
 
     // Clean up whitespace and remove unwanted patterns
     textContent = textContent
@@ -264,7 +267,8 @@ export default function AIFeaturesBar() {
       .replace(/\b(personalize|translate|read aloud|ai features)\b/gi, '')
       .replace(/\b(welcome on this page)\b/gi, '')
       .trim();
-
+    
+    console.log('[DEBUG] Cleaned text content length:', textContent.length);
     return textContent;
   };
 
@@ -324,9 +328,12 @@ export default function AIFeaturesBar() {
 
     // Use the proper content extraction with filtering
     const extractedContent = extractContent();
+    console.log('[DEBUG] handlePersonalize top-level extraction:', extractedContent?.length);
 
     if (extractedContent && extractedContent.length > 200) {
       const words = extractedContent.trim().split(/\s+/).filter(w => w.length > 0);
+      console.log('[DEBUG] handlePersonalize word count:', words.length);
+      
       if (words.length >= 50) {
         console.log('[DEBUG] Using extractContent() method, cleaned length:', extractedContent.length);
         setPersonalizationContent(extractedContent);
