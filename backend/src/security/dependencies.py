@@ -102,13 +102,13 @@ def get_current_user(
             detail="User not found"
         )
 
-    # Check if user is verified (optional)
-    import os
-    if not user.email_verified and os.getenv("ENVIRONMENT") != "development":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email not verified. Please verify your email first."
-        )
+    # Check if user is verified (optional) - Disabled for now
+    # import os
+    # if not user.email_verified and os.getenv("ENVIRONMENT") != "development":
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         detail="Email not verified. Please verify your email first."
+    #     )
 
     return user
 
@@ -150,7 +150,7 @@ def get_optional_current_user(
             return None
 
         user = db.query(User).filter(User.id == user_id).first()
-        return user if user and user.email_verified else None
+        return user if user else None # Return user regardless of email_verified status
 
     except Exception:
         return None
@@ -268,7 +268,7 @@ def get_current_user_or_anonymous(
                 user_id = payload.get("sub")
                 if user_id:
                     user = db.query(User).filter(User.id == user_id).first()
-                    if user and user.email_verified:
+                    if user: # Removed email_verified check
                         user.is_authenticated = True
                         return user
         except Exception:
