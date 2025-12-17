@@ -19,6 +19,8 @@ class GeminiOpenAIClient:
         self.provider = AsyncOpenAI(
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             api_key=api_key,
+            max_retries=0, # Fail fast on rate limits to allow fallback
+            timeout=30.0   # 30s timeout per request
         )
 
         # Define the chat completions model using Gemini
