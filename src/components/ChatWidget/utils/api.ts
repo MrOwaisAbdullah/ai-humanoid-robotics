@@ -277,7 +277,7 @@ export function formatChatRequest(
 ): any { // Using any for flexibility with new API structure
   const request: any = {
     question: message, // Changed to match new API structure
-    stream: false, // Our new API returns non-streaming responses for now
+    stream: true, // Enable streaming functionality
     k: 5, // Number of documents to retrieve
     context_window: 4000, // Context window size
   };

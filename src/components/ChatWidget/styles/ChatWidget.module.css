@@ -613,7 +613,7 @@
 .orderedList {
   margin: 0.25rem 0 !important; /* Force reduced margin */
   padding-left: 1.25rem;
-  list-style-position: outside;
+  list-style-position: inside; /* Ensure bullets/numbers are on the same line as content */
 }
 
 .unorderedList {
@@ -625,7 +625,12 @@
 }
 
 .listItem {
-  margin: 0.1rem 0 !important; /* Force reduced margin */
+  margin: 0.1rem 0 !important; /* Force reduced item margin */
+}
+
+.listItem > p {
+  margin: 0 !important; /* Reset margin for paragraphs directly inside list items */
+  display: inline; /* Ensure paragraph content flows with list marker */
 }
 
 .blockquote {

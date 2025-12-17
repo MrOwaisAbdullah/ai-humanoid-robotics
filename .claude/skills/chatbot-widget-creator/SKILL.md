@@ -278,11 +278,28 @@ Edit `src/components/ChatWidget/styles/ChatWidget.module.css`:
    - Verify CORS headers include `text/event-stream`
    - Check that responses use correct `data: {}` format
    - Ensure `Cache-Control: no-cache` is set
+   - **Crucial**: Ensure your API request includes `stream: true` in the body
+   - Extract content correctly: `handleChunk(JSON.parse(data).content)` not the raw string
 
 4. **Text Selection Issues**
    - Verify `useTextSelection` is enabled
    - Check for CSS `user-select: none` conflicts
    - Ensure z-index is high enough for tooltip
+
+5. **Markdown Rendering & Layout Issues**
+   - **List Numbers on Separate Lines**: 
+     - Set `list-style-position: inside` on `ul`/`ol`
+     - Reset `p` margins in lists: `li > p { margin: 0; display: inline; }`
+   - **Invisible Text in Light Mode**:
+     - Explicitly define text colors for `.messageRenderer`, headings, and lists in light mode media queries or classes
+     - Ensure `.aiMessageBubble` background is transparent or correctly colored
+   - **Excessive Spacing**:
+     - Reduce margins on `p`, `ul`, `ol` (e.g., `0.25rem`)
+     - Remove margins from first/last children: `.messageRenderer > *:first-child { margin-top: 0; }`
+     - Use `!important` if global site styles (like Docusaurus) override your chat styles
+   - **Avatar Alignment**:
+     - Use CSS Grid for message layout to align avatar with the bottom of the text
+     - Example: `.aiMessage { display: grid; align-items: end; }`
 
 ## Production Checklist
 

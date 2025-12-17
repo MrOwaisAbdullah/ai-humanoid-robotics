@@ -165,6 +165,9 @@ function ChatWidgetContainerInner({
       // Add session ID to request
       request.session_id = sessionId;
 
+      // Debug log the stream flag
+      console.log('Chat Request Stream Flag:', request.stream);
+
       // Prepare headers
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -188,25 +191,79 @@ function ChatWidgetContainerInner({
         throw new Error(`HTTP error! status: ${response.status}: ${errorText}`);
       }
 
-      // Handle JSON response (our new API returns complete responses, not streams)
-      const responseData = await response.json();
-
-      // Extract messages from the response
-      if (responseData.messages && Array.isArray(responseData.messages)) {
-        // Find the assistant's response
-        const assistantMessage = responseData.messages.find((msg: any) => msg.role === 'assistant');
-        if (assistantMessage && assistantMessage.content) {
-          handleChunk(assistantMessage.content);
+      // Check if response is SSE stream
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('text/event-stream')) {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        
+        if (!reader) {
+          throw new Error('Response body is null');
         }
-      } else if (responseData.answer) {
-        // Direct answer format
-        handleChunk(responseData.answer);
-      } else if (responseData.content) {
-        // Alternative content format
-        handleChunk(responseData.content);
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6).trim();
+              if (dataStr === '[DONE]') continue;
+              
+              try {
+                const data = JSON.parse(dataStr);
+                
+                // Handle different SSE message types
+                if (data.type === 'chunk' && data.content) {
+                  handleChunk(data.content);
+                } else if (data.type === 'final' && data.answer) {
+                  // Only if we haven't received chunks (unlikely in streaming mode but possible)
+                  // Or to replace content if chunks were partial? 
+                  // Usually streaming appends chunks. Final answer might be full text?
+                  // For now, let's assume chunks populated the message and ignore final 'answer' 
+                  // UNLESS we want to support sources/citations which might be in final.
+                  // For text content, chunks are primary.
+                  
+                  // If we need to handle sources:
+                  if (data.sources && chatContext.updateMessage) {
+                     // We can't easily update message sources via handleChunk (which takes string)
+                     // Ideally we'd dispatch an action.
+                     // Accessing dispatch directly isn't easy here without refactoring context.
+                     // But useChat returns updateMessage which takes id and content.
+                     // We need addSourceCitations.
+                     // For now, let's just focus on content streaming.
+                  }
+                }
+              } catch (e) {
+                console.error('Error parsing SSE data:', e);
+              }
+            }
+          }
+        }
       } else {
-        // Fallback
-        handleChunk('I received your message but couldn\'t generate a response.');
+        // Handle JSON response (legacy/fallback)
+        const responseData = await response.json();
+
+        // Extract messages from the response
+        if (responseData.messages && Array.isArray(responseData.messages)) {
+          // Find the assistant's response
+          const assistantMessage = responseData.messages.find((msg: any) => msg.role === 'assistant');
+          if (assistantMessage && assistantMessage.content) {
+            handleChunk(assistantMessage.content);
+          }
+        } else if (responseData.answer) {
+          // Direct answer format
+          handleChunk(responseData.answer);
+        } else if (responseData.content) {
+          // Alternative content format
+          handleChunk(responseData.content);
+        } else {
+          // Fallback
+          handleChunk('I received your message but couldn\'t generate a response.');
+        }
       }
 
       // Complete streaming
