@@ -25,6 +25,32 @@ def ensure_database_directory():
     return db_path
 
 
+from sqlalchemy import text, inspect
+
+def fix_schema():
+    """Fix database schema issues on existing databases."""
+    try:
+        inspector = inspect(engine)
+        if inspector.has_table("users"):
+            columns = [col["name"] for col in inspector.get_columns("users")]
+            
+            with engine.connect() as conn:
+                if "password_hash" not in columns:
+                    print("🔧 Adding missing column 'password_hash' to 'users' table...")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+                    conn.commit()
+                    print("✅ Added 'password_hash' column.")
+                
+                # Check for other potential missing columns from recent updates
+                if "provider" not in columns:
+                     print("🔧 Adding missing column 'provider' to 'users' table...")
+                     conn.execute(text("ALTER TABLE users ADD COLUMN provider VARCHAR(50) DEFAULT 'local'"))
+                     conn.commit()
+                     print("✅ Added 'provider' column.")
+
+    except Exception as e:
+        print(f"⚠️ Schema fix attempt failed (this is expected if tables don't exist yet): {e}")
+
 def initialize_database():
     """Initialize the database with all required tables."""
     print(f"Initializing database at: {DATABASE_URL}")
@@ -32,6 +58,9 @@ def initialize_database():
     # Ensure database directory exists
     db_path = ensure_database_directory()
     print(f"Database path: {db_path}")
+
+    # Run schema fix BEFORE creating tables (in case table exists but is old)
+    fix_schema()
 
     # Create tables
     try:
