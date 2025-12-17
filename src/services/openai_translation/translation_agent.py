@@ -3,10 +3,11 @@ Simplified OpenAI Translation Agent using proper Runner.run pattern.
 """
 
 import asyncio
+import os
 from typing import Dict, Optional, Any
 from dataclasses import dataclass
 
-from agents import Agent, Runner
+from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel
 from src.services.openai_translation.client import GeminiOpenAIClient, get_gemini_client
 from src.utils.translation_logger import get_translation_logger
 
@@ -43,18 +44,74 @@ class OpenAITranslationAgent:
             model=self.client.get_model()
         )
 
+        # Initialize fallback agent (OpenRouter)
+        self.fallback_agent = None
+        if os.getenv("OPENROUTER_API_KEY"):
+            try:
+                openrouter_client = AsyncOpenAI(
+                    api_key=os.getenv("OPENROUTER_API_KEY"),
+                    base_url="https://openrouter.ai/api/v1",
+                    timeout=60.0,
+                    max_retries=3,
+                    default_headers={
+                        "HTTP-Referer": os.getenv("FRONTEND_URL", "http://localhost:3000"),
+                        "X-Title": "AI Book Translation Agent"
+                    }
+                )
+                
+                fallback_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                fallback_model = OpenAIChatCompletionsModel(
+                    model=fallback_model_name,
+                    openai_client=openrouter_client
+                )
+                
+                self.fallback_agent = Agent(
+                    name="Translation Agent (Fallback)",
+                    instructions=self._get_translation_instructions(),
+                    model=fallback_model
+                )
+                logger.info(f"Fallback translation agent initialized with {fallback_model_name}")
+            except Exception as e:
+                logger.error(f"Failed to initialize fallback agent: {e}")
+
+        # Initialize 3rd fallback agent (OpenAI)
+        self.openai_fallback_agent = None
+        if os.getenv("OPENAI_API_KEY"):
+            try:
+                openai_client = AsyncOpenAI(
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                    timeout=60.0,
+                    max_retries=3
+                )
+                
+                # User requested 'gpt-5-nano'
+                openai_model_name = os.getenv("OPENAI_MODEL", "gpt-5-nano")
+                openai_model = OpenAIChatCompletionsModel(
+                    model=openai_model_name,
+                    openai_client=openai_client
+                )
+                
+                self.openai_fallback_agent = Agent(
+                    name="Translation Agent (3rd Fallback)",
+                    instructions=self._get_translation_instructions(),
+                    model=openai_model
+                )
+                logger.info(f"3rd fallback translation agent initialized with {openai_model_name}")
+            except Exception as e:
+                logger.error(f"Failed to initialize 3rd fallback agent: {e}")
+
     def _get_translation_instructions(self) -> str:
         """Get the base translation instructions for the agent."""
         return """
 You are a professional translator specializing in English to Urdu translation.
 
 CRITICAL REQUIREMENTS:
-1. Translate ALL text to Urdu - no English words should remain
+1. Translate ALL text to Urdu - no English words should remain alone
 2. ONLY preserve code blocks marked with ```
-3. Translate technical terms with context (e.g., AI -> مصنوعی ذہانت)
+3. Translate technical terms to Urdu followed by the English term in brackets (e.g., Artificial Intelligence -> مصنوعی ذہانت (Artificial Intelligence))
 4. Use Urdu script (Nastaleeq) for Urdu text
 5. Maintain formatting and structure
-6. Mix Urdu with Roman Urdu for technical terms where appropriate
+6. Do NOT use Roman Urdu
 
 When translating:
 - Use appropriate honorifics and politeness levels
@@ -65,6 +122,18 @@ When translating:
 
 Additional context will be provided as needed for specific domains.
 """
+
+    def _should_use_fallback(self, error_message: str) -> bool:
+        """Determine if we should use fallback based on error message."""
+        error_lower = error_message.lower()
+        quota_indicators = [
+            "quota", "limit", "rate", "exceeded", "maximum", "usage",
+            "429", "too many requests", "resource exhausted",
+            "billing", "payment", "insufficient",
+            "api key", "valid api key", "unauthorized", "authentication",
+            "400", "401", "403", "invalid_argument"
+        ]
+        return any(indicator in error_lower for indicator in quota_indicators)
 
     async def translate_with_agent(
         self,
@@ -95,23 +164,53 @@ Additional context will be provided as needed for specific domains.
             )
 
             # Run the agent using the proper Runner.run pattern
-            result = await Runner.run(
-                self.agent,
-                prompt,
-                max_turns=1  # Single turn for simple translation
-            )
+            try:
+                result = await Runner.run(
+                    self.agent,
+                    prompt,
+                    max_turns=1  # Single turn for simple translation
+                )
+                model_used = self.model
+            except Exception as e:
+                # Check for fallback
+                if self.fallback_agent and self._should_use_fallback(str(e)):
+                    logger.warning(f"Primary agent failed: {e}. Attempting fallback...")
+                    try:
+                        result = await Runner.run(
+                            self.fallback_agent,
+                            prompt,
+                            max_turns=1
+                        )
+                        model_used = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                        logger.info(f"Fallback translation successful with {model_used}")
+                    except Exception as fallback_e:
+                        # Check for 3rd fallback
+                        if self.openai_fallback_agent and self._should_use_fallback(str(fallback_e)):
+                            logger.warning(f"OpenRouter fallback failed: {fallback_e}. Attempting 3rd fallback...")
+                            result = await Runner.run(
+                                self.openai_fallback_agent,
+                                prompt,
+                                max_turns=1
+                            )
+                            model_used = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+                            logger.info(f"3rd fallback translation successful with {model_used}")
+                        else:
+                            raise fallback_e
+                else:
+                    raise e
 
             # Extract the translated text
             translated_text = result.final_output
 
             # Try to extract tokens from usage if available
             tokens_used = 0
-            model_used = self.model
-
+            
             # The result might have usage information in different formats
             if hasattr(result, 'usage') and result.usage:
                 tokens_used = result.usage.total_tokens if hasattr(result.usage, 'total_tokens') else 0
-                model_used = result.usage.model if hasattr(result.usage, 'model') else self.model
+                # Update model used if reported by usage (though fallback logic sets it)
+                if hasattr(result.usage, 'model') and not model_used:
+                     model_used = result.usage.model
 
             # Check if the translation contains code blocks
             has_code_blocks = "```" in translated_text
@@ -134,7 +233,8 @@ Additional context will be provided as needed for specific domains.
                 original_length=len(text),
                 translated_length=len(translated_text),
                 tokens_used=tokens_used,
-                has_code_blocks=has_code_blocks
+                has_code_blocks=has_code_blocks,
+                model=model_used
             )
 
             return {

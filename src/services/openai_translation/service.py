@@ -114,12 +114,12 @@ class OpenAITranslationService:
 You are a professional translator. Translate the following text from {source_lang} to {target_lang}.
 
 CRITICAL REQUIREMENTS:
-1. Translate ALL text to {target_lang} - no English words should remain
+1. Translate ALL text to {target_lang} - no English words should remain alone
 2. ONLY preserve code blocks marked with ```
-3. Translate technical terms with context (e.g., AI → مصنوعی ذہانت)
+3. Translate technical terms to {target_lang} followed by the English term in brackets (e.g., Artificial Intelligence -> مصنوعی ذہانت (Artificial Intelligence))
 4. Use Urdu script (Nastaleeq) for Urdu text
 5. Maintain formatting and structure
-6. Mix Urdu with Roman Urdu for technical terms where appropriate
+6. Do NOT use Roman Urdu
 
 Text to translate:
 {text}
@@ -135,7 +135,7 @@ Context: This is part {current_part} of {total_parts} of a larger document.
 Requirements:
 - Maintain consistency with the overall document
 - Translate accurately while preserving meaning
-- Handle technical terms appropriately
+- Translate technical terms to {target_lang} followed by English in brackets (e.g., Term -> اصطلاح (Term))
 - Keep the flow natural
 - Use Urdu script (Nastaleeq)
 
@@ -150,6 +150,16 @@ Translation:
         "gemini-2.0-flash-lite": {
             "input": 0.000075,  # $0.075 per 1M input tokens
             "output": 0.00015   # $0.15 per 1M output tokens
+        },
+        # Add OpenRouter pricing if available and desired for cost tracking
+        "meta-llama/llama-3.2-3b-instruct:free": {
+            "input": 0.0,
+            "output": 0.0
+        },
+        # Add OpenAI pricing (approximate)
+        "gpt-5-nano": {
+            "input": 0.00015,
+            "output": 0.0006
         }
     }
 
@@ -177,6 +187,55 @@ Translation:
 
         if not self.cache_service:
             self.cache_service = get_cache_service()
+
+        # Initialize fallback OpenRouter client
+        self.openrouter_client: Optional[AsyncOpenAI] = None
+        self.openrouter_model: Optional[str] = None
+        if os.getenv("OPENROUTER_API_KEY"):
+            try:
+                self.openrouter_client = AsyncOpenAI(
+                    api_key=os.getenv("OPENROUTER_API_KEY"),
+                    base_url="https://openrouter.ai/api/v1",
+                    timeout=60.0,
+                    max_retries=3,
+                    default_headers={
+                        "HTTP-Referer": os.getenv("FRONTEND_URL", "http://localhost:3000"),
+                        "X-Title": "AI Book Translation Service"
+                    }
+                )
+                self.openrouter_model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                logger.info(
+                    "OpenRouter fallback client initialized for translation",
+                    model=self.openrouter_model
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to initialize OpenRouter client for translation",
+                    error=str(e)
+                )
+                self.openrouter_client = None
+
+        # Initialize 3rd fallback (OpenAI)
+        self.openai_client: Optional[AsyncOpenAI] = None
+        self.openai_model: Optional[str] = None
+        if os.getenv("OPENAI_API_KEY"):
+            try:
+                self.openai_client = AsyncOpenAI(
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                    timeout=60.0,
+                    max_retries=3
+                )
+                self.openai_model = os.getenv("OPENAI_MODEL", "gpt-5-nano")
+                logger.info(
+                    "OpenAI 3rd fallback client initialized for translation",
+                    model=self.openai_model
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to initialize OpenAI client for translation",
+                    error=str(e)
+                )
+                self.openai_client = None
 
         logger.info(
             "OpenAI Translation Service initialized",
@@ -594,37 +653,110 @@ Translation:
                         chunk.translated_text = translated_text
                         chunk.completed_at = datetime.utcnow()
                     else:
-                        # Translate chunk with retry logic
-                        async def translate_chunk():
-                            return await self._translate_with_gemini(
-                                chunk_data["text"],
-                                request.source_language,
-                                request.target_language,
-                                request.model,
-                                request.temperature,
-                                request.max_tokens,
-                                is_chunk=True,
-                                context={
-                                    "current_part": i + 1,
-                                    "total_parts": len(chunks_data)
-                                } if len(chunks_data) > 1 else None
+                        # Translate chunk with retry logic and fallback
+                        primary_model_failed = False
+                        translated_with_fallback = False
+                        
+                        current_model_name = request.model
+                        current_client = self.gemini_client.get_client()
+
+                        # First, try with the primary model (Gemini)
+                        try:
+                            result = await retry_with_exponential_backoff(
+                                lambda: self._translate_with_model(
+                                    chunk_data["text"],
+                                    request.source_language,
+                                    request.target_language,
+                                    current_model_name, # Pass model name here
+                                    request.temperature,
+                                    request.max_tokens,
+                                    client=current_client,
+                                    is_chunk=True,
+                                    context={
+                                        "current_part": i + 1,
+                                        "total_parts": len(chunks_data)
+                                    } if len(chunks_data) > 1 else None
+                                ),
+                                max_retries=request.max_retries
                             )
-
-                        result = await retry_with_exponential_backoff(
-                            translate_chunk,
-                            max_retries=request.max_retries
-                        )
-
+                        except TranslationServiceError as e:
+                            logger.warning(
+                                f"Primary model ({request.model}) failed for chunk {i}: {str(e)}",
+                                job_id=job.job_id,
+                                chunk_index=i,
+                                error_type=e.error_type
+                            )
+                            if self._should_use_fallback(str(e)) and self.openrouter_client and self.openrouter_model:
+                                primary_model_failed = True
+                                translated_with_fallback = True
+                                current_model_name = self.openrouter_model
+                                current_client = self.openrouter_client
+                                logger.info(
+                                    f"Attempting fallback translation for chunk {i} using {self.openrouter_model}",
+                                    job_id=job.job_id,
+                                    chunk_index=i
+                                )
+                                try:
+                                    # Retry with fallback client, no further retries for fallback itself
+                                    result = await self._translate_with_model(
+                                        chunk_data["text"],
+                                        request.source_language,
+                                        request.target_language,
+                                        current_model_name,
+                                        request.temperature,
+                                        request.max_tokens,
+                                        client=current_client,
+                                        is_chunk=True,
+                                        context={
+                                            "current_part": i + 1,
+                                            "total_parts": len(chunks_data)
+                                        } if len(chunks_data) > 1 else None
+                                    )
+                                except Exception as fallback_error:
+                                    # Try 3rd fallback (OpenAI)
+                                    logger.warning(
+                                        f"OpenRouter fallback failed for chunk {i}: {str(fallback_error)}. Attempting 3rd fallback...",
+                                        job_id=job.job_id,
+                                        chunk_index=i
+                                    )
+                                    if self.openai_client and self.openai_model:
+                                        current_model_name = self.openai_model
+                                        current_client = self.openai_client
+                                        result = await self._translate_with_model(
+                                            chunk_data["text"],
+                                            request.source_language,
+                                            request.target_language,
+                                            current_model_name,
+                                            request.temperature,
+                                            request.max_tokens,
+                                            client=current_client,
+                                            is_chunk=True,
+                                            context={
+                                                "current_part": i + 1,
+                                                "total_parts": len(chunks_data)
+                                            } if len(chunks_data) > 1 else None
+                                        )
+                                    else:
+                                        raise fallback_error # Re-raise if no 3rd fallback
+                            else:
+                                raise # Re-raise if fallback not applicable or not available
+                                
                         translated_text = result["translated_text"]
                         chunk.translated_text = translated_text
                         chunk.input_tokens = result["input_tokens"]
                         chunk.output_tokens = result["output_tokens"]
+                        chunk.model_name = result["model"] # Store actual model used
                         chunk.status = ChunkStatus.COMPLETED.value
                         chunk.completed_at = datetime.utcnow()
 
                         total_input_tokens += result["input_tokens"]
                         total_output_tokens += result["output_tokens"]
                         total_cost += result["estimated_cost"]
+                        
+                        # Mark job as using fallback if a chunk used it
+                        if translated_with_fallback:
+                            job.fallback_used = True
+                            job.fallback_model = current_model_name
 
                     # Update job progress
                     job.chunks_completed += 1

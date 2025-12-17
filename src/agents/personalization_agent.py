@@ -103,6 +103,27 @@ class PersonalizationAgent:
                 traceback.print_exc()
                 self.fallback_model = None
 
+        # Initialize 3rd fallback (OpenAI)
+        self.openai_client = None
+        self.openai_fallback_model = None
+        if os.getenv("OPENAI_API_KEY"):
+            try:
+                self.openai_client = AsyncOpenAI(
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                    timeout=60.0,
+                    max_retries=3
+                )
+                # User requested 'gpt-5-nano'
+                openai_model_name = os.getenv("OPENAI_MODEL", "gpt-5-nano") 
+                self.openai_fallback_model = OpenAIChatCompletionsModel(
+                    model=openai_model_name,
+                    openai_client=self.openai_client
+                )
+                print(f"[DEBUG] OpenAI 3rd fallback configured with model: {openai_model_name}")
+            except Exception as e:
+                print(f"[ERROR] Failed to initialize OpenAI 3rd fallback: {e}")
+                self.openai_fallback_model = None
+
         # Initialize the agent with primary model
         self.agent = None
         if self.primary_model:
@@ -252,6 +273,19 @@ class PersonalizationAgent:
                 is_fallback=True
             )
 
+        # If OpenRouter failed, try 3rd fallback (OpenAI)
+        if not result["success"] and self._should_use_fallback(result["error_message"]) and self.openai_fallback_model:
+            print(f"OpenRouter fallback failed, attempting 3rd fallback to OpenAI...")
+            openai_model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+            result = await self._try_personalize_with_model(
+                model_name=openai_model_name,
+                model=self.openai_fallback_model,
+                input_text=personalized_input,
+                content=content,
+                user_profile=user_profile,
+                is_fallback=True
+            )
+
         # If both models failed, use simple fallback personalization
         if not result["success"]:
             print(f"All models failed, using simple fallback personalization")
@@ -363,11 +397,13 @@ class PersonalizationAgent:
         """
         error_lower = error_message.lower()
 
-        # Check for quota/rate limit errors
+        # Check for quota/rate limit errors and auth errors
         quota_indicators = [
             "quota", "limit", "rate", "exceeded", "maximum", "usage",
             "429", "too many requests", "resource exhausted",
-            "billing", "payment", "insufficient"
+            "billing", "payment", "insufficient",
+            "api key", "valid api key", "unauthorized", "authentication",
+            "400", "401", "403", "invalid_argument"
         ]
 
         return any(indicator in error_lower for indicator in quota_indicators)
