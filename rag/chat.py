@@ -265,6 +265,7 @@ class ChatHandler:
                     relevance_score=result["similarity_score"],
                     chapter=metadata.get("chapter"),
                     section=metadata.get("section_header") or metadata.get("section"),
+                    url=metadata.get("url"),
                     confidence=result["similarity_score"]
                 )
                 citations.append(citation)
@@ -272,7 +273,9 @@ class ChatHandler:
                 # Add to context with citation marker
                 source_text = chunk.content
                 if source_text:
-                    source_context.append(f"[Source {i+1}]: {source_text}")
+                    source_url = metadata.get("url", "")
+                    url_info = f" (URL: {source_url})" if source_url else ""
+                    source_context.append(f"[Source {i+1}]{url_info}: {source_text}")
 
             # Build context with conversation history and retrieved documents
             context_messages = self._build_context_messages(
@@ -587,7 +590,7 @@ class ChatHandler:
                             "This book covers topics including physical AI systems, humanoid robots, "
                             "robot sensing, actuation mechanisms, and the convergence of AI with robotics. "
                             "Provide accurate, detailed answers based on the provided book content. "
-                            "Always cite your sources using the format [Chapter - Section](source). "
+                            "Always cite your sources using the format [Chapter - Section](URL provided in context). "
                             "If users ask about topics outside this book (other books, movies, general knowledge), "
                             "politely explain: 'I can only provide information about Physical AI, humanoid robots, "
                             "and the specific topics covered in this book.' "
@@ -598,7 +601,7 @@ class ChatHandler:
                             "This book covers topics including physical AI systems, humanoid robots, "
                             "robot sensing, actuation mechanisms, and the convergence of AI with robotics. "
                             "Provide accurate, detailed answers based on the provided book content. "
-                            "Always cite your sources using the format [Chapter - Section](source). "
+                            "Always cite your sources using the format [Chapter - Section](URL provided in context). "
                             "If users ask about topics outside this book (other books, movies, general knowledge), "
                             "politely explain: 'I can only provide information about Physical AI, humanoid robots, "
                             "and the specific topics covered in this book.' "

@@ -6,16 +6,7 @@ Handles AI-powered content personalization based on user background
 import os
 import json
 from typing import Dict, Any, List, Optional
-import sys
-import traceback
-# Handle Windows-specific import issues
-try:
-    from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, set_tracing_disabled
-    AGENTS_AVAILABLE = True
-except Exception as e:
-    print(f"[ERROR] Failed to import agents SDK: {e}")
-    AGENTS_AVAILABLE = False
-    traceback.print_exc()
+from openai_agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, set_tracing_disabled
 
 
 class PersonalizationAgent:
@@ -25,98 +16,52 @@ class PersonalizationAgent:
 
     def __init__(self):
         """Initialize the personalization agent with primary and fallback configurations"""
-        if not AGENTS_AVAILABLE:
-            print("[WARNING] Agents SDK not available, using fallback mode only")
-            self.gemini_client = None
-            self.openrouter_client = None
-            self.primary_model = None
-            self.fallback_model = None
-            self.agent = None
-            return
-
         # Disable tracing for non-OpenAI providers
-        try:
-            set_tracing_disabled(True)
-        except Exception as e:
-            print(f"[WARNING] Failed to disable tracing: {e}")
+        set_tracing_disabled(True)
 
         # Initialize primary Gemini client
-        try:
-            self.gemini_client = AsyncOpenAI(
-                api_key=os.getenv("GEMINI_API_KEY"),
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                timeout=60.0,
-                max_retries=3
-            )
-            print("[DEBUG] Gemini client initialized successfully")
-        except Exception as e:
-            print(f"[ERROR] Failed to initialize Gemini client: {e}")
-            self.gemini_client = None
+        self.gemini_client = AsyncOpenAI(
+            api_key=os.getenv("GEMINI_API_KEY"),
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            timeout=60.0,
+            max_retries=3
+        )
 
         # Initialize fallback OpenRouter client
         self.openrouter_client = None
         if os.getenv("OPENROUTER_API_KEY"):
-            try:
-                self.openrouter_client = AsyncOpenAI(
-                    api_key=os.getenv("OPENROUTER_API_KEY"),
-                    base_url="https://openrouter.ai/api/v1",
-                    timeout=60.0,
-                    max_retries=3,
-                    default_headers={
-                        "HTTP-Referer": os.getenv("FRONTEND_URL", "http://localhost:3000"),
-                        "X-Title": "AI Book Personalization Agent"
-                    }
-                )
-                print(f"[DEBUG] OpenRouter client initialized with API key: {'*' * 10}{os.getenv('OPENROUTER_API_KEY')[-10:]}")
-            except Exception as e:
-                print(f"[ERROR] Failed to initialize OpenRouter client: {e}")
-                self.openrouter_client = None
+            self.openrouter_client = AsyncOpenAI(
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                base_url="https://openrouter.ai/api/v1",
+                timeout=60.0,
+                max_retries=3,
+                default_headers={
+                    "HTTP-Referer": os.getenv("FRONTEND_URL", "http://localhost:3000"),
+                    "X-Title": "AI Book Personalization Agent"
+                }
+            )
 
         # Configure primary model (Gemini)
-        self.primary_model = None
-        if self.gemini_client:
-            try:
-                model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-                self.primary_model = OpenAIChatCompletionsModel(
-                    model=model_name,
-                    openai_client=self.gemini_client
-                )
-                print(f"[DEBUG] Primary model initialized successfully: {model_name}")
-            except Exception as e:
-                print(f"[ERROR] Failed to initialize primary model: {e}")
-                traceback.print_exc()
-                self.primary_model = None
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self.primary_model = OpenAIChatCompletionsModel(
+            model=model_name,
+            openai_client=self.gemini_client
+        )
 
         # Configure fallback model (OpenRouter)
         self.fallback_model = None
         if self.openrouter_client:
-            try:
-                # Use a working free model with fewer restrictions
-                fallback_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
-                self.fallback_model = OpenAIChatCompletionsModel(
-                    model=fallback_model_name,
-                    openai_client=self.openrouter_client
-                )
-                print(f"[DEBUG] OpenRouter fallback configured with model: {fallback_model_name}")
-            except Exception as e:
-                print(f"[ERROR] Failed to initialize fallback model: {e}")
-                traceback.print_exc()
-                self.fallback_model = None
+            self.fallback_model = OpenAIChatCompletionsModel(
+                model="openai/gpt-oss-120b:free",
+                openai_client=self.openrouter_client
+            )
 
         # Initialize the agent with primary model
-        self.agent = None
-        if self.primary_model:
-            try:
-                self.agent = Agent(
-                    name="ContentPersonalizer",
-                    instructions=self._get_personalization_instructions(),
-                    model=self.primary_model
-                )
-                print("[DEBUG] Agent initialized successfully")
-            except Exception as e:
-                print(f"[ERROR] Failed to initialize agent: {e}")
-                traceback.print_exc()
-                self.agent = None
+        self.agent = Agent(
+            name="ContentPersonalizer",
+            instructions=self._get_personalization_instructions(),
+            model=self.primary_model
+        )
 
     def _get_personalization_instructions(self) -> str:
         """
@@ -212,17 +157,6 @@ class PersonalizationAgent:
         Returns:
             Dictionary with personalized content and metadata
         """
-        # Check if agents SDK is available
-        if not AGENTS_AVAILABLE or not self.agent:
-            print("[DEBUG] Agents SDK not available, using simple fallback personalization")
-            return {
-                "success": True,
-                "content": self._generate_fallback_personalization(content, user_profile.get("experience_level", "beginner"), user_profile),
-                "adaptations": ["Used simple fallback personalization (agents SDK unavailable)"],
-                "model_name": "fallback",
-                "is_fallback": True
-            }
-
         # Build the input prompt
         personalized_input = self._build_personalization_prompt(
             content,
@@ -241,10 +175,8 @@ class PersonalizationAgent:
         # If primary model failed due to quota/rate limits and fallback is available, try OpenRouter
         if not result["success"] and self._should_use_fallback(result["error_message"]) and self.fallback_model:
             print(f"Primary model failed, attempting fallback to OpenRouter...")
-            # Get the fallback model name from environment
-            fallback_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
             result = await self._try_personalize_with_model(
-                model_name=fallback_model_name,
+                model_name="openai/gpt-oss-120b:free",
                 model=self.fallback_model,
                 input_text=personalized_input,
                 content=content,
@@ -310,23 +242,6 @@ class PersonalizationAgent:
                 max_turns=3  # Limit turns for content generation
             )
 
-            # Debug log the result
-            print(f"[DEBUG] {model_name} result type: {type(result)}")
-            print(f"[DEBUG] {model_name} has final_output: {hasattr(result, 'final_output')}")
-            if hasattr(result, 'final_output'):
-                final_output = result.final_output
-                print(f"[DEBUG] {model_name} final_output length: {len(final_output) if final_output else 'None'}")
-                print(f"[DEBUG] {model_name} final_output preview: {(final_output or '')[:200]}...")
-
-                # Check if final_output is empty or just whitespace
-                if not final_output or not final_output.strip():
-                    print(f"[DEBUG] {model_name} returned empty output, treating as failure")
-                    return {
-                        "success": False,
-                        "error_message": "Model returned empty response",
-                        "model_name": model_name
-                    }
-
             # Extract adaptations made
             adaptations = self._extract_adaptations(
                 content,
@@ -348,8 +263,6 @@ class PersonalizationAgent:
         except Exception as e:
             error_msg = str(e)
             print(f"Error in personalization with {model_name}: {error_msg}")
-            import traceback
-            traceback.print_exc()
 
             return {
                 "success": False,
@@ -378,26 +291,9 @@ class PersonalizationAgent:
         """
         import re
 
-        # First, extract and preserve code blocks
-        code_blocks = []
-        code_block_pattern = r'```(\w*)\n(.*?)\n```'
-
-        def extract_code_block(match):
-            lang = match.group(1) or 'text'
-            code = match.group(2)
-            placeholder = f"__CODE_BLOCK_{len(code_blocks)}__"
-            code_blocks.append((lang, code))
-            return placeholder
-
-        # Replace code blocks with placeholders
-        content_without_code = re.sub(code_block_pattern, extract_code_block, content, flags=re.DOTALL)
-
-        # Split remaining content into sentences or key points
-        sentences = re.split(r'[.!?]+', content_without_code)
+        # Split content into sentences or key points
+        sentences = re.split(r'[.!?]+', content)
         key_points = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 10]
-
-        # Remove any code block placeholders from key points processing
-        key_points = [point for point in key_points if not point.startswith('__CODE_BLOCK_')]
 
         # Limit to top 5 key points to avoid overwhelming
         key_points = key_points[:5]
@@ -410,17 +306,6 @@ class PersonalizationAgent:
             # Add inline code for technical terms (simple heuristic)
             point = re.sub(r'\b(system|process|algorithm|method|technique|model)\b', r'`\1`', point, flags=re.IGNORECASE)
             markdown_points.append(f"- {point}")
-
-        # Add extracted code blocks if any
-        if code_blocks:
-            markdown_points.append("\n### Code Examples:")
-            for i, (lang, code) in enumerate(code_blocks):
-                # Take first few lines of code to avoid overwhelming
-                code_lines = code.split('\n')[:10]
-                truncated_code = '\n'.join(code_lines)
-                if len(code_lines) >= 10:
-                    truncated_code += '\n# ... (truncated)'
-                markdown_points.append(f"\n```{lang}\n{truncated_code}\n```")
 
         return '\n'.join(markdown_points)
 
@@ -567,7 +452,7 @@ This content is adapted for your {expertise_level} level of expertise.
         if user_profile.get("technical_focus") == "hardware" or user_profile.get("primary_expertise") == "hardware":
             user_context = """
 
-### Hardware Engineer Focus
+### ⚙️ Hardware Engineer Focus
 Pay attention to the following:
 - Physical constraints and material properties
 - Power consumption and thermal considerations
@@ -576,7 +461,7 @@ Pay attention to the following:
         elif user_profile.get("technical_focus") == "software" or user_profile.get("primary_expertise") == "software":
             user_context = """
 
-### Software Engineer Focus
+### 💻 Software Engineer Focus
 Consider the following:
 - Implementation patterns and best practices
 - API design and integration

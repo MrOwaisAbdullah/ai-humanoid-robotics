@@ -152,21 +152,30 @@ async def generate_personalization(
                 detail=f"Personalization failed: {result['error']}"
             )
 
-        explanation = result.get("personalized_content")
+        # Agent returns "personalized_content" but simple fallback might return "content"
+        explanation = result.get("personalized_content") or result.get("content")
+        
+        print(f"[DEBUG] Result keys: {list(result.keys())}")
+        print(f"[DEBUG] Explanation length: {len(explanation) if explanation else 'None'}")
+        print(f"[DEBUG] Success status: {result.get('success')}")
+
         if not explanation:
             raise HTTPException(
                 status_code=500,
                 detail="No personalization generated"
             )
 
-        return {
+        response_data = {
             "explanation": explanation,
             "context_type": context_type,
             "word_count": word_count,
             "generated_at": datetime.utcnow().isoformat(),
-            "adaptations_made": result.get("adaptations_made", []),
+            "adaptations_made": result.get("adaptations", []),
             "processing_time": result.get("processing_metadata", {})
         }
+
+        print(f"[DEBUG] Returning response with explanation length: {len(response_data['explanation'])}")
+        return response_data
 
     except HTTPException:
         raise
