@@ -86,7 +86,7 @@ class UserBackground(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, unique=True)
-    experience_level = Column(SQLEnum(ExperienceLevel), nullable=False)
+    experience_level = Column(SQLEnum(ExperienceLevel, values_callable=lambda x: [e.value for e in x]), nullable=False)
     years_of_experience = Column(Integer, nullable=False, default=0)
     preferred_languages = Column(JSON, nullable=False, default=list)
     hardware_expertise = Column(JSON, nullable=False, default=dict)

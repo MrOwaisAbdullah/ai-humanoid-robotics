@@ -40,33 +40,33 @@ def clean_content_for_personalization(content: str) -> str:
 
         lower_line = trimmed_line.lower()
 
-        # UI patterns to filter out
+        # Only filter the most obvious UI patterns
         ui_patterns = [
-            'personalize', 'translate to', 'read aloud', 'min read', 'minute read',
-            'edit this page', 'last updated', 'previous', 'next',
-            'welcome on this page', 'ai features', 'share', 'copy link',
-            'table of contents', 'on this page', 'breadcrumbs',
-            'course content', 'module', 'chapter', 'on this page',
-            'facebook', 'twitter', 'linkedin', 'github', 'skip to main content',
-            'navigation', 'menu', 'home', 'search', 'theme', 'toggle',
-            'light mode', 'dark mode', 'documentation', 'docs'
+            'personalize', 'translate to', 'read aloud',
+            'edit this page', 'last updated',
+            'ai features', 'share', 'copy link',
+            'skip to main content',
+            'facebook', 'twitter', 'linkedin', 'github'
         ]
 
-        # Skip lines with UI patterns
+        # Skip lines with obvious UI patterns
         if any(pattern in lower_line for pattern in ui_patterns):
             continue
 
-        # Skip very short lines (likely UI debris)
+        # Skip very short lines that are clearly UI (like single navigation items)
         if len(trimmed_line) < 3:
             continue
 
-        # Skip lines that are just numbers or symbols
-        if re.match(r'^[\d\s\-\/→]+$', trimmed_line):
+        # Skip lines that are just navigation indicators
+        if trimmed_line in ['Previous', 'Next', 'Home', 'Menu', 'Search', 'Close']:
             continue
 
-        # Skip if it looks like a breadcrumb or path
-        if '/' in trimmed_line or ' → ' in trimmed_line:
+        # Skip lines that are just numbers (very short ones)
+        if re.match(r'^\d{1,2}$', trimmed_line):
             continue
+
+        # Don't skip breadcrumbs or paths - they might contain useful context
+        # Don't be aggressive with filtering to preserve content
 
         cleaned_lines.append(trimmed_line)
 
