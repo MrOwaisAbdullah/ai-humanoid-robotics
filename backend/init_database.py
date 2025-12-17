@@ -25,24 +25,47 @@ def ensure_database_directory():
     return db_path
 
 
-from sqlalchemy import text, inspect
+from sqlalchemy import text, inspect, Integer
 
 def fix_schema():
     """Fix database schema issues on existing databases."""
     try:
         inspector = inspect(engine)
         if inspector.has_table("users"):
-            columns = [col["name"] for col in inspector.get_columns("users")]
+            columns = inspector.get_columns("users")
+            col_names = [col["name"] for col in columns]
             
+            # Check for ID type mismatch (Integer vs String/UUID)
+            id_col = next((c for c in columns if c["name"] == "id"), None)
+            is_integer_id = False
+            if id_col:
+                # Check type - SQLite INTEGER often reflects as Integer in SQLAlchemy
+                if isinstance(id_col["type"], Integer):
+                    is_integer_id = True
+            
+            if is_integer_id:
+                print("⚠️ Detected incompatible 'users.id' type (INTEGER). Dropping table to allow recreation with UUID support...")
+                with engine.connect() as conn:
+                    # Drop dependent tables first to avoid foreign key errors
+                    conn.execute(text("DROP TABLE IF EXISTS accounts"))
+                    conn.execute(text("DROP TABLE IF EXISTS sessions"))
+                    conn.execute(text("DROP TABLE IF EXISTS user_backgrounds"))
+                    conn.execute(text("DROP TABLE IF EXISTS user_preferences"))
+                    conn.execute(text("DROP TABLE IF EXISTS password_reset_tokens"))
+                    conn.execute(text("DROP TABLE IF EXISTS users"))
+                    conn.commit()
+                print("✅ Dropped incompatible tables.")
+                return # Table dropped, create_tables will handle recreation
+
             with engine.connect() as conn:
-                if "password_hash" not in columns:
+                if "password_hash" not in col_names:
                     print("🔧 Adding missing column 'password_hash' to 'users' table...")
                     conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
                     conn.commit()
                     print("✅ Added 'password_hash' column.")
                 
                 # Check for other potential missing columns from recent updates
-                if "provider" not in columns:
+                if "provider" not in col_names:
                      print("🔧 Adding missing column 'provider' to 'users' table...")
                      conn.execute(text("ALTER TABLE users ADD COLUMN provider VARCHAR(50) DEFAULT 'local'"))
                      conn.commit()
