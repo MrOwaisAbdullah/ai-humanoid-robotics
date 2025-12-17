@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '../types';
 import MessageRenderer from './MessageRenderer';
 import StreamingCursor from './StreamingCursor';
+import CopyButton from './CopyButton';
 import { MessageEdit } from './MessageEdit';
 import { getOptimizedMotionProps, messageEntryVariants } from '../utils/animations';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -185,6 +186,12 @@ function MessageBubble({ message, isStreaming = false, onUpdateMessage }: Messag
           </AnimatePresence>
         </div>
       </div>
+
+      {!isUser && !isStreaming && !isEditing && (
+        <div className={styles.messageActions}>
+          <CopyButton text={formatMessageContent(editedContent)} />
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -151,6 +151,7 @@ class Citation(BaseModel):
     chapter: Optional[str] = Field(None, description="Chapter title")
     section: Optional[str] = Field(None, description="Section title")
     page_number: Optional[int] = Field(None, description="Page number if available")
+    url: Optional[str] = Field(None, description="URL to the source content")
     confidence: float = Field(1.0, description="Confidence in the citation")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Citation creation time")
 
@@ -163,7 +164,8 @@ class Citation(BaseModel):
             parts.append(self.section)
 
         location = " - ".join(parts) if parts else "Source"
-        return f"[{location}]({self.document_id}#{self.chunk_id})"
+        link_target = self.url if self.url else f"{self.document_id}#{self.chunk_id}"
+        return f"[{location}]({link_target})"
 
 
 class ChatRequest(BaseModel):

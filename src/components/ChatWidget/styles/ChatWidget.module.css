@@ -165,7 +165,7 @@
   max-width: 100%;
   animation: slideUp 0.2s ease-out;
   margin-bottom: 0.5rem;
-  align-items: flex-end; /* Bottom align avatar and bubble */
+  align-items: flex-end; /* Default bottom alignment */
 }
 
 .userMessage {
@@ -174,8 +174,27 @@
 }
 
 .aiMessage {
-  flex-direction: row;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  gap: 0 0.75rem;
+  align-items: end; /* Aligns avatar with bottom of text */
+}
+
+.aiMessage .avatar {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.aiMessage .messageContent {
+  grid-row: 1;
+  grid-column: 2;
+  min-width: 0;
+}
+
+.aiMessage .messageActions {
+  grid-row: 2;
+  grid-column: 2;
+  margin-top: 0.25rem;
 }
 
 .avatar {
@@ -203,8 +222,8 @@
 }
 
 .messageContent {
-  flex: 1;
-  min-width: 0;
+  flex: 1; /* Allow message content to expand */
+  min-width: 0; /* Prevent overflow */
 }
 
 .messageBubble {
@@ -216,7 +235,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  max-width: 75%;
+  max-width: 100%;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   font-size: 0.9rem;
 }
@@ -227,15 +246,17 @@
   border-bottom-right-radius: 0.375rem;
   margin-left: auto;
   box-shadow: none;
+  max-width: 75%; /* Re-added max-width */
 }
 
 .aiMessageBubble {
-  background: #21262d;
-  border: 1px solid #30363d;
-  color: #c9d1d9;
+  background: transparent;
+  border: none;
+  color: #ececf1;
   border-bottom-left-radius: 0.375rem;
   margin-right: auto;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
+  padding: 0.75rem 1rem;
 }
 
 .messageText {
@@ -257,6 +278,25 @@
 .aiMessage .messageBubble:not(.userMessageBubble):not(.aiMessageBubble) {
   background: transparent;
   border: 1px solid #4d4d4f;
+}
+
+.messageActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  opacity: 0; /* Hide by default */
+  transition: opacity 0.2s ease;
+}
+
+.message:hover .messageActions {
+  opacity: 1; /* Show on hover */
+}
+
+/* Ensure copy button is visible on mobile where hover isn't available */
+@media (hover: none) {
+  .messageActions {
+    opacity: 1;
+  }
 }
 
 .timestamp {
@@ -512,33 +552,41 @@
 
 /* Message Renderer Styles */
 .messageRenderer {
-  line-height: 1.6;
+  line-height: 1.4;
   color: #ececf1;
   word-wrap: break-word;
 }
 
+.messageRenderer > *:first-child {
+  margin-top: 0 !important;
+}
+
+.messageRenderer > *:last-child {
+  margin-bottom: 0 !important;
+}
+
 .paragraph {
-  margin: 0.75rem 0;
+  margin: 0.25rem 0 !important; /* Force reduced margin */
 }
 
 .heading1 {
-  font-size: 1.875rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  margin: 1.5rem 0 0.75rem 0;
+  margin: 0.75rem 0 0.5rem 0 !important;
   color: #ffffff;
 }
 
 .heading2 {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  margin: 1.25rem 0 0.5rem 0;
+  margin: 0.75rem 0 0.25rem 0 !important;
   color: #ffffff;
 }
 
 .heading3 {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  margin: 1rem 0 0.5rem 0;
+  margin: 0.5rem 0 0.25rem 0 !important;
   color: #ffffff;
 }
 
@@ -563,28 +611,37 @@
 
 .unorderedList,
 .orderedList {
-  margin: 0.75rem 0;
-  padding-left: 1.5rem;
+  margin: 0.25rem 0 !important; /* Force reduced margin */
+  padding-left: 1.25rem;
+  list-style-position: outside;
+}
+
+.unorderedList {
+  list-style-type: disc;
+}
+
+.orderedList {
+  list-style-type: decimal;
 }
 
 .listItem {
-  margin: 0.25rem 0;
+  margin: 0.1rem 0 !important; /* Force reduced margin */
 }
 
 .blockquote {
   border-left: 4px solid #10a37f;
   padding-left: 1rem;
-  margin: 1rem 0;
+  margin: 0.75rem 0;
   font-style: italic;
   color: #b3b3b3;
   background: rgba(16, 163, 127, 0.1);
   border-radius: 0 0.25rem 0.25rem 0;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
 }
 
 /* Code Block Styles */
 .codeBlockContainer {
-  margin: 1rem 0;
+  margin: 0.75rem 0;
   border-radius: 0.5rem;
   overflow: hidden;
   border: 1px solid #4d4d4f;
@@ -1680,8 +1737,8 @@
   /* User message bubble remains primary color */
 
   .aiMessageBubble {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: transparent;
+    border: none;
     color: #1f2937;
   }
 
@@ -1787,6 +1844,28 @@
     transition: opacity 0.2s ease;
     flex-shrink: 0;
     color: #6b7280;
+  }
+  
+  /* Make message renderer text visible in light mode */
+  .messageRenderer {
+    color: #1f2937;
+  }
+  
+  .heading1, .heading2, .heading3, .bold {
+    color: #111827;
+  }
+  
+  .tableHeader {
+    color: #111827;
+  }
+  
+  .tableCell {
+    color: #1f2937;
+  }
+  
+  /* Ensure bullets are visible */
+  .unorderedList, .orderedList {
+    color: #1f2937;
   }
 }
 

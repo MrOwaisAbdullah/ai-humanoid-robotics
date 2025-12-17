@@ -46,7 +46,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         messages: messages.length > maxMessages ? messages.slice(-maxMessages) : messages,
-        error: null // Clear any previous errors on successful action
+        error: null, // Clear any previous errors on successful action
+        isThinking: false // Clear thinking state when message is added
       };
     }
 

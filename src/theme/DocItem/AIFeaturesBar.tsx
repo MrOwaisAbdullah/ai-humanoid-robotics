@@ -39,23 +39,37 @@ export default function AIFeaturesBar() {
       try {
         const selectedText = extractSelectedText();
 
-        if (selectedText && selectedText.length > 50) {
-          setPersonalizationContent(selectedText);
-          setPersonalizationContentType('selected');
-          setPersonalizationWordCount(selectedText.split(' ').length);
-          setShowPersonalizationModal(true);
-        } else {
-          // Use the same extractContent function for consistency
-          const fallbackContent = extractContent();
-          if (fallbackContent && fallbackContent.length >= 100) {
+        if (selectedText && selectedText.length > 20) {
+          const selectedScore = calculateContentValue(selectedText);
+          if (selectedScore >= 10) {
+            setPersonalizationContent(selectedText);
+            setPersonalizationContentType('selected');
+            setPersonalizationWordCount(selectedText.split(' ').length);
+            setShowPersonalizationModal(true);
+            return;
+          }
+        }
+
+        // Use the same extractContent function for consistency
+        const fallbackContent = extractContent();
+        if (fallbackContent && fallbackContent.length >= 100) {
+          const fallbackScore = calculateContentValue(fallbackContent);
+          if (fallbackScore >= 30) {
             const wordCount = fallbackContent.split(' ').length;
             setPersonalizationContent(fallbackContent);
             setPersonalizationContentType('page');
             setPersonalizationWordCount(wordCount);
             setShowPersonalizationModal(true);
-          } else {
-            showToast('Not enough content to personalize. Please select more text or choose a page with more content.');
+            return;
           }
+        }
+
+        // Check if the page has mostly code
+        const hasCode = fallbackContent && fallbackContent.includes('```');
+        if (hasCode) {
+          showToast('This page contains mainly code examples. Please select some explanatory text along with the code for better personalization.');
+        } else {
+          showToast('This page has limited content. Try selecting specific text or choosing a page with more detailed descriptions.');
         }
       } catch (error) {
         console.error('Content extraction failed:', error);
@@ -177,6 +191,40 @@ export default function AIFeaturesBar() {
       'home', 'search', 'theme', 'toggle', 'navigation'
     ];
     return uiPatterns.some(pattern => lower.includes(pattern));
+  };
+
+  // Calculate content value considering text and code
+  const calculateContentValue = (content: string): number => {
+    let score = 0;
+
+    // Count regular words (weight: 1)
+    const textOnly = content.replace(/```[\s\S]*?```/g, ''); // Remove code blocks
+    const words = textOnly.trim().split(/\s+/).filter(w => w.length > 0);
+    score += words.length;
+
+    // Count code blocks (weight: 3 per line - code is valuable!)
+    const codeBlockMatches = content.match(/```[\s\S]*?```/g);
+    if (codeBlockMatches) {
+      codeBlockMatches.forEach(block => {
+        const codeLines = block.split('\n').filter(line => line.trim() && !line.startsWith('```'));
+        score += codeLines.length * 3; // Each line of code is worth 3 words
+      });
+    }
+
+    // Count inline code (weight: 2)
+    const inlineCodeMatches = content.match(/`[^`]+`/g);
+    if (inlineCodeMatches) {
+      score += inlineCodeMatches.length * 2;
+    }
+
+    // Count headings and bullet points (weight: 2)
+    const headings = content.match(/^#{1,6}\s.+$/gm);
+    if (headings) score += headings.length * 2;
+
+    const bulletPoints = content.match(/^[\-\*]\s.+$/gm);
+    if (bulletPoints) score += bulletPoints.length * 2;
+
+    return Math.max(score, words.length); // At minimum, return word count
   };
 
   const getCleanTextFromElement = (element: Element): string => {
@@ -330,12 +378,14 @@ export default function AIFeaturesBar() {
     const extractedContent = extractContent();
     console.log('[DEBUG] handlePersonalize top-level extraction:', extractedContent?.length);
 
-    if (extractedContent && extractedContent.length > 200) {
-      const words = extractedContent.trim().split(/\s+/).filter(w => w.length > 0);
-      console.log('[DEBUG] handlePersonalize word count:', words.length);
-      
-      if (words.length >= 50) {
-        console.log('[DEBUG] Using extractContent() method, cleaned length:', extractedContent.length);
+    if (extractedContent && extractedContent.length > 100) {
+      // Intelligent content validation that considers code blocks
+      const contentScore = calculateContentValue(extractedContent);
+      console.log('[DEBUG] Content score:', contentScore, '(min required: 30)');
+
+      if (contentScore >= 30) {
+        const words = extractedContent.trim().split(/\s+/).filter(w => w.length > 0);
+        console.log('[DEBUG] Using extractContent() method, cleaned length:', extractedContent.length, 'words:', words.length);
         setPersonalizationContent(extractedContent);
         setPersonalizationContentType('page');
         setPersonalizationWordCount(words.length);
@@ -349,26 +399,44 @@ export default function AIFeaturesBar() {
       // First try to get selected text
       const selectedText = extractSelectedText();
 
-      if (selectedText && selectedText.length > 50) {
-        // Personalize selected text
-        setPersonalizationContent(selectedText);
-        setPersonalizationContentType('selected');
-        setPersonalizationWordCount(selectedText.split(' ').length);
-        setShowPersonalizationModal(true);
-      } else {
-        // Use the same extractContent function for consistency
-        const fallbackContent = extractContent();
+      if (selectedText && selectedText.length > 20) {
+        // Also use intelligent validation for selected text
+        const selectedScore = calculateContentValue(selectedText);
+        if (selectedScore >= 10) { // Lower threshold for selected text
+          setPersonalizationContent(selectedText);
+          setPersonalizationContentType('selected');
+          setPersonalizationWordCount(selectedText.split(' ').length);
+          setShowPersonalizationModal(true);
+          return;
+        }
+      }
 
-        if (fallbackContent && fallbackContent.length >= 50) {
+      // Use the same extractContent function for consistency
+      const fallbackContent = extractContent();
+
+      if (fallbackContent && fallbackContent.length >= 50) {
+        const fallbackScore = calculateContentValue(fallbackContent);
+        console.log('[DEBUG] Fallback content score:', fallbackScore);
+        if (fallbackScore >= 30) {
           const wordCount = fallbackContent.split(' ').length;
-          console.log('[DEBUG] Using fallback content, length:', fallbackContent.length);
           setPersonalizationContent(fallbackContent);
           setPersonalizationContentType('page');
           setPersonalizationWordCount(wordCount);
           setShowPersonalizationModal(true);
-        } else {
-          showToast('Not enough content to personalize. Please select more text or choose a page with more content.');
+          return;
         }
+      }
+
+      // More informative error message based on content type
+      const hasCode = extractedContent && extractedContent.includes('```');
+      const codeBlockCount = extractedContent ? (extractedContent.match(/```/g) || []).length : 0;
+
+      if (hasCode && codeBlockCount > 2) {
+        showToast('This page contains mainly code examples. Please select some explanatory text along with the code for better personalization.');
+      } else if (extractedContent && extractedContent.length > 0) {
+        showToast('This page has limited explanatory content. Try selecting specific text or choosing a page with more detailed descriptions.');
+      } else {
+        showToast('Not enough content to personalize. Please select more text or choose a page with more substantial content.');
       }
     } catch (error) {
       // Try a simpler fallback extraction

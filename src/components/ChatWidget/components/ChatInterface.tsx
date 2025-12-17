@@ -203,23 +203,28 @@ export default function ChatInterface({
           </motion.div>
         ) : (
           <>
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                isStreaming={message.isStreaming}
-                onUpdateMessage={(messageId, newContent) => {
-                  // Update message in the chat context
-                  updateMessage(messageId, newContent);
-                }}
-              />
-            ))}
+            {messages.map((message, index) => {
+              // Hide empty streaming messages (show thinking indicator instead)
+              if (message.isStreaming && !message.content) return null;
+              
+              return (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isStreaming={message.isStreaming}
+                  onUpdateMessage={(messageId, newContent) => {
+                    // Update message in the chat context
+                    updateMessage(messageId, newContent);
+                  }}
+                />
+              );
+            })}
           </>
         )}
 
-        {/* Thinking indicator */}
+        {/* Thinking indicator - show when explicitly thinking OR when we have a hidden empty streaming message */}
         <AnimatePresence>
-          {isThinking && (
+          {(isThinking || messages.some(m => m.isStreaming && !m.content)) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

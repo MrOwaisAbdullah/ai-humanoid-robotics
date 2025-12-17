@@ -4,6 +4,7 @@ PersonalizationProfile model for managing user preferences and learning styles.
 
 from datetime import datetime
 from enum import Enum
+import uuid
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, UUID, Text, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -71,7 +72,7 @@ class SavedPersonalization(Base):
     __tablename__ = "saved_personalizations"
 
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # User relationship
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)

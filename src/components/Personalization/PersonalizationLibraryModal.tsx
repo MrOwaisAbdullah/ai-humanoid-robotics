@@ -8,6 +8,9 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiRequest } from '../../services/api';
 import { Loader2, X, Clock, FileText, Trash2, Search, BookOpen, Calendar } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface PersonalizationLibraryModalProps {
   isOpen: boolean;
@@ -64,6 +67,119 @@ export const PersonalizationLibraryModal: React.FC<PersonalizationLibraryModalPr
       day: 'numeric', 
       year: 'numeric'
     });
+  };
+
+  // Render markdown content with syntax highlighting (Shared logic)
+  const renderMarkdown = (text: string) => {
+    const components = {
+      h1: ({children, ...props}: any) => (
+        <h1 {...props} className="markdown-heading heading-1 text-2xl font-bold mb-4 mt-6 first:mt-0 text-zinc-900 dark:text-zinc-100">
+          {children}
+        </h1>
+      ),
+      h2: ({children, ...props}: any) => (
+        <h2 {...props} className="markdown-heading heading-2 text-xl font-bold mb-3 mt-6 first:mt-0 text-zinc-900 dark:text-zinc-100 border-b border-zinc-200 dark:border-zinc-700 pb-2">
+          {children}
+        </h2>
+      ),
+      h3: ({children, ...props}: any) => (
+        <h3 {...props} className="markdown-heading heading-3 text-lg font-semibold mb-3 mt-5 first:mt-0 text-zinc-900 dark:text-zinc-100">
+          {children}
+        </h3>
+      ),
+      h4: ({children, ...props}: any) => (
+        <h4 {...props} className="markdown-heading heading-4 text-base font-semibold mb-2 mt-4 first:mt-0 text-zinc-900 dark:text-zinc-100">
+          {children}
+        </h4>
+      ),
+      p: ({children, ...props}: any) => (
+        <p {...props} className="markdown-paragraph mb-4 last:mb-0 text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          {children}
+        </p>
+      ),
+      ul: ({children, ...props}: any) => (
+        <ul {...props} className="markdown-list mb-4 pl-6 list-disc text-zinc-700 dark:text-zinc-300">
+          {children}
+        </ul>
+      ),
+      ol: ({children, ...props}: any) => (
+        <ol {...props} className="markdown-list mb-4 pl-6 list-decimal text-zinc-700 dark:text-zinc-300">
+          {children}
+        </ol>
+      ),
+      li: ({children, ...props}: any) => (
+        <li {...props} className="markdown-list-item mb-1 leading-relaxed">
+          {children}
+        </li>
+      ),
+      code: ({node, inline, className, children, ...props}: any) => {
+        const match = /language-(\w+)/.exec(className || '');
+        const isInlineCode = inline !== undefined
+          ? inline
+          : !match && !String(children).includes('\n');
+
+        if (isInlineCode) {
+          return (
+            <code
+              className="inline-code px-1.5 py-0.5 text-xs font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded"
+              {...props}
+            >
+              {children}
+            </code>
+          );
+        }
+
+        return (
+          <div className="code-block-wrapper relative group my-4">
+            <div className="flex items-center justify-between bg-zinc-900 text-zinc-100 px-4 py-2 text-xs font-mono rounded-t-md">
+              <span>{className ? className.replace('language-', '') : 'code'}</span>
+            </div>
+            <SyntaxHighlighter
+              style={oneDark}
+              language={match ? match[1] : 'text'}
+              PreTag="div"
+              customStyle={{
+                margin: 0,
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: '0.5rem',
+                borderBottomLeftRadius: '0.5rem',
+                borderBottomRightRadius: '0.5rem',
+                fontSize: '0.875rem',
+              }}
+              {...props}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          </div>
+        );
+      },
+      blockquote: ({children, ...props}: any) => (
+        <blockquote {...props} className="markdown-blockquote my-4 pl-4 border-l-4 border-[#0d9488] dark:border-[#14b8a6] bg-zinc-50 dark:bg-zinc-900/50 text-zinc-700 dark:text-zinc-300 italic">
+          {children}
+        </blockquote>
+      ),
+      strong: ({children, ...props}: any) => (
+        <strong {...props} className="font-semibold text-zinc-900 dark:text-zinc-100">
+          {children}
+        </strong>
+      ),
+      em: ({children, ...props}: any) => (
+        <em {...props} className="italic text-zinc-700 dark:text-zinc-300">
+          {children}
+        </em>
+      ),
+    };
+
+    return (
+      <div className="markdown-content">
+        <ReactMarkdown
+          remarkPlugins={[]}
+          components={components}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
   };
 
   const filteredItems = savedItems.filter(item => 
@@ -171,7 +287,7 @@ export const PersonalizationLibraryModal: React.FC<PersonalizationLibraryModalPr
                       <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                         <FileText className="w-3 h-3" /> Original Context
                       </div>
-                      <div className="p-4 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 font-mono leading-relaxed">
+                      <div className="p-4 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-100 dark:border-zinc-800 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 font-mono leading-relaxed max-h-48 overflow-y-auto">
                         {selectedItem.original_content}
                       </div>
                     </div>
@@ -181,10 +297,8 @@ export const PersonalizationLibraryModal: React.FC<PersonalizationLibraryModalPr
                       <div className="flex items-center gap-2 text-xs font-semibold text-[#0d9488] uppercase tracking-wider">
                         <div className="w-2 h-2 rounded-full bg-[#0d9488]" /> Personalized Explanation
                       </div>
-                      <div className="prose prose-sm dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed">
-                        {selectedItem.explanation.split('\n').map((paragraph, i) => (
-                          <p key={i} className="mb-4 last:mb-0">{paragraph}</p>
-                        ))}
+                      <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm">
+                        {renderMarkdown(selectedItem.explanation)}
                       </div>
                     </div>
                   </div>
