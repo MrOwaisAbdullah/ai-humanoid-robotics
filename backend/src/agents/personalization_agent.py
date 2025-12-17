@@ -45,7 +45,7 @@ class PersonalizationAgent:
             self.gemini_client = AsyncOpenAI(
                 api_key=os.getenv("GEMINI_API_KEY"),
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                timeout=60.0,
+                timeout=120.0,
                 max_retries=3
             )
             print("[DEBUG] Gemini client initialized successfully")
@@ -60,7 +60,7 @@ class PersonalizationAgent:
                 self.openrouter_client = AsyncOpenAI(
                     api_key=os.getenv("OPENROUTER_API_KEY"),
                     base_url="https://openrouter.ai/api/v1",
-                    timeout=60.0,
+                    timeout=120.0,
                     max_retries=3,
                     default_headers={
                         "HTTP-Referer": os.getenv("FRONTEND_URL", "http://localhost:3000"),
@@ -110,16 +110,15 @@ class PersonalizationAgent:
             try:
                 self.openai_client = AsyncOpenAI(
                     api_key=os.getenv("OPENAI_API_KEY"),
-                    timeout=60.0,
+                    timeout=120.0,
                     max_retries=3
                 )
-                # User requested 'gpt-5-nano'
-                openai_model_name = os.getenv("OPENAI_MODEL", "gpt-5-nano") 
+                # User requested 'gpt-5-nano' (Hardcoded)
                 self.openai_fallback_model = OpenAIChatCompletionsModel(
-                    model=openai_model_name,
+                    model="gpt-5-nano",
                     openai_client=self.openai_client
                 )
-                print(f"[DEBUG] OpenAI 3rd fallback configured with model: {openai_model_name}")
+                print(f"[DEBUG] OpenAI 3rd fallback configured with model: gpt-5-nano")
             except Exception as e:
                 print(f"[ERROR] Failed to initialize OpenAI 3rd fallback: {e}")
                 self.openai_fallback_model = None
@@ -224,14 +223,14 @@ class PersonalizationAgent:
         user_profile: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Personalize content based on user background
+        Personalize content based on user background.
 
         Args:
-            content: The original content to personalize
-            user_profile: User's background and preferences
+            content: The original content to personalize.
+            user_profile: User's background and preferences.
 
         Returns:
-            Dictionary with personalized content and metadata
+            Dictionary with personalized content and metadata.
         """
         # Check if agents SDK is available
         if not AGENTS_AVAILABLE or not self.agent:
@@ -276,9 +275,8 @@ class PersonalizationAgent:
         # If OpenRouter failed, try 3rd fallback (OpenAI)
         if not result["success"] and self._should_use_fallback(result["error_message"]) and self.openai_fallback_model:
             print(f"OpenRouter fallback failed, attempting 3rd fallback to OpenAI...")
-            openai_model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
             result = await self._try_personalize_with_model(
-                model_name=openai_model_name,
+                model_name="gpt-5-nano",
                 model=self.openai_fallback_model,
                 input_text=personalized_input,
                 content=content,
@@ -605,8 +603,7 @@ This content is adapted for your {expertise_level} level of expertise.
 
 ### Hardware Engineer Focus
 Pay attention to the following:
-- Physical constraints and material properties
-- Power consumption and thermal considerations
+- Physical constraints and material properties- Power consumption and thermal considerations
 - Hardware architecture implications
 - Performance metrics (latency, throughput)"""
         elif user_profile.get("technical_focus") == "software" or user_profile.get("primary_expertise") == "software":

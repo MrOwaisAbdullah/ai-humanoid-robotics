@@ -51,7 +51,7 @@ class OpenAITranslationAgent:
                 openrouter_client = AsyncOpenAI(
                     api_key=os.getenv("OPENROUTER_API_KEY"),
                     base_url="https://openrouter.ai/api/v1",
-                    timeout=60.0,
+                    timeout=120.0,
                     max_retries=3,
                     default_headers={
                         "HTTP-Referer": os.getenv("FRONTEND_URL", "http://localhost:3000"),
@@ -80,12 +80,11 @@ class OpenAITranslationAgent:
             try:
                 openai_client = AsyncOpenAI(
                     api_key=os.getenv("OPENAI_API_KEY"),
-                    timeout=60.0,
+                    timeout=120.0,
                     max_retries=3
                 )
                 
-                # User requested 'gpt-5-nano'
-                openai_model_name = os.getenv("OPENAI_MODEL", "gpt-5-nano")
+                openai_model_name = "gpt-5-nano"
                 openai_model = OpenAIChatCompletionsModel(
                     model=openai_model_name,
                     openai_client=openai_client
@@ -192,7 +191,7 @@ Additional context will be provided as needed for specific domains.
                                 prompt,
                                 max_turns=1
                             )
-                            model_used = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+                            model_used = "gpt-5-nano"
                             logger.info(f"3rd fallback translation successful with {model_used}")
                         else:
                             raise fallback_e
