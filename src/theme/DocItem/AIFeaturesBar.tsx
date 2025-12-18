@@ -20,6 +20,7 @@ export default function AIFeaturesBar() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [pendingPersonalization, setPendingPersonalization] = useState(false);
   const [showPersonalizationModal, setShowPersonalizationModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'personalize' | 'translate'>('personalize');
   const [personalizationContent, setPersonalizationContent] = useState('');
   const [personalizationContentType, setPersonalizationContentType] = useState<'selected' | 'page'>('page');
   const [personalizationWordCount, setPersonalizationWordCount] = useState(0);
@@ -29,54 +30,64 @@ export default function AIFeaturesBar() {
   useEffect(() => {
     console.log('Auth state changed in AIFeaturesBar:', { isAuthenticated, user });
 
-    // If we have a pending personalization and user just became authenticated
-    if (pendingPersonalization && isAuthenticated && user) {
-      console.log('Processing pending personalization after authentication');
-      setPendingPersonalization(false);
-      setShowLoginModal(false);
+    // If user just became authenticated, check for pending actions
+    if (isAuthenticated && user) {
+      if (pendingAction === 'translate' && showLoginModal) {
+        console.log('Processing pending translation after authentication');
+        setShowLoginModal(false);
+        setPendingAction('personalize'); // Reset to default
+        // Trigger translation after a brief delay to avoid infinite loop
+        setTimeout(() => {
+          handleTranslate();
+        }, 100);
+      } else if (pendingPersonalization) {
+        console.log('Processing pending personalization after authentication');
+        setPendingPersonalization(false);
+        setShowLoginModal(false);
 
-      // Extract content and open personalization modal
-      try {
-        const selectedText = extractSelectedText();
+        // Extract content and open personalization modal
+        try {
+          const selectedText = extractSelectedText();
 
-        if (selectedText && selectedText.length > 20) {
-          const selectedScore = calculateContentValue(selectedText);
-          if (selectedScore >= 10) {
-            setPersonalizationContent(selectedText);
-            setPersonalizationContentType('selected');
-            setPersonalizationWordCount(selectedText.split(' ').length);
-            setShowPersonalizationModal(true);
-            return;
+          if (selectedText && selectedText.length > 20) {
+            const selectedScore = calculateContentValue(selectedText);
+            if (selectedScore >= 10) {
+              setPersonalizationContent(selectedText);
+              setPersonalizationContentType('selected');
+              setPersonalizationWordCount(selectedText.split(' ').length);
+              setShowPersonalizationModal(true);
+              return;
+            }
           }
-        }
 
-        // Use the same extractContent function for consistency
-        const fallbackContent = extractContent();
-        if (fallbackContent && fallbackContent.length >= 100) {
-          const fallbackScore = calculateContentValue(fallbackContent);
-          if (fallbackScore >= 30) {
-            const wordCount = fallbackContent.split(' ').length;
-            setPersonalizationContent(fallbackContent);
-            setPersonalizationContentType('page');
-            setPersonalizationWordCount(wordCount);
-            setShowPersonalizationModal(true);
-            return;
+          // Use the same extractContent function for consistency
+          const fallbackContent = extractContent();
+          if (fallbackContent && fallbackContent.length >= 100) {
+            const fallbackScore = calculateContentValue(fallbackContent);
+            if (fallbackScore >= 30) {
+              const wordCount = fallbackContent.split(' ').length;
+              setPersonalizationContent(fallbackContent);
+              setPersonalizationContentType('page');
+              setPersonalizationWordCount(wordCount);
+              setShowPersonalizationModal(true);
+              return;
+            }
           }
-        }
 
-        // Check if the page has mostly code
-        const hasCode = fallbackContent && fallbackContent.includes('```');
-        if (hasCode) {
-          showToast('This page contains mainly code examples. Please select some explanatory text along with the code for better personalization.');
-        } else {
-          showToast('This page has limited content. Try selecting specific text or choosing a page with more detailed descriptions.');
+          // Check if the page has mostly code
+          const hasCode = fallbackContent && fallbackContent.includes('```');
+          if (hasCode) {
+            showToast('This page contains mainly code examples. Please select some explanatory text along with the code for better personalization.');
+          } else {
+            showToast('This page has limited content. Try selecting specific text or choosing a page with more detailed descriptions.');
+          }
+        } catch (error) {
+          console.error('Content extraction failed:', error);
+          showToast('Failed to extract content for personalization. Please try again.');
         }
-      } catch (error) {
-        console.error('Content extraction failed:', error);
-        showToast('Failed to extract content for personalization. Please try again.');
       }
     }
-  }, [isAuthenticated, user, pendingPersonalization]);
+  }, [isAuthenticated, user, pendingPersonalization, pendingAction, showLoginModal, translationEnabled]);
 
   // Only show on docs pages, not on other pages like blog, authentication, etc.
   if (!location.pathname.includes('/docs/') ||
@@ -323,6 +334,13 @@ export default function AIFeaturesBar() {
   const handleTranslate = async () => {
     console.log('Translate button clicked, translationEnabled:', translationEnabled);
 
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setPendingAction('translate');
+      setShowLoginModal(true);
+      return;
+    }
+
     if (!translationEnabled) {
             showToast('Translation is disabled. Please enable it in settings.');
       return;
@@ -365,6 +383,7 @@ export default function AIFeaturesBar() {
   const handlePersonalize = () => {
     // Check if user is authenticated using AuthContext
     if (!isAuthenticated) {
+      setPendingAction('personalize');
       setPendingPersonalization(true);
       setShowLoginModal(true);
       return;
@@ -534,8 +553,12 @@ export default function AIFeaturesBar() {
                 <Lock size={48} />
               </div>
               <p>
-                Content personalization is available only to authenticated users.
-                Please login to access this feature.
+                {pendingAction === 'translate'
+                  ? 'Translation is available only to authenticated users. Please login to translate content.'
+                  : pendingPersonalization || pendingAction === 'personalize'
+                    ? 'Content personalization is available only to authenticated users. Please login to access this feature.'
+                    : 'This feature is available only to authenticated users. Please login to continue.'
+                }
               </p>
               <div className={styles.loginModalActions}>
                 <LoginButton
@@ -551,14 +574,18 @@ export default function AIFeaturesBar() {
                       window.history.replaceState({}, '', url.toString());
                     }
 
-                    showToast('Successfully logged in! You can now personalize content.');
+                    showToast(
+                      pendingAction === 'translate'
+                        ? 'Successfully logged in! You can now translate content.'
+                        : 'Successfully logged in! You can now personalize content.'
+                    );
 
                     // The useEffect will handle the pending personalization
                     // when the auth state updates
                   }}
                   onError={(error: string) => {
                     setLoginError(error);
-                    showToast(`Login failed: ${error}`, 'error');
+                    showToast(`Login failed: ${error}`);
                   }}
                 >
                   Sign In
