@@ -8,7 +8,6 @@ from typing import Dict, Optional, Any
 from dataclasses import dataclass
 
 from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel
-from src.services.openai_translation.client import GeminiOpenAIClient, get_gemini_client
 from src.utils.translation_logger import get_translation_logger
 
 logger = get_translation_logger(__name__)
@@ -25,27 +24,15 @@ class TranslationContext:
 
 class OpenAITranslationAgent:
     """
-    OpenAI Agents SDK-based translation agent using proper Runner.run pattern.
+    OpenAI Agents SDK-based translation agent using OpenRouter as primary.
     """
 
-    def __init__(
-        self,
-        gemini_client: Optional[GeminiOpenAIClient] = None,
-        model: str = "gemini-2.0-flash-lite"
-    ):
-        """Initialize translation agent."""
-        self.client = gemini_client or get_gemini_client()
+    def __init__(self, model: str = "meta-llama/llama-3.2-3b-instruct:free"):
+        """Initialize translation agent with OpenRouter as primary."""
         self.model = model
 
-        # Create the agent with translation instructions
-        self.agent = Agent(
-            name="Translation Agent",
-            instructions=self._get_translation_instructions(),
-            model=self.client.get_model()
-        )
-
-        # Initialize fallback agent (OpenRouter)
-        self.fallback_agent = None
+        # Initialize primary agent (OpenRouter)
+        self.agent = None
         if os.getenv("OPENROUTER_API_KEY"):
             try:
                 openrouter_client = AsyncOpenAI(
@@ -58,24 +45,24 @@ class OpenAITranslationAgent:
                         "X-Title": "AI Book Translation Agent"
                     }
                 )
-                
-                fallback_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
-                fallback_model = OpenAIChatCompletionsModel(
-                    model=fallback_model_name,
+
+                primary_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                primary_model = OpenAIChatCompletionsModel(
+                    model=primary_model_name,
                     openai_client=openrouter_client
                 )
-                
-                self.fallback_agent = Agent(
-                    name="Translation Agent (Fallback)",
-                    instructions=self._get_translation_instructions(),
-                    model=fallback_model
-                )
-                logger.info(f"Fallback translation agent initialized with {fallback_model_name}")
-            except Exception as e:
-                logger.error(f"Failed to initialize fallback agent: {e}")
 
-        # Initialize 3rd fallback agent (OpenAI)
-        self.openai_fallback_agent = None
+                self.agent = Agent(
+                    name="Translation Agent (OpenRouter)",
+                    instructions=self._get_translation_instructions(),
+                    model=primary_model
+                )
+                logger.info(f"Primary translation agent initialized with {primary_model_name}")
+            except Exception as e:
+                logger.error(f"Failed to initialize primary agent: {e}")
+
+        # Initialize fallback agent (OpenAI)
+        self.fallback_agent = None
         if os.getenv("OPENAI_API_KEY"):
             try:
                 openai_client = AsyncOpenAI(
@@ -83,22 +70,23 @@ class OpenAITranslationAgent:
                     timeout=120.0,
                     max_retries=3
                 )
-                
-                openai_model_name = "gpt-5-nano"
-                openai_model = OpenAIChatCompletionsModel(
-                    model=openai_model_name,
+
+                fallback_model_name = "gpt-5-nano"
+                fallback_model = OpenAIChatCompletionsModel(
+                    model=fallback_model_name,
                     openai_client=openai_client
                 )
-                
-                self.openai_fallback_agent = Agent(
-                    name="Translation Agent (3rd Fallback)",
-                    instructions=self._get_translation_instructions(),
-                    model=openai_model
-                )
-                logger.info(f"3rd fallback translation agent initialized with {openai_model_name}")
-            except Exception as e:
-                logger.error(f"Failed to initialize 3rd fallback agent: {e}")
 
+                self.fallback_agent = Agent(
+                    name="Translation Agent (OpenAI Fallback)",
+                    instructions=self._get_translation_instructions(),
+                    model=fallback_model
+                )
+                logger.info(f"Fallback translation agent initialized with {fallback_model_name}")
+            except Exception as e:
+                logger.error(f"Failed to initialize fallback agent: {e}")
+
+        
     def _get_translation_instructions(self) -> str:
         """Get the base translation instructions for the agent."""
         return """
@@ -169,32 +157,22 @@ Additional context will be provided as needed for specific domains.
                     prompt,
                     max_turns=1  # Single turn for simple translation
                 )
-                model_used = self.model
+                model_used = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                logger.info(f"Primary translation successful with {model_used}")
             except Exception as e:
                 # Check for fallback
                 if self.fallback_agent and self._should_use_fallback(str(e)):
-                    logger.warning(f"Primary agent failed: {e}. Attempting fallback...")
+                    logger.warning(f"Primary agent (OpenRouter) failed: {e}. Attempting OpenAI fallback...")
                     try:
                         result = await Runner.run(
                             self.fallback_agent,
                             prompt,
                             max_turns=1
                         )
-                        model_used = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
-                        logger.info(f"Fallback translation successful with {model_used}")
+                        model_used = "gpt-5-nano"
+                        logger.info(f"OpenAI fallback translation successful with {model_used}")
                     except Exception as fallback_e:
-                        # Check for 3rd fallback
-                        if self.openai_fallback_agent and self._should_use_fallback(str(fallback_e)):
-                            logger.warning(f"OpenRouter fallback failed: {fallback_e}. Attempting 3rd fallback...")
-                            result = await Runner.run(
-                                self.openai_fallback_agent,
-                                prompt,
-                                max_turns=1
-                            )
-                            model_used = "gpt-5-nano"
-                            logger.info(f"3rd fallback translation successful with {model_used}")
-                        else:
-                            raise fallback_e
+                        raise fallback_e
                 else:
                     raise e
 
@@ -292,6 +270,6 @@ Additional context will be provided as needed for specific domains.
 
 
 # Factory function
-def create_translation_agent(model: str = "gemini-2.0-flash-lite") -> OpenAITranslationAgent:
+def create_translation_agent(model: str = "meta-llama/llama-3.2-3b-instruct:free") -> OpenAITranslationAgent:
     """Create a translation agent instance."""
     return OpenAITranslationAgent(model=model)

@@ -40,20 +40,7 @@ class PersonalizationAgent:
         except Exception as e:
             print(f"[WARNING] Failed to disable tracing: {e}")
 
-        # Initialize primary Gemini client
-        try:
-            self.gemini_client = AsyncOpenAI(
-                api_key=os.getenv("GEMINI_API_KEY"),
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                timeout=120.0,
-                max_retries=3
-            )
-            print("[DEBUG] Gemini client initialized successfully")
-        except Exception as e:
-            print(f"[ERROR] Failed to initialize Gemini client: {e}")
-            self.gemini_client = None
-
-        # Initialize fallback OpenRouter client
+        # Initialize primary OpenRouter client
         self.openrouter_client = None
         if os.getenv("OPENROUTER_API_KEY"):
             try:
@@ -72,14 +59,15 @@ class PersonalizationAgent:
                 print(f"[ERROR] Failed to initialize OpenRouter client: {e}")
                 self.openrouter_client = None
 
-        # Configure primary model (Gemini)
+        # Configure primary model (OpenRouter)
         self.primary_model = None
-        if self.gemini_client:
+        if self.openrouter_client:
             try:
-                model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+                # Use a working free model with fewer restrictions
+                model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
                 self.primary_model = OpenAIChatCompletionsModel(
                     model=model_name,
-                    openai_client=self.gemini_client
+                    openai_client=self.openrouter_client
                 )
                 print(f"[DEBUG] Primary model initialized successfully: {model_name}")
             except Exception as e:
@@ -87,25 +75,9 @@ class PersonalizationAgent:
                 traceback.print_exc()
                 self.primary_model = None
 
-        # Configure fallback model (OpenRouter)
-        self.fallback_model = None
-        if self.openrouter_client:
-            try:
-                # Use a working free model with fewer restrictions
-                fallback_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
-                self.fallback_model = OpenAIChatCompletionsModel(
-                    model=fallback_model_name,
-                    openai_client=self.openrouter_client
-                )
-                print(f"[DEBUG] OpenRouter fallback configured with model: {fallback_model_name}")
-            except Exception as e:
-                print(f"[ERROR] Failed to initialize fallback model: {e}")
-                traceback.print_exc()
-                self.fallback_model = None
-
-        # Initialize 3rd fallback (OpenAI)
+        # Initialize fallback (OpenAI)
         self.openai_client = None
-        self.openai_fallback_model = None
+        self.fallback_model = None
         if os.getenv("OPENAI_API_KEY"):
             try:
                 self.openai_client = AsyncOpenAI(
@@ -114,14 +86,14 @@ class PersonalizationAgent:
                     max_retries=3
                 )
                 # User requested 'gpt-5-nano' (Hardcoded)
-                self.openai_fallback_model = OpenAIChatCompletionsModel(
+                self.fallback_model = OpenAIChatCompletionsModel(
                     model="gpt-5-nano",
                     openai_client=self.openai_client
                 )
-                print(f"[DEBUG] OpenAI 3rd fallback configured with model: gpt-5-nano")
+                print(f"[DEBUG] OpenAI fallback configured with model: gpt-5-nano")
             except Exception as e:
-                print(f"[ERROR] Failed to initialize OpenAI 3rd fallback: {e}")
-                self.openai_fallback_model = None
+                print(f"[ERROR] Failed to initialize OpenAI fallback: {e}")
+                self.fallback_model = None
 
         # Initialize the agent with primary model
         self.agent = None
@@ -249,35 +221,30 @@ class PersonalizationAgent:
             user_profile
         )
 
-        # Try primary model first (Gemini)
-        result = await self._try_personalize_with_model(
-            model_name="gemini-2.0-flash",
-            model=self.primary_model,
-            input_text=personalized_input,
-            content=content,
-            user_profile=user_profile
-        )
-
-        # If primary model failed due to quota/rate limits and fallback is available, try OpenRouter
-        if not result["success"] and self._should_use_fallback(result["error_message"]) and self.fallback_model:
-            print(f"Primary model failed, attempting fallback to OpenRouter...")
-            # Get the fallback model name from environment
-            fallback_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+        # Try primary model first (OpenRouter)
+        if self.primary_model:
+            primary_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
             result = await self._try_personalize_with_model(
-                model_name=fallback_model_name,
-                model=self.fallback_model,
+                model_name=primary_model_name,
+                model=self.primary_model,
                 input_text=personalized_input,
                 content=content,
-                user_profile=user_profile,
-                is_fallback=True
+                user_profile=user_profile
             )
+        else:
+            # If no primary model, set result to failure
+            result = {
+                "success": False,
+                "error_message": "Primary model (OpenRouter) not available",
+                "model_name": "OpenRouter"
+            }
 
-        # If OpenRouter failed, try 3rd fallback (OpenAI)
-        if not result["success"] and self._should_use_fallback(result["error_message"]) and self.openai_fallback_model:
-            print(f"OpenRouter fallback failed, attempting 3rd fallback to OpenAI...")
+        # If primary model failed due to quota/rate limits and fallback is available, try OpenAI
+        if not result["success"] and self._should_use_fallback(result["error_message"]) and self.fallback_model:
+            print(f"Primary model (OpenRouter) failed, attempting fallback to OpenAI...")
             result = await self._try_personalize_with_model(
                 model_name="gpt-5-nano",
-                model=self.openai_fallback_model,
+                model=self.fallback_model,
                 input_text=personalized_input,
                 content=content,
                 user_profile=user_profile,
