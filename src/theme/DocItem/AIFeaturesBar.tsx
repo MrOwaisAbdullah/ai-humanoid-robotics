@@ -632,26 +632,57 @@ export default function AIFeaturesBar() {
 // Toast helper function
 function showToast(message: string) {
   const toast = document.createElement('div');
-  toast.className = 'fixed bottom-5 right-5 bg-zinc-900 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-up border border-zinc-800';
   toast.textContent = message;
-  toast.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: #18181b;
-    color: white;
-    padding: 12px 16px;
-    border-radius: 8px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    z-index: 9999;
-    animation: slideInUp 0.3s ease-out;
-    border: 1px solid #27272a;
-    font-size: 14px;
-  `;
+
+  // Check if dark mode is active
+  const isDarkTheme = document.documentElement.classList.contains('dark');
+
+  // Use contrasting colors for better visibility
+  if (isDarkTheme) {
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #1e293b;
+      color: #f1f5f9;
+      padding: 14px 20px;
+      border-radius: 10px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      z-index: 9999;
+      animation: slideInUp 0.3s ease-out;
+      border: 1px solid #334155;
+      border-left: 4px solid #3b82f6;
+      font-size: 14px;
+      font-weight: 500;
+      max-width: 400px;
+      word-wrap: break-word;
+    `;
+  } else {
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #1e293b;
+      color: #f1f5f9;
+      padding: 14px 20px;
+      border-radius: 10px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      z-index: 9999;
+      animation: slideInUp 0.3s ease-out;
+      border: 1px solid #475569;
+      border-left: 4px solid #3b82f6;
+      font-size: 14px;
+      font-weight: 500;
+      max-width: 400px;
+      word-wrap: break-word;
+    `;
+  }
 
   document.body.appendChild(toast);
+
+  // Auto-remove after 5 seconds (increased from 3 seconds)
   setTimeout(() => {
     toast.style.animation = 'slideOutDown 0.3s ease-out';
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, 5000);
 }

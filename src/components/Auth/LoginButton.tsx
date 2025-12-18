@@ -117,7 +117,23 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         );
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Login failed. Please try again.';
+      let errorMessage = 'Login failed. Please try again.';
+
+      // Handle different types of errors more specifically
+      if (error.response?.status === 401) {
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response?.data?.detail || 'Invalid input. Please check all fields.';
+      } else if (error.response?.status === 429) {
+        errorMessage = 'Too many login attempts. Please wait a moment and try again.';
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message?.includes('Network Error')) {
+        errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Login request timed out. Please try again.';
+      }
+
       setError(errorMessage);
 
       // Call onError callback if provided
@@ -152,7 +168,23 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         );
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Registration failed. Please try again.';
+      let errorMessage = 'Registration failed. Please try again.';
+
+      // Handle different types of errors more specifically
+      if (error.response?.status === 409) {
+        errorMessage = 'An account with this email already exists. Please try logging in instead.';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response?.data?.detail || 'Invalid input. Please check all fields and passwords requirements.';
+      } else if (error.response?.status === 429) {
+        errorMessage = 'Too many registration attempts. Please wait a moment and try again.';
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message?.includes('Network Error')) {
+        errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Registration request timed out. Please try again.';
+      }
+
       setError(errorMessage);
 
       // Call onError callback if provided
