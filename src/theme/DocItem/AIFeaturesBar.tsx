@@ -16,6 +16,7 @@ export default function AIFeaturesBar() {
   const { translationEnabled, language } = useLocalization();
   const { isAuthenticated, user } = useAuth();
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isPersonalizing, setIsPersonalizing] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [pendingPersonalization, setPendingPersonalization] = useState(false);
@@ -380,7 +381,7 @@ export default function AIFeaturesBar() {
     }
   };
 
-  const handlePersonalize = () => {
+  const handlePersonalize = async () => {
     // Check if user is authenticated using AuthContext
     if (!isAuthenticated) {
       setPendingAction('personalize');
@@ -393,28 +394,31 @@ export default function AIFeaturesBar() {
     setLoginError(null);
     setPendingPersonalization(false);
 
-    // Use the proper content extraction with filtering
-    const extractedContent = extractContent();
-    console.log('[DEBUG] handlePersonalize top-level extraction:', extractedContent?.length);
+    // Set loading state
+    setIsPersonalizing(true);
 
-    if (extractedContent && extractedContent.length > 100) {
-      // Intelligent content validation that considers code blocks
-      const contentScore = calculateContentValue(extractedContent);
-      console.log('[DEBUG] Content score:', contentScore, '(min required: 30)');
-
-      if (contentScore >= 30) {
-        const words = extractedContent.trim().split(/\s+/).filter(w => w.length > 0);
-        console.log('[DEBUG] Using extractContent() method, cleaned length:', extractedContent.length, 'words:', words.length);
-        setPersonalizationContent(extractedContent);
-        setPersonalizationContentType('page');
-        setPersonalizationWordCount(words.length);
-        setShowPersonalizationModal(true);
-        return;
-      }
-    }
-
-    // Extract content for personalization
     try {
+      // Use the proper content extraction with filtering
+      const extractedContent = extractContent();
+      console.log('[DEBUG] handlePersonalize top-level extraction:', extractedContent?.length);
+
+      if (extractedContent && extractedContent.length > 100) {
+        // Intelligent content validation that considers code blocks
+        const contentScore = calculateContentValue(extractedContent);
+        console.log('[DEBUG] Content score:', contentScore, '(min required: 30)');
+
+        if (contentScore >= 30) {
+          const words = extractedContent.trim().split(/\s+/).filter(w => w.length > 0);
+          console.log('[DEBUG] Using extractContent() method, cleaned length:', extractedContent.length, 'words:', words.length);
+          setPersonalizationContent(extractedContent);
+          setPersonalizationContentType('page');
+          setPersonalizationWordCount(words.length);
+          setShowPersonalizationModal(true);
+          return;
+        }
+      }
+
+      // Extract content for personalization
       // First try to get selected text
       const selectedText = extractSelectedText();
 
@@ -476,6 +480,9 @@ export default function AIFeaturesBar() {
       }
 
       showToast('Failed to extract enough content for personalization. Please try selecting text instead.');
+    } finally {
+      // Always reset loading state
+      setIsPersonalizing(false);
     }
   };
 
@@ -494,11 +501,20 @@ export default function AIFeaturesBar() {
           <button
             className={`button button--primary button--sm ${styles.featureBtn}`}
             onClick={handlePersonalize}
-            disabled={isTranslating}
+            disabled={isTranslating || isPersonalizing}
             title="Personalize this content for you"
           >
-            <Sparkles size={16} />
-            <span className={styles.btnText}>Personalize</span>
+            {isPersonalizing ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span className={styles.btnText}>Personalizing...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={16} />
+                <span className={styles.btnText}>Personalize</span>
+              </>
+            )}
           </button>
           
           <button
