@@ -210,6 +210,9 @@ export interface ChatState {
 
   // Performance tracking
   renderCount: number;
+
+  // Session metadata
+  messageCount: number;
 }
 
 /**
@@ -230,7 +233,8 @@ export type ChatAction =
   | { type: 'CLEAR_ERROR' }
   | { type: 'SET_SESSION_ID'; payload: string }
   | { type: 'RESET_STATE' }
-  | { type: 'INCREMENT_RENDER_COUNT' };
+  | { type: 'INCREMENT_RENDER_COUNT' }
+  | { type: 'SET_MESSAGE_COUNT'; payload: number };
 
 /**
  * Context interfaces for split context pattern
@@ -261,6 +265,7 @@ export interface ChatActionsContextType {
 
   // Session management
   resetChat: () => void;
+  setMessageCount: (count: number) => void;
 
   // Utility
   incrementRenderCount: () => void;
@@ -276,7 +281,8 @@ export const initialChatState: ChatState = {
   sessionId: '',
   sessionCreatedAt: new Date(),
   error: null,
-  renderCount: 0
+  renderCount: 0,
+  messageCount: 0
 };
 
 /**

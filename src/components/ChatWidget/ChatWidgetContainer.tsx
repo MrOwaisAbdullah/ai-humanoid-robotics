@@ -220,25 +220,21 @@ function ChatWidgetContainerInner({
                 if (data.type === 'chunk' && data.content) {
                   handleChunk(data.content);
                 } else if (data.type === 'final' && data.answer) {
-                  // Only if we haven't received chunks (unlikely in streaming mode but possible)
-                  // Or to replace content if chunks were partial? 
-                  // Usually streaming appends chunks. Final answer might be full text?
-                  // For now, let's assume chunks populated the message and ignore final 'answer' 
-                  // UNLESS we want to support sources/citations which might be in final.
-                  // For text content, chunks are primary.
-                  
-                  // If we need to handle sources:
-                  if (data.sources && chatContext.updateMessage) {
-                     // We can't easily update message sources via handleChunk (which takes string)
-                     // Ideally we'd dispatch an action.
-                     // Accessing dispatch directly isn't easy here without refactoring context.
-                     // But useChat returns updateMessage which takes id and content.
-                     // We need addSourceCitations.
-                     // For now, let's just focus on content streaming.
+                  // Final message update with sources
+                  if (chatContext.updateMessage) {
+                    chatContext.updateMessage(aiMessageId, data.answer, data.sources);
                   }
+                } else if (data.type === 'start') {
+                  // Initial metadata, can be ignored for now
+                  console.log('Chat session started:', data.session_id);
+                } else if (data.type === 'done') {
+                  // Stream completed
+                  console.log('Chat completed:', data);
+                  break;
                 }
               } catch (e) {
-                console.error('Error parsing SSE data:', e);
+                // If not JSON, treat as raw text (this shouldn't happen with our SSE format)
+                // console.warn('Received non-JSON SSE data:', data); // Suppress warning for clean logs
               }
             }
           }

@@ -15,7 +15,7 @@ const ChatStateContext = createContext<ChatStateContextType | null>(null);
 // Actions Context - provides only the actions
 const ChatActionsContext = createContext<ChatActionsContextType | null>(null);
 
-interface ChatProviderProps {
+export interface ChatProviderProps {
   children: ReactNode;
   initialState?: Partial<ChatState>;
 }
@@ -116,6 +116,13 @@ export function ChatProvider({ children, initialState = {} }: ChatProviderProps)
     resetChat: () => {
       dispatchRef.current({
         type: 'RESET_STATE'
+      });
+    },
+
+    setMessageCount: (count) => {
+      dispatchRef.current({
+        type: 'SET_MESSAGE_COUNT',
+        payload: count
       });
     },
 

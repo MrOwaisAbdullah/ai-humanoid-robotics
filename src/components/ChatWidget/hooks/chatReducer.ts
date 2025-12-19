@@ -202,6 +202,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       };
     }
 
+    case 'SET_MESSAGE_COUNT': {
+      return {
+        ...state,
+        messageCount: action.payload
+      };
+    }
+
     default: {
       // TypeScript exhaustiveness check
       const exhaustiveCheck: never = action;
@@ -278,5 +285,10 @@ export const chatActionCreators = {
 
   incrementRenderCount: (): ChatAction => ({
     type: 'INCREMENT_RENDER_COUNT'
+  }),
+
+  setMessageCount: (count: number): ChatAction => ({
+    type: 'SET_MESSAGE_COUNT',
+    payload: count
   })
 };
