@@ -167,10 +167,19 @@ async def login(
     """
     # Find user by email
     user = db.query(User).filter(User.email == login_data.email).first()
-    if not user or not verify_password(login_data.password, user.password_hash):
+
+    # Check if user exists
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Email not registered. Please create an account first.",
+        )
+
+    # Check if password is correct
+    if not verify_password(login_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect email or password. Please try again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

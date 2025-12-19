@@ -53,6 +53,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -101,9 +102,11 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
     try {
       setError(null);
       setSuccess(null);
+      setIsSigningIn(true);
       const migrationInfo = await login(data.email, data.password);
       setIsModalOpen(false);
       loginForm.reset();
+      setIsSigningIn(false);
 
       // Call onSuccess callback if provided
       if (onSuccess) {
@@ -118,10 +121,14 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
       }
     } catch (error: any) {
       let errorMessage = 'Login failed. Please try again.';
+      setIsSigningIn(false);
 
       // Handle different types of errors more specifically
-      if (error.response?.status === 401) {
-        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+      if (error.response?.status === 404) {
+        // Email not registered - show specific error
+        errorMessage = 'This email is not registered. Please create an account first.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Incorrect password. Please check your password and try again.';
       } else if (error.response?.status === 400) {
         errorMessage = error.response?.data?.detail || 'Invalid input. Please check all fields.';
       } else if (error.response?.status === 429) {
@@ -198,6 +205,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
     setIsLoginMode(!isLoginMode);
     setError(null);
     setSuccess(null);
+    setIsSigningIn(false);
     loginForm.reset();
     registerForm.reset();
   };
@@ -206,6 +214,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
     setIsModalOpen(false);
     setError(null);
     setSuccess(null);
+    setIsSigningIn(false);
     loginForm.reset();
     registerForm.reset();
   };
@@ -295,10 +304,10 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isSigningIn}
                 className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium ${primaryButtonClass} ${buttonClass}`}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isSigningIn ? 'Signing in...' : 'Sign In'}
               </button>
 
               <div className="text-center">
