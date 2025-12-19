@@ -1,8 +1,8 @@
 """
-OpenAI Translation Service using Gemini API.
+OpenAI Translation Service using OpenRouter API.
 
 This service implements the core translation functionality using
-OpenAI Agents SDK with Gemini's OpenAI-compatible endpoint.
+OpenAI Agents SDK with OpenRouter as the primary provider.
 """
 
 import asyncio
@@ -21,7 +21,6 @@ from src.models.translation_openai import (
     TranslationJob, TranslationChunk, TranslationError, TranslationSession,
     TranslationCache, TranslationJobStatus, ChunkStatus, ErrorSeverity
 )
-from src.services.openai_translation.client import GeminiOpenAIClient, get_gemini_client
 from src.services.cache_service import CacheService, get_cache_service
 from src.database.base import get_db
 from src.utils.translation_errors import (
@@ -44,7 +43,7 @@ class OpenAITranslationRequest:
     session_id: Optional[str] = None
 
     # OpenAI parameters
-    model: str = "gemini-2.0-flash-lite"
+    model: str = "meta-llama/llama-3.2-3b-instruct:free"
     temperature: float = 0.3
     max_tokens: int = 2048
 
@@ -97,10 +96,11 @@ class OpenAITranslationResponse:
 
 class OpenAITranslationService:
     """
-    Translation service using OpenAI Agents SDK with Gemini API.
+    Translation service using OpenAI Agents SDK with OpenRouter API.
 
     Features:
-    - OpenAI Agents SDK with Gemini 2.0 Flash model
+    - OpenAI Agents SDK with OpenRouter as primary model
+    - OpenAI GPT-5-nano as fallback
     - Content chunking for large texts
     - Enhanced caching with page URL support
     - Progress tracking and streaming
@@ -147,16 +147,12 @@ Translation:
 
     # Model pricing (approximate USD per 1K tokens)
     MODEL_PRICING = {
-        "gemini-2.0-flash-lite": {
-            "input": 0.000075,  # $0.075 per 1M input tokens
-            "output": 0.00015   # $0.15 per 1M output tokens
-        },
-        # Add OpenRouter pricing if available and desired for cost tracking
+        # OpenRouter pricing (free model)
         "meta-llama/llama-3.2-3b-instruct:free": {
             "input": 0.0,
             "output": 0.0
         },
-        # Add OpenAI pricing (approximate)
+        # OpenAI pricing (approximate)
         "gpt-5-nano": {
             "input": 0.00015,
             "output": 0.0006
@@ -165,7 +161,6 @@ Translation:
 
     def __init__(
         self,
-        gemini_client: Optional[GeminiOpenAIClient] = None,
         cache_service: Optional[CacheService] = None,
         enable_analytics: bool = True
     ):
@@ -173,22 +168,18 @@ Translation:
         Initialize OpenAI translation service.
 
         Args:
-            gemini_client: Gemini OpenAI client
             cache_service: Cache service instance
             enable_analytics: Whether to collect detailed analytics
         """
-        self.gemini_client = gemini_client
+        import os
         self.cache_service = cache_service
         self.enable_analytics = enable_analytics
 
-        # Initialize services if not provided
-        if not self.gemini_client:
-            self.gemini_client = get_gemini_client()
-
+        # Initialize cache service if not provided
         if not self.cache_service:
             self.cache_service = get_cache_service()
 
-        # Initialize fallback OpenRouter client
+        # Initialize primary OpenRouter client
         self.openrouter_client: Optional[AsyncOpenAI] = None
         self.openrouter_model: Optional[str] = None
         if os.getenv("OPENROUTER_API_KEY"):
@@ -205,7 +196,7 @@ Translation:
                 )
                 self.openrouter_model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
                 logger.info(
-                    "OpenRouter fallback client initialized for translation",
+                    "OpenRouter primary client initialized for translation",
                     model=self.openrouter_model
                 )
             except Exception as e:
@@ -215,7 +206,7 @@ Translation:
                 )
                 self.openrouter_client = None
 
-        # Initialize 3rd fallback (OpenAI)
+        # Initialize fallback OpenAI client
         self.openai_client: Optional[AsyncOpenAI] = None
         self.openai_model: Optional[str] = None
         if os.getenv("OPENAI_API_KEY"):
@@ -227,7 +218,7 @@ Translation:
                 )
                 self.openai_model = "gpt-5-nano"
                 logger.info(
-                    "OpenAI 3rd fallback client initialized for translation",
+                    "OpenAI fallback client initialized for translation",
                     model=self.openai_model
                 )
             except Exception as e:
@@ -239,7 +230,7 @@ Translation:
 
         logger.info(
             "OpenAI Translation Service initialized",
-            model="gemini-2.0-flash-lite",
+            model="meta-llama/llama-3.2-3b-instruct:free",
             analytics_enabled=enable_analytics
         )
 
@@ -674,9 +665,9 @@ Translation:
                         translated_with_fallback = False
                         
                         current_model_name = request.model
-                        current_client = self.gemini_client.get_client()
+                        current_client = self.openrouter_client
 
-                        # First, try with the primary model (Gemini)
+                        # First, try with the primary model (OpenRouter)
                         try:
                             result = await retry_with_exponential_backoff(
                                 lambda: self._translate_with_model(
@@ -702,13 +693,13 @@ Translation:
                                 chunk_index=i,
                                 error_type=e.error_type
                             )
-                            if self._should_use_fallback(str(e)) and self.openrouter_client and self.openrouter_model:
+                            if self._should_use_fallback(str(e)) and self.openai_client and self.openai_model:
                                 primary_model_failed = True
                                 translated_with_fallback = True
-                                current_model_name = self.openrouter_model
-                                current_client = self.openrouter_client
+                                current_model_name = self.openai_model
+                                current_client = self.openai_client
                                 logger.info(
-                                    f"Attempting fallback translation for chunk {i} using {self.openrouter_model}",
+                                    f"Attempting fallback translation for chunk {i} using {self.openai_model}",
                                     job_id=job.job_id,
                                     chunk_index=i
                                 )
@@ -729,31 +720,12 @@ Translation:
                                         } if len(chunks_data) > 1 else None
                                     )
                                 except Exception as fallback_error:
-                                    # Try 3rd fallback (OpenAI)
                                     logger.warning(
-                                        f"OpenRouter fallback failed for chunk {i}: {str(fallback_error)}. Attempting 3rd fallback...",
+                                        f"OpenAI fallback failed for chunk {i}: {str(fallback_error)}",
                                         job_id=job.job_id,
                                         chunk_index=i
                                     )
-                                    if self.openai_client and self.openai_model:
-                                        current_model_name = self.openai_model
-                                        current_client = self.openai_client
-                                        result = await self._translate_with_model(
-                                            chunk_data["text"],
-                                            request.source_language,
-                                            request.target_language,
-                                            current_model_name,
-                                            request.temperature,
-                                            request.max_tokens,
-                                            client=current_client,
-                                            is_chunk=True,
-                                            context={
-                                                "current_part": i + 1,
-                                                "total_parts": len(chunks_data)
-                                            } if len(chunks_data) > 1 else None
-                                        )
-                                    else:
-                                        raise fallback_error # Re-raise if no 3rd fallback
+                                    raise fallback_error # Re-raise if fallback failed
                             else:
                                 raise # Re-raise if fallback not applicable or not available
                                 
@@ -965,17 +937,19 @@ Translation:
     async def health_check(self) -> bool:
         """Check if the service is healthy."""
         try:
-            # Test Gemini connection
-            client = self.gemini_client.get_client() # Get the actual client provider
-            response = await client.chat.completions.create( # Use the client to make the call
-                model="gemini-2.0-flash-lite", # Use a known, fast model
-                messages=[{"role": "user", "content": "test"}],
-                max_tokens=1
-            )
-            return True
+            # Test OpenRouter connection
+            if self.openrouter_client:
+                response = await self.openrouter_client.chat.completions.create(
+                    model=self.openrouter_model or "meta-llama/llama-3.2-3b-instruct:free",
+                    messages=[{"role": "user", "content": "test"}],
+                    max_tokens=1
+                )
+                return True
+            else:
+                logger.error("Health check failed: No OpenRouter client available")
+                return False
         except Exception as e:
-            print(f"Connection test failed: {str(e)}") # This was originally here from `client.py` read.
-            logger.error("Health check failed", error=str(e)) # Added this.
+            logger.error("Health check failed", error=str(e))
             return False
 
     async def get_metrics(self, period: str = "24h") -> Dict[str, Any]:
@@ -1003,7 +977,5 @@ async def get_translation_service() -> OpenAITranslationService:
 
     if _translation_service is None:
         _translation_service = OpenAITranslationService()
-        # Initialize the async client
-        _translation_service.gemini_client = get_gemini_client()
 
     return _translation_service
