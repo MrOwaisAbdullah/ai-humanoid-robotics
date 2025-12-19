@@ -127,14 +127,10 @@ async def generate_personalization(
         context_type = request.get("context_type", "page")
         word_count = request.get("word_count", 0)
 
-        if not content.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="Content is required for personalization"
-            )
-
         # Clean content to remove UI elements that might have slipped through
-        content = clean_content_for_personalization(content)
+        # Only clean if content is not empty
+        if content:
+            content = clean_content_for_personalization(content)
 
         # Initialize services
         personalization_service = PersonalizationService(db)

@@ -310,6 +310,59 @@ async def clear_cache_by_url(
         )
 
 
+@router.post("/cache/clear-all")
+async def clear_all_cache(
+    current_user: Optional[User] = Depends(get_current_user_or_anonymous)
+) -> JSONResponse:
+    """
+    Clear ALL translation cache entries.
+    Useful for resetting cache on deployment.
+    """
+    try:
+        # Assuming cache_service has a method or we access DB directly
+        # Since cache_service is imported, let's check if it has clear_all
+        # If not, we might need to add it to cache_service first.
+        # Checking previous files, CacheService in services/translation_cache.py wasn't read fully.
+        # But OpenAITranslationService has clear_cache(older_than_hours=None).
+        
+        # We'll use the cache_service instance.
+        # If cache_service.clear_all() exists? Probably not.
+        # Let's try to use clear_expired_cache with 0 hours expiration if possible?
+        # Or just access DB.
+        
+        # To be safe and follow pattern, let's implement it directly here using cache_service's session if exposed,
+        # or better, add clear_all to CacheService in a separate step? 
+        # The user asked for a script, I gave one. Now adding endpoint.
+        # I'll simply use the logic from the script but inside the endpoint.
+        
+        from src.models.translation_openai import TranslationCache
+        from src.database.config import get_db
+        
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            count = db.query(TranslationCache).delete()
+            db.commit()
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "message": f"Cleared all {count} cache entries",
+                    "cleared_count": count
+                }
+            )
+        finally:
+            db.close()
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": "CACHE_CLEAR_ALL_ERROR",
+                "message": f"Failed to clear all cache: {str(e)}"
+            }
+        )
+
+
 @router.get("/cache/stats")
 async def get_cache_stats(
     current_user: Optional[User] = Depends(get_current_user_or_anonymous)
