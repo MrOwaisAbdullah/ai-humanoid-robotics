@@ -28,6 +28,10 @@ DEFAULT_TEMPLATES = [
     r'^introduction to this edition$'
 ]
 
+# Production URL configuration
+PRODUCTION_URL = "https://mrowaisabdullah.github.io"
+BASE_PATH = "/ai-humanoid-robotics/"
+
 @dataclass
 class Chunk:
     """Represents a text chunk with metadata."""
@@ -70,6 +74,45 @@ class MarkdownChunker:
     def generate_content_hash(self, content: str) -> str:
         """Generate SHA256 hash for content deduplication."""
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+    def generate_url_from_path(self, file_path: str) -> str:
+        """Generate the correct production URL from file path."""
+        # Convert file path to URL path
+        relative_path = Path(file_path)
+
+        # Remove extension and convert slashes
+        url_path = str(relative_path.with_suffix(''))
+
+        # Normalize path separators
+        url_path = url_path.replace('\\', '/')
+
+        # Remove leading directory components
+        # Handle both '../docs' and 'docs' prefixes
+        if url_path.startswith('../docs/'):
+            url_path = url_path[8:]  # Remove '../docs/'
+        elif url_path.startswith('docs/'):
+            url_path = url_path[5:]  # Remove 'docs/'
+        elif url_path.startswith('../'):
+            # Remove all '../' components
+            while url_path.startswith('../'):
+                url_path = url_path[3:]
+        elif url_path.startswith('book_content/'):
+            url_path = url_path[12:]  # Remove 'book_content/'
+
+        # Ensure leading slash
+        if not url_path.startswith('/'):
+            url_path = '/' + url_path
+
+        # Handle index files specially
+        if url_path.endswith('/index'):
+            url_path = url_path[:-6]  # Remove '/index'
+
+        # If path is just '/', make it empty
+        if url_path == '/':
+            url_path = ''
+
+        # Build final URL
+        return f"{PRODUCTION_URL}{BASE_PATH}docs{url_path}"
 
     def split_by_headers(self, content: str) -> List[Tuple[str, int, int]]:
         """Split content by Markdown headers (##, ###, etc.)."""
@@ -154,6 +197,7 @@ class MarkdownChunker:
                             "sentence_count": len(current_chunk_sentences),
                             "content_hash": content_hash,
                             "is_template": is_template,
+                            "url": self.generate_url_from_path(file_path),
                             "created_at": datetime.utcnow().isoformat()
                         },
                         chunk_id=f"{Path(file_path).stem}_{section_header.replace(' ', '_')}_{len(chunks)}",
@@ -192,6 +236,7 @@ class MarkdownChunker:
                         "sentence_count": len(current_chunk_sentences),
                         "content_hash": content_hash,
                         "is_template": is_template,
+                        "url": self.generate_url_from_path(file_path),
                         "created_at": datetime.utcnow().isoformat()
                     },
                     chunk_id=f"{Path(file_path).stem}_{section_header.replace(' ', '_')}_{len(chunks)}",
