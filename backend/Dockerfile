@@ -7,25 +7,27 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the pyproject.toml, requirements.txt, and README.md
-COPY pyproject.toml requirements.txt README.md ./
+# Copy the pyproject.toml file first
+COPY pyproject.toml ./
 
-# Install uv for faster dependency installation
-RUN pip install uv
+# Install build dependencies
+RUN pip install --no-cache-dir build
 
-# Install Python dependencies using uv
-RUN uv pip install --system -e .
+# Install Python dependencies
+RUN pip install --no-cache-dir -e .
 
 # Copy the rest of the application code
 COPY . .
 
-# Create a non-root user for security
-RUN useradd -m -u 1000 user && chown -R user:user /app
+# Create necessary directories
+RUN mkdir -p database logs
 
-# Switch to non-root user
+# Create a non-root user for security (optional for HF Spaces)
+RUN useradd -m -u 1000 user && chown -R user:user /app
 USER user
 
 # Expose the port (HF Spaces default)
