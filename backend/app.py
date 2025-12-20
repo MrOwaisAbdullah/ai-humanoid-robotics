@@ -1,22 +1,15 @@
-import gradio as gr
-import uvicorn
-from fastapi import FastAPI
-from main import app
+import os
+import sys
+import subprocess
 
-# Create Gradio interface that just forwards to FastAPI
-def create_gradio_interface():
-    # This will wrap our FastAPI app
-    interface = gr.mount_gradio_app(app, None, path="/")
-    return interface
-
+# For HF Spaces Docker deployment, just start the server directly
 if __name__ == "__main__":
-    # Mount FastAPI app
-    demo = create_gradio_interface()
+    print("🚀 Starting application via app.py for Hugging Face Spaces...")
 
-    # Launch the app
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False,
-        show_api=True
-    )
+    # Change to backend directory if needed
+    if os.path.exists("backend"):
+        os.chdir("backend")
+        print("Changed to backend directory")
+
+    # Run start_server.py
+    os.execvp(sys.executable, [sys.executable, "start_server.py"])
