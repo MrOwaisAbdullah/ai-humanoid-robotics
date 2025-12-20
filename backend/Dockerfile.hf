@@ -42,8 +42,10 @@ RUN mkdir -p database logs && \
     chmod +x start_server.py && \
     chmod -R 755 /app
 
-# For HF Spaces compatibility, run as root (avoid permission issues)
-# USER user
+# Create non-root user for security (commented out for HF Spaces compatibility)
+# RUN adduser --disabled-password --gecos '' appuser && \
+#     chown -R appuser:appuser /app
+# USER appuser
 
 # Expose the port (HF Spaces default)
 EXPOSE 7860

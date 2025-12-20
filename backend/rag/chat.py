@@ -58,7 +58,7 @@ class ChatHandler:
         self.retrieval_engine = RetrievalEngine(
             qdrant_manager=qdrant_manager,
             embedder=self.embedder,
-            score_threshold=0.5,  # Lowered to 0.5 to better match document scores
+            score_threshold=0.2,  # Lowered to 0.2 to match document scores (0.38+)
             enable_mmr=True,
             mmr_lambda=0.5
         )
@@ -77,19 +77,19 @@ class ChatHandler:
         Returns:
             Adaptive threshold value
         """
-        base_threshold = 0.5
+        base_threshold = 0.2
 
         # Lower threshold for very specific queries (longer)
         if query_length > 100:
-            return max(0.5, base_threshold - 0.2)
+            return max(0.1, base_threshold - 0.1)
 
         # Raise threshold if too many results found
         if result_count > 20:
-            return min(0.9, base_threshold + 0.2)
+            return min(0.5, base_threshold + 0.3)
 
         # Lower threshold if very few results found
         if result_count < 3:
-            return max(0.5, base_threshold - 0.1)
+            return max(0.1, base_threshold - 0.1)
 
         return base_threshold
 
