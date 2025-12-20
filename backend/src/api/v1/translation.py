@@ -47,7 +47,7 @@ async def translate_text(
         document_type = request.get("document_type")
         technical_domain = request.get("technical_domain")
         target_audience = request.get("target_audience")
-        model = request.get("model", "gemini-2.0-flash-lite")
+        model = request.get("model", "meta-llama/llama-3.2-3b-instruct:free")  # Use OpenRouter free model as default
 
         # Create translation context
         context = TranslationContext(
@@ -121,7 +121,7 @@ async def translate_with_agent(
         source_language = request.get("source_language", "en")
         target_language = request.get("target_language", "ur")
         page_url = request.get("page_url")
-        model = request.get("model", "gemini-2.0-flash-lite")
+        model = request.get("model", "meta-llama/llama-3.2-3b-instruct:free")  # Use OpenRouter free model as default
 
         # Check cache first
         cached_result = await cache_service.get_cached_translation(

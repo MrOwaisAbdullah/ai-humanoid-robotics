@@ -71,7 +71,7 @@ class OpenAITranslationAgent:
                     max_retries=3
                 )
 
-                fallback_model_name = "gpt-5-nano"
+                fallback_model_name = "gpt-4o-mini"
                 fallback_model = OpenAIChatCompletionsModel(
                     model=fallback_model_name,
                     openai_client=openai_client
