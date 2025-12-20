@@ -56,10 +56,9 @@ async def translate_text(
             target_audience=target_audience
         )
 
-        # Create agent and translate
+        # Create agent and translate (no longer using Gemini)
         agent = OpenAITranslationAgent(
-            gemini_client=get_gemini_client(),
-            model=model
+            model=model  # The agent will handle OpenRouter/OpenAI internally
         )
 
         result = await agent.translate_with_agent(
@@ -159,10 +158,9 @@ async def translate_with_agent(
             target_audience=request.get("target_audience")
         )
 
-        # Create agent and translate
+        # Create agent and translate (no longer using Gemini)
         agent = OpenAITranslationAgent(
-            gemini_client=get_gemini_client(),
-            model=model
+            model=model  # The agent will handle OpenRouter/OpenAI internally
         )
 
         start_time = time.time()
