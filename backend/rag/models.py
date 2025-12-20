@@ -4,6 +4,7 @@ Data models for the RAG system.
 Defines entities for documents, chunks, conversations, and citations.
 """
 
+import re
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
@@ -159,9 +160,19 @@ class Citation(BaseModel):
         """Convert citation to markdown format."""
         parts = []
         if self.chapter:
-            parts.append(self.chapter)
+            # Format chapter name nicely
+            chapter_name = self.chapter
+            if not chapter_name.lower().startswith('chapter'):
+                # Add "Chapter" prefix if not present
+                chapter_name = f"Chapter {chapter_name}" if chapter_name.isdigit() else chapter_name
+            parts.append(chapter_name)
         if self.section:
-            parts.append(self.section)
+            # Clean up section name
+            section_name = self.section
+            # Remove excessive '#' and clean up
+            section_name = re.sub(r'^#+\s*', '', section_name).strip()
+            if section_name:
+                parts.append(section_name)
 
         location = " - ".join(parts) if parts else "Source"
         link_target = self.url if self.url else f"{self.document_id}#{self.chunk_id}"

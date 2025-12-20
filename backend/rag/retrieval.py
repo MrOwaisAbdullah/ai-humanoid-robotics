@@ -152,7 +152,12 @@ class RetrievalEngine:
             # Convert to RetrievedChunk objects
             chunks = []
             for result in raw_results:
-                metadata = result.get("payload", {})
+                # Get metadata from the correct location
+                metadata = result.get("metadata", {}) or result.get("payload", {})
+
+                # Debug: Log metadata for first few chunks
+                if len(chunks) < 3:
+                    logger.debug(f"Chunk metadata - chapter: {metadata.get('chapter')}, section: {metadata.get('section_header')}, url: {metadata.get('url')}")
 
                 # Apply template filtering if requested
                 if exclude_templates and metadata.get("is_template", False):
@@ -160,7 +165,7 @@ class RetrievalEngine:
                     continue
 
                 chunk = RetrievedChunk(
-                    content=metadata.get("content", ""),
+                    content=result.get("content", ""),
                     metadata=metadata,
                     score=result.get("score", 0.0),
                     rank=0,  # Will be set later

@@ -271,13 +271,46 @@ class MarkdownChunker:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Extract chapter from path (assumes path like .../chapter1/file.md)
+        # Extract chapter from path with better logic
         path_parts = Path(file_path).parts
         chapter = "Unknown"
+
+        # Try to find chapter in various ways
         for part in path_parts:
+            # Look for "chapter" pattern (case insensitive)
             if part.lower().startswith('chapter'):
                 chapter = part
                 break
+            # Look for numeric patterns like "01", "1", "02" etc.
+            elif part.isdigit() and len(part) <= 2:
+                # Find the context for this number
+                part_index = path_parts.index(part)
+                if part_index > 0:
+                    prev_part = path_parts[part_index - 1].lower()
+                    if 'chapter' in prev_part:
+                        chapter = f"Chapter {int(part)}"
+                    else:
+                        # Just use the number as chapter
+                        chapter = f"Chapter {int(part)}"
+                else:
+                    chapter = f"Chapter {int(part)}"
+                break
+            # Look for patterns like "ch1", "ch01"
+            elif part.lower().startswith('ch') and part[2:].isdigit():
+                chapter_num = int(part[2:])
+                chapter = f"Chapter {chapter_num}"
+                break
+
+        # If still unknown, try to extract from filename
+        if chapter == "Unknown":
+            filename = Path(file_path).stem
+            # Try to parse chapter from filename
+            chapter_match = re.search(r'chapter\s*(\d+)', filename, re.IGNORECASE)
+            if chapter_match:
+                chapter = f"Chapter {int(chapter_match.group(1))}"
+            else:
+                # Use filename as last resort
+                chapter = filename.replace('_', ' ').replace('-', ' ').title()
 
         # Split by headers
         sections = self.split_by_headers(content)

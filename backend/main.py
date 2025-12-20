@@ -159,34 +159,45 @@ async def lifespan(app: FastAPI):
     """Lifespan manager for FastAPI application."""
     global chat_handler, qdrant_manager, document_ingestor, task_manager
 
-    # Create database tables on startup
-    from database.config import create_tables, engine, DATABASE_URL
-    import os
-    from pathlib import Path
-
-    # Ensure database directory exists
-    if "sqlite" in DATABASE_URL:
-        db_path = Path(DATABASE_URL.replace("sqlite:///", ""))
-        db_dir = db_path.parent
-        db_dir.mkdir(parents=True, exist_ok=True)
-        print(f"Database directory ensured: {db_dir}")
-
-    # Create tables
-    create_tables()
-
-    logger.info("Starting up RAG backend...",
-                openai_configured=bool(settings.openai_api_key),
-                qdrant_url=settings.qdrant_url)
-
     try:
-        # Initialize Qdrant manager
-        qdrant_manager = QdrantManager(
-            url=settings.qdrant_url,
-            api_key=settings.qdrant_api_key
-        )
-        await qdrant_manager.initialize()
+        # Create database tables on startup
+        from database.config import create_tables, engine, DATABASE_URL
+        import os
+        from pathlib import Path
 
-        # Initialize document ingestor
+        # Ensure database directory exists
+        if "sqlite" in DATABASE_URL:
+            db_path = Path(DATABASE_URL.replace("sqlite:///", ""))
+            db_dir = db_path.parent
+            db_dir.mkdir(parents=True, exist_ok=True)
+            print(f"Database directory ensured: {db_dir}")
+
+        # Create tables
+        create_tables()
+
+        logger.info("Starting up RAG backend...",
+                    openai_configured=bool(settings.openai_api_key),
+                    qdrant_url=settings.qdrant_url)
+
+        # Initialize Qdrant manager (optional for HF Spaces)
+        qdrant_manager = None
+        if settings.qdrant_url and settings.qdrant_url != "http://localhost:6333":
+            try:
+                qdrant_manager = QdrantManager(
+                    url=settings.qdrant_url,
+                    api_key=settings.qdrant_api_key
+                )
+                await qdrant_manager.initialize()
+                logger.info("✅ Qdrant initialized successfully")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to initialize Qdrant: {e}")
+                logger.info("📝 Running without vector search - RAG features will be disabled")
+                qdrant_manager = None
+        else:
+            logger.info("⚠️ No Qdrant URL provided - running without vector database")
+            qdrant_manager = None
+
+        # Initialize document ingestor (can work without Qdrant)
         document_ingestor = DocumentIngestor(
             qdrant_manager,
             chunk_size=settings.chunk_size,
@@ -194,7 +205,7 @@ async def lifespan(app: FastAPI):
             batch_size=settings.batch_size
         )
 
-        # Initialize chat handler
+        # Initialize chat handler (can work without Qdrant)
         chat_handler = ChatHandler(
             qdrant_manager,
             openai_api_key=settings.openai_api_key,

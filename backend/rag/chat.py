@@ -503,6 +503,7 @@ class ChatHandler:
                     relevance_score=result["similarity_score"],
                     chapter=metadata.get("chapter"),
                     section=metadata.get("section_header") or metadata.get("section"),
+                    url=metadata.get("url"),  # Add URL from metadata
                     confidence=result["similarity_score"]
                 )
                 citations.append(citation)
