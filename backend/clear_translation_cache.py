@@ -20,7 +20,7 @@ from src.services.translation_cache import TranslationCache, cache_service
 
 def clear_all_cache():
     """Clear all translation cache entries."""
-    print("🗑️ Clearing all translation cache...")
+    print("Clearing all translation cache...")
 
     try:
         # Get database session
@@ -37,10 +37,10 @@ def clear_all_cache():
         result = db.execute(delete_query)
         db.commit()
 
-        print(f"   ✅ Cleared {result.rowcount} cache entries")
+        print(f"   Cleared {result.rowcount} cache entries")
 
     except Exception as e:
-        print(f"   ❌ Error clearing cache: {e}")
+        print(f"   Error clearing cache: {e}")
         return False
 
     return True
@@ -48,15 +48,15 @@ def clear_all_cache():
 
 def clear_expired_cache():
     """Clear only expired translation cache entries."""
-    print("🕒 Clearing expired translation cache...")
+    print("Clearing expired translation cache...")
 
     try:
         # Use the cache service method
         cleared = cache_service.clear_expired_cache()
-        print(f"   ✅ Cleared {cleared} expired entries")
+        print(f"   Cleared {cleared} expired entries")
 
     except Exception as e:
-        print(f"   ❌ Error clearing expired cache: {e}")
+        print(f"   Error clearing expired cache: {e}")
         return False
 
     return True
@@ -68,7 +68,7 @@ def clear_url_cache(url_pattern: str = None):
         print("Please provide a URL pattern to clear")
         return False
 
-    print(f"🔗 Clearing cache for URLs matching: {url_pattern}")
+    print(f"Clearing cache for URLs matching: {url_pattern}")
 
     try:
         db = next(get_db())
@@ -85,10 +85,10 @@ def clear_url_cache(url_pattern: str = None):
         result = db.execute(query)
         db.commit()
 
-        print(f"   ✅ Cleared {result.rowcount} entries matching pattern")
+        print(f"   Cleared {result.rowcount} entries matching pattern")
 
     except Exception as e:
-        print(f"   ❌ Error clearing URL cache: {e}")
+        print(f"   Error clearing URL cache: {e}")
         return False
 
     return True
@@ -117,7 +117,7 @@ def main():
         print("\nNo command provided. Running expired cache cleanup...")
         clear_expired_cache()
 
-    print("\n✨ Cache cleanup complete!\n")
+    print("\nCache cleanup complete!\n")
 
 
 if __name__ == "__main__":
