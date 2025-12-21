@@ -49,6 +49,22 @@ async def translate_text(
         target_audience = request.get("target_audience")
         model = request.get("model", "meta-llama/llama-3.2-3b-instruct:free")  # Use OpenRouter free model as default
 
+        # Validate that text is not empty or just whitespace
+        if not text or text.strip() == "":
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "error": "No content to translate",
+                    "message": "The provided text is empty or contains only whitespace",
+                    "original_text": text,
+                    "translated_text": "",
+                    "cached": False
+                }
+            )
+
+        # Clean up the text - remove excessive whitespace and normalize
+        text = " ".join(text.split())
+
         # Create translation context
         context = TranslationContext(
             document_type=document_type,
@@ -122,6 +138,22 @@ async def translate_with_agent(
         target_language = request.get("target_language", "ur")
         page_url = request.get("page_url")
         model = request.get("model", "meta-llama/llama-3.2-3b-instruct:free")  # Use OpenRouter free model as default
+
+        # Validate that text is not empty or just whitespace
+        if not text or text.strip() == "":
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "error": "No content to translate",
+                    "message": "The provided text is empty or contains only whitespace",
+                    "original_text": text,
+                    "translated_text": "",
+                    "cached": False
+                }
+            )
+
+        # Clean up the text - remove excessive whitespace and normalize
+        text = " ".join(text.split())
 
         # Check cache first
         cached_result = await cache_service.get_cached_translation(

@@ -1,573 +1,749 @@
 # Better Auth Implementation for AI Book Application
 
 ## Overview
-Implement a comprehensive authentication system for the AI book application using Better Auth v2 patterns, with SQLite for data storage and Google OAuth for user authentication.
+Implement a comprehensive authentication system for the AI book application using Better Auth v2 patterns, with Neon PostgreSQL for data storage and SQLModel for database modeling. The system will use email/password authentication with existing sign-in, register, and onboarding modals.
 
 ## Prerequisites
 - Node.js 18+ and npm installed
 - Python 3.9+ with FastAPI backend
-- Google OAuth credentials (Client ID and Client Secret)
+- UV package manager installed (`pip install uv`)
+- Neon PostgreSQL database
 
 ## Phase 1: Backend Authentication Setup
 
 ### 1.1 Install Dependencies
-Add to `backend/requirements.txt`:
-```txt
-# Authentication dependencies
-sqlalchemy>=2.0.0
-alembic>=1.12.0
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
-authlib>=1.2.1
+```bash
+# Backend dependencies with UV
+uv add sqlmodel sqlalchemy[asyncio] asyncpg psycopg2-binary alembic
+uv add python-jose[cryptography] passlib[bcrypt] python-dotenv
+uv add python-multipart email-validator fastapi uvicorn
+
+# Frontend dependencies (already installed)
+# No additional dependencies needed - using existing modals
 ```
 
-### 1.2 Database Setup
-Create directory structure:
-```
-backend/
-├── database/
-│   ├── __init__.py
-│   ├── connection.py
-│   └── migrations/
-├── models/
-│   ├── __init__.py
-│   └── auth.py
-├── auth/
-│   ├── __init__.py
-│   ├── auth.py
-│   └── dependencies.py
-└── routes/
-    ├── __init__.py
-    └── auth.py
-```
+### 1.2 Database Setup with Neon PostgreSQL
 
-### 1.3 Create Database Models (backend/models/auth.py)
-
-```python
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from datetime import datetime
-
-Base = declarative_base()
-
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=False)
-    image = Column(String, nullable=True)
-    email_verified = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    accounts = relationship("Account", back_populates="user")
-    sessions = relationship("Session", back_populates="user")
-    chat_sessions = relationship("ChatSession", back_populates="user")
-    preferences = relationship("UserPreferences", back_populates="user", uselist=False)
-
-class Account(Base):
-    __tablename__ = "accounts"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    provider_id = Column(String, nullable=False)  # 'google', 'github', etc.
-    provider_account_id = Column(String, nullable=False)
-    access_token = Column(Text, nullable=True)
-    refresh_token = Column(Text, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    user = relationship("User", back_populates="accounts")
-
-class Session(Base):
-    __tablename__ = "sessions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    token = Column(String, unique=True, nullable=False)
-    expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    user = relationship("User", back_populates="sessions")
-
-class ChatSession(Base):
-    __tablename__ = "chat_sessions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Nullable for anonymous
-    title = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    is_anonymous = Column(Boolean, default=True)
-
-    # Relationships
-    user = relationship("User", back_populates="chat_sessions")
-    messages = relationship("ChatMessage", back_populates="session")
-
-class ChatMessage(Base):
-    __tablename__ = "chat_messages"
-
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
-    role = Column(String, nullable=False)  # 'user', 'assistant', 'system'
-    content = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True)  # Sources, citations, etc.
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    session = relationship("ChatSession", back_populates="messages")
-
-class UserPreferences(Base):
-    __tablename__ = "user_preferences"
-
-    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    theme = Column(String, default="light")
-    language = Column(String, default="en")
-    notifications = Column(Boolean, default=True)
-    chat_settings = Column(JSON, nullable=True)  # Model preferences, etc.
-
-    # Relationships
-    user = relationship("User", back_populates="preferences")
-```
-
-### 1.4 Database Connection (backend/database/connection.py)
-
-```python
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from models.auth import Base
-import os
-
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./database/auth.db")
-
-# Create database engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-)
-
-# Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-# Dependency to get DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-```
-
-### 1.5 Authentication Module (backend/auth/auth.py)
-
-```python
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from models.auth import User, Session as UserSession
-from database.connection import get_db
-import secrets
-import httpx
-from pydantic import BaseModel
+#### 1.2.1 Database Configuration (.env)
+```env
+# Neon PostgreSQL Database
+DATABASE_URL=postgresql://username:password@host/dbname?sslmode=require
 
 # JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key-change-in-production")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 10080  # 7 days
+JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=10080  # 7 days
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Google OAuth Configuration
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-AUTH_REDIRECT_URI = os.getenv("AUTH_REDIRECT_URI", "http://localhost:3000/auth/google/callback")
-
-class TokenData(BaseModel):
-    email: Optional[str] = None
-    user_id: Optional[int] = None
-
-class GoogleUserInfo(BaseModel):
-    id: str
-    email: str
-    name: str
-    picture: Optional[str] = None
-    verified_email: Optional[bool] = False
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-def verify_token(token: str) -> TokenData:
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        user_id: int = payload.get("user_id")
-
-        if email is None or user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        return TokenData(email=email, user_id=user_id)
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-async def get_google_user_info(code: str) -> GoogleUserInfo:
-    """Exchange authorization code for user info"""
-    async with httpx.AsyncClient() as client:
-        # Exchange code for access token
-        token_response = await client.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": AUTH_REDIRECT_URI,
-            }
-        )
-
-        if token_response.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to exchange code for token")
-
-        token_data = token_response.json()
-        access_token = token_data.get("access_token")
-
-        # Get user info
-        user_response = await client.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-
-        if user_response.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to get user info")
-
-        return GoogleUserInfo(**user_response.json())
-
-def get_or_create_user(db: Session, user_info: GoogleUserInfo) -> User:
-    """Get existing user or create new one from Google info"""
-    user = db.query(User).filter(User.email == user_info.email).first()
-
-    if not user:
-        user = User(
-            email=user_info.email,
-            name=user_info.name,
-            image=user_info.picture,
-            email_verified=user_info.verified_email or False
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        # Create default preferences
-        from models.auth import UserPreferences
-        preferences = UserPreferences(user_id=user.id)
-        db.add(preferences)
-        db.commit()
-
-    return user
-
-def create_user_session(db: Session, user_id: int) -> str:
-    """Create a new session for user"""
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(days=7)
-
-    db_session = UserSession(
-        user_id=user_id,
-        token=token,
-        expires_at=expires_at
-    )
-    db.add(db_session)
-    db.commit()
-
-    return token
+# Email Configuration (for verification)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+FROM_EMAIL=noreply@yourapp.com
 ```
 
-### 1.6 Authentication Dependencies (backend/auth/dependencies.py)
-
+#### 1.2.2 Database Models (backend/models/auth.py)
 ```python
-from fastapi import Depends, HTTPException, status, Header
-from sqlalchemy.orm import Session
-from database.connection import get_db
-from auth.auth import verify_token, TokenData
-from models.auth import User, Session as UserSession
+from sqlmodel import SQLModel, Field, Relationship, Column
+from sqlalchemy import DateTime, Boolean, Text, JSON
+from sqlalchemy.sql import func
+from datetime import datetime, timedelta
+from typing import Optional, List
+import uuid
 
+# Base model for all tables
+class BaseModel(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": func.now()})
+
+class User(BaseModel, table=True):
+    __tablename__ = "users"
+
+    email: str = Field(index=True, unique=True, max_length=255)
+    full_name: str = Field(max_length=255)
+    password_hash: str = Field(max_length=255)
+    is_active: bool = Field(default=True)
+    is_verified: bool = Field(default=False)
+    verification_token: Optional[str] = Field(default=None)
+    password_reset_token: Optional[str] = Field(default=None)
+    password_reset_expires: Optional[datetime] = Field(default=None)
+    last_login: Optional[datetime] = Field(default=None)
+
+    # Profile fields
+    bio: Optional[str] = Field(default=None, max_length=500)
+    avatar_url: Optional[str] = Field(default=None)
+    timezone: str = Field(default="UTC")
+    language: str = Field(default="en")
+
+    # Relationships
+    chat_sessions: List["ChatSession"] = Relationship(back_populates="user")
+    user_preferences: Optional["UserPreferences"] = Relationship(back_populates="user", sa_relationship_kwargs={"uselist": False})
+
+class UserPreferences(BaseModel, table=True):
+    __tablename__ = "user_preferences"
+
+    user_id: int = Field(foreign_key="users.id", primary_key=True)
+
+    # UI Preferences
+    theme: str = Field(default="light")  # light, dark, auto
+    language: str = Field(default="en")
+    timezone: str = Field(default="UTC")
+
+    # Notification Settings
+    email_notifications: bool = Field(default=True)
+    chat_notifications: bool = Field(default=True)
+
+    # Chat Preferences
+    ai_model: str = Field(default="gpt-3.5-turbo")
+    chat_mode: str = Field(default="balanced")  # creative, balanced, precise
+    save_history: bool = Field(default=True)
+
+    # Privacy Settings
+    profile_visibility: str = Field(default="public")  # public, private
+
+    # Additional settings as JSON
+    extra_settings: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+
+    # Relationships
+    user: User = Relationship(back_populates="user_preferences")
+
+class ChatSession(BaseModel, table=True):
+    __tablename__ = "chat_sessions"
+
+    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    user_id: Optional[int] = Field(foreign_key="users.id", default=None)
+    title: Optional[str] = Field(default="New Chat")
+    is_anonymous: bool = Field(default=True)
+
+    # Session metadata
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    user: Optional[User] = Relationship(back_populates="chat_sessions")
+    messages: List["ChatMessage"] = Relationship(back_populates="session", cascade_delete=True)
+
+class ChatMessage(BaseModel, table=True):
+    __tablename__ = "chat_messages"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: str = Field(foreign_key="chat_sessions.session_id")
+    role: str = Field(max_length=20)  # user, assistant, system
+    content: str = Field(sa_column=Column(Text))
+
+    # Message metadata
+    sources: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    tokens_used: Optional[int] = Field(default=0)
+    model_used: Optional[str] = Field(default=None)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    session: ChatSession = Relationship(back_populates="messages")
+```
+
+#### 1.2.3 Database Connection (backend/database.py)
+```python
+import os
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlmodel import SQLModel
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    DATABASE_URL: str
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+
+# Create async engine for Neon PostgreSQL with proper configuration
+engine = create_async_engine(
+    settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"),
+    echo=False,  # Set to True to see SQL queries
+    future=True,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    pool_size=20,
+    max_overflow=0,
+)
+
+# Create async session factory
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+# Dependency to get async DB session
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+# Initialize database tables
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+```
+
+### 1.3 Authentication Service (backend/services/auth_service.py)
+```python
+import os
+from datetime import datetime, timedelta
+from typing import Optional, Tuple
+import secrets
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from email_validator import validate_email, EmailNotValidError
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+from models.auth import User, UserPreferences
+from database import settings
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# JWT Configuration from settings
+SECRET_KEY = settings.JWT_SECRET_KEY
+ALGORITHM = settings.JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+
+class AuthService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash."""
+        return pwd_context.verify(plain_password, hashed_password)
+
+    @staticmethod
+    def get_password_hash(password: str) -> str:
+        """Generate password hash."""
+        return pwd_context.hash(password)
+
+    @staticmethod
+    def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+        """Create JWT access token."""
+        to_encode = data.copy()
+        if expires_delta:
+            expire = datetime.utcnow() + expires_delta
+        else:
+            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+        to_encode.update({"exp": expire})
+        return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+    @staticmethod
+    def verify_token(token: str) -> Optional[dict]:
+        """Verify JWT token and return payload."""
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            return payload
+        except JWTError:
+            return None
+
+    async def authenticate_user(self, email: str, password: str) -> Optional[User]:
+        """Authenticate user with email and password."""
+        # Validate email format
+        try:
+            validate_email(email)
+        except EmailNotValidError:
+            return None
+
+        # Get user from database
+        statement = select(User).where(User.email == email.lower())
+        result = await self.db.execute(statement)
+        user = result.scalar_one_or_none()
+
+        # Check if user exists and password is correct
+        if not user or not self.verify_password(password, user.password_hash):
+            return None
+
+        # Update last login
+        user.last_login = datetime.utcnow()
+        await self.db.commit()
+
+        return user
+
+    async def create_user(self, email: str, full_name: str, password: str) -> Tuple[User, str]:
+        """Create new user and return verification token."""
+        # Validate email
+        try:
+            validate_email(email)
+        except EmailNotValidError:
+            raise ValueError("Invalid email format")
+
+        # Check if user already exists
+        statement = select(User).where(User.email == email.lower())
+        result = await self.db.execute(statement)
+        if result.scalar_one_or_none():
+            raise ValueError("User already exists")
+
+        # Create verification token
+        verification_token = secrets.token_urlsafe(32)
+
+        # Create user
+        user = User(
+            email=email.lower(),
+            full_name=full_name,
+            password_hash=self.get_password_hash(password),
+            verification_token=verification_token,
+            is_verified=False  # Require email verification
+        )
+
+        self.db.add(user)
+        await self.db.commit()
+        await self.db.refresh(user)
+
+        # Create default preferences
+        preferences = UserPreferences(user_id=user.id)
+        self.db.add(preferences)
+        await self.db.commit()
+
+        return user, verification_token
+
+    async def verify_email(self, token: str) -> bool:
+        """Verify user email with token."""
+        statement = select(User).where(User.verification_token == token)
+        result = await self.db.execute(statement)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            return False
+
+        user.is_verified = True
+        user.verification_token = None
+        await self.db.commit()
+
+        return True
+
+    async def initiate_password_reset(self, email: str) -> Optional[str]:
+        """Initiate password reset and return reset token."""
+        statement = select(User).where(User.email == email.lower())
+        result = await self.db.execute(statement)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            return None  # Don't reveal if user exists
+
+        reset_token = secrets.token_urlsafe(32)
+        reset_expires = datetime.utcnow() + timedelta(hours=1)
+
+        user.password_reset_token = reset_token
+        user.password_reset_expires = reset_expires
+        await self.db.commit()
+
+        return reset_token
+
+    async def reset_password(self, token: str, new_password: str) -> bool:
+        """Reset password with valid token."""
+        statement = select(User).where(
+            (User.password_reset_token == token) &
+            (User.password_reset_expires > datetime.utcnow())
+        )
+        result = await self.db.execute(statement)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            return False
+
+        user.password_hash = self.get_password_hash(new_password)
+        user.password_reset_token = None
+        user.password_reset_expires = None
+        await self.db.commit()
+
+        return True
+
+    async def update_user_profile(self, user_id: int, **kwargs) -> User:
+        """Update user profile."""
+        statement = select(User).where(User.id == user_id)
+        result = await self.db.execute(statement)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise ValueError("User not found")
+
+        # Update allowed fields
+        allowed_fields = ['full_name', 'bio', 'avatar_url', 'timezone', 'language']
+        for field in allowed_fields:
+            if field in kwargs:
+                setattr(user, field, kwargs[field])
+
+        await self.db.commit()
+        await self.db.refresh(user)
+
+        return user
+```
+
+### 1.4 API Routes (backend/api/v1/auth.py)
+```python
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi.security import OAuth2PasswordBearer
+from fastapi.security.utils import get_authorization_scheme_param
+from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
+import os
+
+from database import get_db
+from models.auth import User
+from services.auth_service import AuthService
+
+router = APIRouter(prefix="/auth", tags=["authentication"])
+
+# OAuth2 scheme for token extraction
+oauth2_scheme = OAuth2PasswordBearer(auto_error=False)
+
+# Pydantic models
+class UserRegister(BaseModel):
+    email: EmailStr
+    full_name: str
+    password: str
+    confirm_password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    user: dict
+
+class PasswordReset(BaseModel):
+    token: str
+    new_password: str
+    confirm_password: str
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    bio: Optional[str] = None
+    timezone: Optional[str] = None
+    language: Optional[str] = None
+
+# Dependency to get current user
 async def get_current_user(
-    authorization: str = Header(None),
-    db: Session = Depends(get_db)
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
 ) -> User:
-    """Get current authenticated user"""
-    if not authorization:
+    """Get current authenticated user."""
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Extract token from "Bearer <token>"
-    try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
-            raise ValueError()
-    except ValueError:
+    # Verify token
+    payload = AuthService.verify_token(token)
+    if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication scheme",
+            detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Verify JWT token
-    token_data = verify_token(token)
-
     # Get user from database
-    user = db.query(User).filter(User.id == token_data.user_id).first()
-    if user is None:
+    auth_service = AuthService(db)
+    statement = select(User).where(User.id == payload.get("sub"))
+    result = await db.execute(statement)
+    user = result.scalar_one_or_none()
+
+    if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     return user
 
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """Get current active user"""
-    if not current_user.email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email not verified"
-        )
-    return current_user
-
 # Optional authentication (doesn't raise error if not authenticated)
 async def get_optional_user(
-    authorization: str = Header(None),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
-    """Get user if authenticated, otherwise return None"""
+    """Get user if authenticated, otherwise return None."""
+    authorization = request.headers.get("Authorization")
     if not authorization:
         return None
 
+    scheme, token = get_authorization_scheme_param(authorization)
+    if scheme.lower() != "bearer" or not token:
+        return None
+
     try:
-        return await get_current_user(authorization, db)
+        return await get_current_user(token, db)
     except HTTPException:
         return None
-```
 
-### 1.7 Authentication Routes (backend/routes/auth.py)
-
-```python
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
-from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
-from database.connection import get_db
-from auth.auth import get_google_user_info, get_or_create_user, create_user_session, create_access_token
-from auth.dependencies import get_current_user, get_current_active_user
-from models.auth import User, UserPreferences
-from pydantic import BaseModel
-from typing import Optional
-import os
-
-router = APIRouter(prefix="/auth", tags=["authentication"])
-
-# Pydantic models
-class UserResponse(BaseModel):
-    id: int
-    email: str
-    name: str
-    image: Optional[str] = None
-    email_verified: bool
-
-    class Config:
-        from_attributes = True
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    user: UserResponse
-
-class PreferencesUpdate(BaseModel):
-    theme: Optional[str] = None
-    language: Optional[str] = None
-    notifications: Optional[bool] = None
-    chat_settings: Optional[dict] = None
-
-@router.get("/google")
-async def google_login():
-    """Initiate Google OAuth login"""
-    client_id = os.getenv("GOOGLE_CLIENT_ID")
-    redirect_uri = os.getenv("AUTH_REDIRECT_URI")
-    scope = "openid email profile"
-
-    auth_url = (
-        f"https://accounts.google.com/o/oauth2/v2/auth?"
-        f"client_id={client_id}&"
-        f"redirect_uri={redirect_uri}&"
-        f"response_type=code&"
-        f"scope={scope}&"
-        f"access_type=offline&"
-        f"prompt=consent"
-    )
-
-    return RedirectResponse(url=auth_url)
-
-@router.get("/google/callback")
-async def google_callback(code: str, db: Session = Depends(get_db)):
-    """Handle Google OAuth callback"""
-    try:
-        # Get user info from Google
-        user_info = await get_google_user_info(code)
-
-        # Get or create user in database
-        user = get_or_create_user(db, user_info)
-
-        # Create JWT access token
-        access_token = create_access_token(
-            data={"sub": user.email, "user_id": user.id}
-        )
-
-        # Create session
-        session_token = create_user_session(db, user.id)
-
-        # Set secure cookie with access token
-        response = RedirectResponse(url="/dashboard")
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            secure=False,  # Set to True in production with HTTPS
-            samesite="lax",
-            max_age=10080 * 60  # 7 days
-        )
-
-        return response
-
-    except Exception as e:
+@router.post("/register", response_model=Token)
+async def register(
+    user_data: UserRegister,
+    db: AsyncSession = Depends(get_db)
+):
+    """Register a new user."""
+    # Validate passwords match
+    if user_data.password != user_data.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Authentication failed: {str(e)}"
+            detail="Passwords do not match"
         )
 
-@router.get("/me", response_model=UserResponse)
+    # Validate password strength
+    if len(user_data.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters"
+        )
+
+    auth_service = AuthService(db)
+    try:
+        user, verification_token = await auth_service.create_user(
+            user_data.email,
+            user_data.full_name,
+            user_data.password
+        )
+
+        # TODO: Send verification email
+        # await send_verification_email(user.email, verification_token)
+
+        # Create access token
+        access_token = auth_service.create_access_token(
+            data={"sub": user.id, "email": user.email}
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "full_name": user.full_name,
+                "is_verified": user.is_verified,
+                "avatar_url": user.avatar_url
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+@router.post("/login", response_model=Token)
+async def login(
+    user_data: UserLogin,
+    db: AsyncSession = Depends(get_db)
+):
+    """Login user and return access token."""
+    auth_service = AuthService(db)
+    user = await auth_service.authenticate_user(user_data.email, user_data.password)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please verify your email before logging in"
+        )
+
+    # Create access token
+    access_token = auth_service.create_access_token(
+        data={"sub": user.id, "email": user.email}
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "is_verified": user.is_verified,
+            "avatar_url": user.avatar_url,
+            "bio": user.bio,
+            "timezone": user.timezone,
+            "language": user.language
+        }
+    }
+
+@router.get("/me")
 async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ):
-    """Get current user information"""
-    return current_user
+    """Get current user information."""
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "is_verified": current_user.is_verified,
+        "avatar_url": current_user.avatar_url,
+        "bio": current_user.bio,
+        "timezone": current_user.timezone,
+        "language": current_user.language,
+        "preferences": current_user.user_preferences
+    }
+
+@router.put("/profile")
+async def update_profile(
+    profile_data: ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update user profile."""
+    auth_service = AuthService(db)
+    user = await auth_service.update_user_profile(
+        current_user.id,
+        **profile_data.dict(exclude_unset=True)
+    )
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "avatar_url": user.avatar_url,
+        "bio": user.bio,
+        "timezone": user.timezone,
+        "language": user.language
+    }
 
 @router.post("/logout")
 async def logout(response: Response):
-    """Logout user"""
-    response.delete_cookie(key="access_token")
+    """Logout user (client-side token removal)."""
     return {"message": "Successfully logged out"}
 
-@router.get("/preferences")
-async def get_user_preferences(
-    current_user: User = Depends(get_current_user)
+@router.post("/forgot-password")
+async def forgot_password(
+    email: EmailStr,
+    db: AsyncSession = Depends(get_db)
 ):
-    """Get user preferences"""
-    return current_user.preferences
+    """Initiate password reset."""
+    auth_service = AuthService(db)
+    reset_token = await auth_service.initiate_password_reset(email)
 
-@router.put("/preferences")
-async def update_user_preferences(
-    preferences: PreferencesUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    # TODO: Send reset email
+    # if reset_token:
+    #     await send_reset_email(email, reset_token)
+
+    return {
+        "message": "If an account with that email exists, a password reset link has been sent."
+    }
+
+@router.post("/reset-password")
+async def reset_password(
+    reset_data: PasswordReset,
+    db: AsyncSession = Depends(get_db)
 ):
-    """Update user preferences"""
-    user_prefs = current_user.preferences
+    """Reset password with token."""
+    if reset_data.new_password != reset_data.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Passwords do not match"
+        )
 
-    # Update only provided fields
-    if preferences.theme is not None:
-        user_prefs.theme = preferences.theme
-    if preferences.language is not None:
-        user_prefs.language = preferences.language
-    if preferences.notifications is not None:
-        user_prefs.notifications = preferences.notifications
-    if preferences.chat_settings is not None:
-        user_prefs.chat_settings = preferences.chat_settings
-
-    db.commit()
-    db.refresh(user_prefs)
-
-    return user_prefs
+    auth_service = AuthService(db)
+    if await auth_service.reset_password(reset_data.token, reset_data.new_password):
+        return {"message": "Password reset successfully"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
 
 @router.get("/check")
-async def check_auth(current_user: Optional[User] = Depends(get_optional_user)):
-    """Check if user is authenticated"""
+async def check_auth(
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """Check if user is authenticated."""
     if current_user:
         return {
             "authenticated": True,
-            "user": UserResponse.from_orm(current_user)
+            "user": {
+                "id": current_user.id,
+                "email": current_user.email,
+                "full_name": current_user.full_name,
+                "is_verified": current_user.is_verified,
+                "avatar_url": current_user.avatar_url
+            }
         }
     return {"authenticated": False}
 ```
 
-### 1.8 Update Main Application (backend/main.py)
-
+### 1.5 Update Main Application (backend/main.py)
 ```python
-# Add these imports at the top
-from database.connection import engine
-from models.auth import Base
-from routes.auth import router as auth_router
-from auth.dependencies import get_current_user
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import os
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+from database import init_db
+from api.v1 import auth, chat, translation, personalization
 
-# Add auth router to app
-app.include_router(auth_router)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup."""
+    await init_db()
+    yield
 
-# Add CORS for auth
+# Create FastAPI app
+app = FastAPI(
+    title="AI Book Backend",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", os.getenv("FRONTEND_URL", "")],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        os.getenv("FRONTEND_URL", "")
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
+app.include_router(translation.router, prefix="/api/v1")
+app.include_router(personalization.router, prefix="/api/v1")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )
 ```
 
-## Phase 2: Frontend Authentication Setup
+## Phase 2: Frontend Integration
 
-### 2.1 Install Frontend Dependencies
-```bash
-cd src
-npm install @auth0/auth0-react react-router-dom
-```
+### 2.1 Update Authentication Context (src/contexts/AuthContext.tsx)
 
-### 2.2 Create Authentication Context (src/contexts/AuthContext.tsx)
+The frontend already has sign-in, register, and onboarding modals. We'll update the context to use our new API:
 
 ```typescript
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -575,18 +751,32 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface User {
   id: number;
   email: string;
-  name: string;
-  image?: string;
-  emailVerified: boolean;
+  full_name: string;
+  is_verified: boolean;
+  avatar_url?: string;
+  bio?: string;
+  timezone?: string;
+  language?: string;
+  preferences?: {
+    theme: string;
+    language: string;
+    ai_model: string;
+    chat_mode: string;
+    save_history: boolean;
+    email_notifications: boolean;
+  };
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: () => void;
-  logout: () => Promise<void>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, fullName: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
   checkAuth: () => Promise<void>;
+  updateUserProfile: (data: Partial<User>) => Promise<void>;
+  token: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -605,21 +795,45 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
   const [loading, setLoading] = useState(true);
 
   const checkAuth = async () => {
     try {
-      const response = await fetch('/api/auth/check');
-      const data = await response.json();
-
-      if (data.authenticated) {
-        setUser(data.user);
-      } else {
+      const storedToken = localStorage.getItem('auth_token');
+      if (!storedToken) {
         setUser(null);
+        setToken(null);
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/v1/auth/check', {
+        headers: {
+          'Authorization': `Bearer ${storedToken}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.authenticated) {
+          setUser(data.user);
+          setToken(storedToken);
+        } else {
+          localStorage.removeItem('auth_token');
+          setUser(null);
+          setToken(null);
+        }
+      } else {
+        localStorage.removeItem('auth_token');
+        setUser(null);
+        setToken(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
+      localStorage.removeItem('auth_token');
       setUser(null);
+      setToken(null);
     } finally {
       setLoading(false);
     }
@@ -629,18 +843,87 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = () => {
-    // Redirect to backend OAuth endpoint
-    window.location.href = '/api/auth/google';
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('auth_token', data.access_token);
+        setUser(data.user);
+        setToken(data.access_token);
+        return { success: true };
+      } else {
+        return { success: false, error: data.detail || 'Login failed' };
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error' };
+    }
   };
 
-  const logout = async () => {
+  const register = async (email: string, fullName: string, password: string) => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      setUser(null);
-      window.location.href = '/';
+      const response = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          full_name: fullName,
+          password,
+          confirm_password: password
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('auth_token', data.access_token);
+        setUser(data.user);
+        setToken(data.access_token);
+        return { success: true };
+      } else {
+        return { success: false, error: data.detail || 'Registration failed' };
+      }
     } catch (error) {
-      console.error('Logout failed:', error);
+      return { success: false, error: 'Network error' };
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('auth_token');
+    setUser(null);
+    setToken(null);
+    window.location.href = '/';
+  };
+
+  const updateUserProfile = async (data: Partial<User>) => {
+    if (!token) return;
+
+    try {
+      const response = await fetch('/api/v1/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error('Profile update failed:', error);
     }
   };
 
@@ -649,56 +932,96 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: !!user,
     loading,
     login,
+    register,
     logout,
     checkAuth,
+    updateUserProfile,
+    token
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 ```
 
-### 2.3 Create Login Modal Component (src/components/Auth/LoginModal.tsx)
+### 2.2 Update Existing Sign-in/Register Modals
+
+The frontend already has modals, we just need to update them to use our new auth context:
 
 ```typescript
-import React from 'react';
+// src/components/Auth/SignInModal.tsx
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 
-interface LoginModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
+export const SignInModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { login } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  if (!isOpen) return null;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const result = await login(email, password);
+
+    if (result.success) {
+      onClose();
+    } else {
+      setError(result.error || 'Login failed');
+    }
+    setLoading(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-8 max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-4">Sign in to continue</h2>
-        <p className="text-gray-600 mb-6">
-          Sign in to access the chat and save your conversation history
-        </p>
+        <h2 className="text-2xl font-bold mb-4">Sign In</h2>
 
-        <button
-          onClick={login}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg px-4 py-3 hover:bg-gray-50 transition-colors"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Continue with Google
-        </button>
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
 
         <button
           onClick={onClose}
-          className="mt-4 w-full text-gray-600 hover:text-gray-800 transition-colors"
+          className="mt-4 w-full text-gray-600 hover:text-gray-800"
         >
-          Maybe later
+          Cancel
         </button>
       </div>
     </div>
@@ -706,261 +1029,284 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
 };
 ```
 
-### 2.4 Create Protected Route Component (src/components/Auth/ProtectedRoute.tsx)
+### 2.3 Update Chat Widget to Use Authentication
 
 ```typescript
-import React, { ReactNode } from 'react';
+// src/components/ChatWidget/ChatWidgetContainer.tsx
 import { useAuth } from '../../contexts/AuthContext';
-import { LoginModal } from './LoginModal';
-
-interface ProtectedRouteProps {
-  children: ReactNode;
-  fallback?: ReactNode;
-}
-
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
-  children,
-  fallback
-}) => {
-  const { isAuthenticated, loading } = useAuth();
-  const [showLoginModal, setShowLoginModal] = React.useState(false);
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    if (fallback) {
-      return <>{fallback}</>;
-    }
-
-    return (
-      <>
-        <div className="flex flex-col items-center justify-center p-8">
-          <h2 className="text-2xl font-bold mb-4">Authentication Required</h2>
-          <p className="text-gray-600 mb-6">
-            Please sign in to access this feature
-          </p>
-          <button
-            onClick={() => setShowLoginModal(true)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Sign In
-          </button>
-        </div>
-        {showLoginModal && (
-          <LoginModal
-            isOpen={showLoginModal}
-            onClose={() => setShowLoginModal(false)}
-          />
-        )}
-      </>
-    );
-  }
-
-  return <>{children}</>;
-};
-```
-
-### 2.5 Create User Profile Component (src/components/Auth/UserProfile.tsx)
-
-```typescript
-import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-
-export const UserProfile: React.FC = () => {
-  const { user, logout } = useAuth();
-
-  if (!user) return null;
-
-  return (
-    <div className="flex items-center gap-3">
-      {user.image && (
-        <img
-          src={user.image}
-          alt={user.name}
-          className="w-8 h-8 rounded-full"
-        />
-      )}
-      <span className="font-medium">{user.name}</span>
-      <button
-        onClick={logout}
-        className="text-gray-600 hover:text-gray-800 transition-colors"
-      >
-        Logout
-      </button>
-    </div>
-  );
-};
-```
-
-## Phase 3: Update Chat Widget with Authentication
-
-### 3.1 Update ChatWidgetContainer.tsx
-
-Add authentication check before allowing chat:
-
-```typescript
-import { useAuth } from '../../contexts/AuthContext';
-import { ProtectedRoute } from '../Auth/ProtectedRoute';
-import { LoginModal } from '../Auth/LoginModal';
+import SignInModal from '../Auth/SignInModal';
+import RegisterModal from '../Auth/RegisterModal';
 
 export const ChatWidgetContainer: React.FC = () => {
-  const { isAuthenticated } = useAuth();
-  const [showLoginModal, setShowLoginModal] = React.useState(false);
+  const { isAuthenticated, token } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState<'signin' | 'register' | null>(null);
 
-  // Add auth token to API requests
   const sendMessage = async (message: string) => {
-    const response = await fetch('/api/chat', {
+    const response = await fetch('/api/v1/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${document.cookie.match(/access_token=([^;]+)/)?.[1]}`
+        ...(token && { 'Authorization': `Bearer ${token}` })
       },
       body: JSON.stringify({ question: message, stream: true }),
     });
-    // ... rest of the implementation
+
+    // ... rest of implementation
   };
 
   if (!isAuthenticated) {
     return (
       <div className="chat-widget">
-        <button
-          onClick={() => setShowLoginModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Sign in to chat
-        </button>
-        {showLoginModal && (
-          <LoginModal
-            isOpen={showLoginModal}
-            onClose={() => setShowLoginModal(false)}
-          />
+        <div className="text-center p-4">
+          <p className="mb-4">Sign in to start chatting</p>
+          <button
+            onClick={() => setShowAuthModal('signin')}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 mr-2"
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => setShowAuthModal('register')}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+          >
+            Register
+          </button>
+        </div>
+
+        {showAuthModal === 'signin' && (
+          <SignInModal onClose={() => setShowAuthModal(null)} />
+        )}
+        {showAuthModal === 'register' && (
+          <RegisterModal onClose={() => setShowAuthModal(null)} />
         )}
       </div>
     );
   }
 
+  // Existing chat widget implementation for authenticated users
   return (
-    <ProtectedRoute>
-      {/* Existing chat widget implementation */}
-    </ProtectedRoute>
+    // ... your existing chat widget UI
   );
 };
 ```
 
-## Phase 4: Update Docusaurus Configuration
+## Phase 3: Database Migrations
 
-### 4.1 Update Root Component (src/theme/Root.tsx)
+### 3.1 Alembic Configuration
 
-```typescript
-import React from 'react';
-import { AuthProvider } from '../contexts/AuthContext';
-import { UserProfile } from '../components/Auth/UserProfile';
-
-export default function Root({children}: {children: React.ReactNode}): JSX.Element {
-  return (
-    <AuthProvider>
-      <html lang="en">
-        <body>
-          {children}
-          {/* Add user profile to navbar */}
-          <div id="user-profile-container" className="fixed top-4 right-4 z-50">
-            <UserProfile />
-          </div>
-        </body>
-      </html>
-    </AuthProvider>
-  );
-}
-```
-
-### 4.2 Update docusaurus.config.ts
-
-```typescript
-export default {
-  themeConfig: {
-    navbar: {
-      items: [
-        // Existing items...
-        {
-          type: 'html',
-          position: 'right',
-          value: '<div id="auth-button"></div>'
-        }
-      ]
-    }
-  }
-}
-```
-
-## Phase 5: Environment Configuration
-
-### 5.1 Add to .env file
-
-```env
-# Google OAuth Configuration
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-AUTH_REDIRECT_URI=http://localhost:3000/auth/google/callback
-
-# JWT Configuration
-JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production-in-production
-
-# Database
-DATABASE_URL=sqlite:///./database/auth.db
-
-# Frontend URL (for CORS)
-FRONTEND_URL=http://localhost:3000
-```
-
-## Phase 6: Testing the Implementation
-
-### 6.1 Test Authentication Flow
-
-1. Start the backend server:
 ```bash
+# Install alembic with UV if not installed
+uv add alembic
+
+# Initialize alembic
+cd backend
+uv run alembic init alembic
+
+# Configure alembic.ini to use your Neon PostgreSQL URL
+# Set sqlalchemy.url = postgresql://username:password@host/dbname
+
+# Create initial migration
+uv run alembic revision --autogenerate -m "Initial authentication schema"
+
+# Apply migrations
+uv run alembic upgrade head
+```
+
+### 3.2 Migration Script Template (backend/alembic/versions/001_initial_schema.py)
+```python
+"""Initial authentication schema
+
+Revision ID: 001
+Revises:
+Create Date: 2024-01-01 00:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers
+revision = '001'
+down_revision = None
+branch_labels = None
+depends_on = None
+
+def upgrade() -> None:
+    # Create users table
+    op.create_table('users',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.Column('email', sa.String(length=255), nullable=False),
+        sa.Column('full_name', sa.String(length=255), nullable=False),
+        sa.Column('password_hash', sa.String(length=255), nullable=False),
+        sa.Column('is_active', sa.Boolean(), nullable=True),
+        sa.Column('is_verified', sa.Boolean(), nullable=True),
+        sa.Column('verification_token', sa.String(), nullable=True),
+        sa.Column('password_reset_token', sa.String(), nullable=True),
+        sa.Column('password_reset_expires', sa.DateTime(), nullable=True),
+        sa.Column('last_login', sa.DateTime(), nullable=True),
+        sa.Column('bio', sa.String(length=500), nullable=True),
+        sa.Column('avatar_url', sa.String(), nullable=True),
+        sa.Column('timezone', sa.String(), nullable=True),
+        sa.Column('language', sa.String(), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
+
+    # Create user_preferences table
+    op.create_table('user_preferences',
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('theme', sa.String(), nullable=True),
+        sa.Column('language', sa.String(), nullable=True),
+        sa.Column('timezone', sa.String(), nullable=True),
+        sa.Column('email_notifications', sa.Boolean(), nullable=True),
+        sa.Column('chat_notifications', sa.Boolean(), nullable=True),
+        sa.Column('ai_model', sa.String(), nullable=True),
+        sa.Column('chat_mode', sa.String(), nullable=True),
+        sa.Column('save_history', sa.Boolean(), nullable=True),
+        sa.Column('profile_visibility', sa.String(), nullable=True),
+        sa.Column('extra_settings', sa.JSON(), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('user_id')
+    )
+
+    # Create chat_sessions table
+    op.create_table('chat_sessions',
+        sa.Column('session_id', sa.String(), nullable=False),
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.Column('user_id', sa.Integer(), nullable=True),
+        sa.Column('title', sa.String(), nullable=True),
+        sa.Column('is_anonymous', sa.Boolean(), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_chat_sessions_session_id', 'chat_sessions', ['session_id'], unique=True)
+
+    # Create chat_messages table
+    op.create_table('chat_messages',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('session_id', sa.String(), nullable=False),
+        sa.Column('role', sa.String(length=20), nullable=False),
+        sa.Column('content', sa.Text(), nullable=False),
+        sa.Column('sources', sa.JSON(), nullable=True),
+        sa.Column('tokens_used', sa.Integer(), nullable=True),
+        sa.Column('model_used', sa.String(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['session_id'], ['chat_sessions.session_id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+
+def downgrade() -> None:
+    op.drop_table('chat_messages')
+    op.drop_table('chat_sessions')
+    op.drop_table('user_preferences')
+    op.drop_index(op.f('ix_users_email'), table_name='users')
+    op.drop_table('users')
+```
+
+## Phase 4: Testing
+
+### 4.1 Test Authentication Flow
+
+1. **Register a new user**:
+   - Visit the register modal
+   - Enter email, full name, and password
+   - Submit and verify user is created
+
+2. **Login with existing user**:
+   - Visit the sign-in modal
+   - Enter credentials
+   - Verify successful authentication
+
+3. **Test protected routes**:
+   - Try accessing chat without authentication
+   - Verify prompt to sign in/register
+   - Verify chat works after authentication
+
+4. **Test profile updates**:
+   - Update user profile information
+   - Verify changes persist
+
+### 4.2 Run the Application with UV
+
+```bash
+# Start the backend server with UV
 cd backend
 uv run python main.py
-```
 
-2. Start the frontend:
-```bash
+# The server will start on http://localhost:8000
+
+# The frontend should already be running or start it with:
+cd src
 npm start
 ```
 
-3. Test the flow:
-   - Click "Sign in" button
-   - Authenticate with Google
-   - Verify user profile appears
-   - Test chat functionality
-   - Test logout
-
-### 6.2 Database Initialization
-
-The database will be automatically created when the application starts. To add migrations:
+### 4.2 Database Testing
 
 ```bash
-cd backend
-alembic init alembic
-alembic revision --autogenerate -m "Initial migration"
-alembic upgrade head
+# Connect to Neon PostgreSQL
+psql postgresql://username:password@host/dbname
+
+# Verify tables created
+\dt
+
+# Verify user creation
+SELECT * FROM users LIMIT 5;
+
+# Check relationships
+SELECT u.full_name, up.theme FROM users u
+LEFT JOIN user_preferences up ON u.id = up.user_id;
 ```
 
 ## Security Considerations
 
-1. **Store secrets securely**: Use environment variables, never hardcode secrets
-2. **HTTPS in production**: Always use HTTPS for OAuth redirects
-3. **Secure cookies**: Set `secure=True` for cookies in production
-4. **Rate limiting**: Implement rate limiting on auth endpoints
-5. **Input validation**: Validate all user inputs
-6. **SQL injection prevention**: Use SQLAlchemy ORM which prevents SQL injection
+1. **Password Security**:
+   - Minimum 8 characters
+   - Hashed with bcrypt
+   - Secure password reset flow
 
-## Common Issues and Solutions
+2. **Token Security**:
+   - JWT tokens with 7-day expiry
+   - Store tokens in localStorage (or secure cookies in production)
+   - Validate tokens on protected routes
 
-1. **CORS errors**: Ensure frontend URL is added to CORS origins
-2. **OAuth redirect mismatch**: Check redirect URI in Google Console matches exactly
-3. **JWT token not working**: Verify SECRET_KEY is the same on both ends
-4. **Database errors**: Ensure proper permissions for database directory
+3. **Database Security**:
+   - Use Neon's secure PostgreSQL
+   - All connections use SSL
+   - Environment variables for credentials
 
-This implementation provides a complete authentication system with Google OAuth, user management, and session handling integrated with your existing chat application.
+4. **Input Validation**:
+   - Email format validation
+   - Password strength requirements
+   - SQL injection prevention through SQLModel
+
+5. **Rate Limiting**:
+   - Implement rate limiting on auth endpoints
+   - Prevent brute force attacks
+
+## Environment Variables Summary
+
+```env
+# Database
+DATABASE_URL=postgresql://username:password@host/dbname?sslmode=require
+
+# JWT
+JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
+
+# Email (optional, for verification)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+FROM_EMAIL=noreply@yourapp.com
+
+# Frontend
+FRONTEND_URL=http://localhost:3000
+```
+
+This implementation provides a complete authentication system using Neon PostgreSQL, SQLModel, and integrates seamlessly with your existing frontend modals and chat functionality.

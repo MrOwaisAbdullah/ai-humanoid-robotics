@@ -228,7 +228,15 @@ function ChatWidgetContainerInner({
                   // Initial metadata, can be ignored for now
                   console.log('Chat session started:', data.session_id);
                 } else if (data.type === 'done') {
-                  // Stream completed
+                  // Stream completed - update message with sources if available
+                  if (data.sources && chatContext.updateMessage) {
+                    // Don't pass null for content - just update sources
+                    // Find the current message and preserve its content
+                    const currentMessage = chatContext.session.messages.find(m => m.id === aiMessageId);
+                    if (currentMessage) {
+                      chatContext.updateMessage(aiMessageId, currentMessage.content, data.sources);
+                    }
+                  }
                   console.log('Chat completed:', data);
                   break;
                 }

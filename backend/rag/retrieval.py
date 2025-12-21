@@ -305,10 +305,13 @@ class RetrievalEngine:
             # In a real implementation, you'd retrieve or compute chunk embeddings
             # For now, use dummy embeddings based on content hash
             content_hash = chunk.metadata.get("content_hash", "")
-            chunk_embeddings.append([
-                float(hash(content_hash[i:i+8]) % 1000 / 1000.0)
-                for i in range(0, 1536, 8)
-            ])
+            # Generate 1536-dimensional dummy embedding
+            embedding = []
+            for i in range(1536):
+                # Use content hash to generate consistent pseudo-random values
+                val = (hash(content_hash + str(i)) % 10000) / 10000.0
+                embedding.append(val)
+            chunk_embeddings.append(embedding)
 
         while len(selected_indices) < k and remaining_indices:
             best_score = -float('inf')

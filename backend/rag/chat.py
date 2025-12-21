@@ -59,7 +59,7 @@ class ChatHandler:
             qdrant_manager=qdrant_manager,
             embedder=self.embedder,
             score_threshold=0.2,  # Lowered to 0.2 to match document scores (0.38+)
-            enable_mmr=True,
+            enable_mmr=False,
             mmr_lambda=0.5
         )
 
@@ -284,6 +284,14 @@ class ChatHandler:
                 context_window or self.context_window_size
             )
 
+            # Ensure the current user question is included
+            # Add the current query as the last user message if not already present
+            if not context_messages or context_messages[-1].get("role") != "user":
+                context_messages.append({
+                    "role": "user",
+                    "content": query
+                })
+
             # Send initial metadata
             yield self._format_sse_message({
                 "type": "start",
@@ -295,6 +303,13 @@ class ChatHandler:
             # Generate streaming response
             logger.info("Generating streaming response...")
             full_response = ""  # Initialize response accumulator
+
+            # Debug: Log the messages being sent to OpenAI
+            logger.info(f"Sending {len(context_messages)} messages to OpenAI")
+            for i, msg in enumerate(context_messages):
+                role = msg.get("role", "unknown")
+                content_preview = msg.get("content", "")[:100]
+                logger.info(f"Message {i}: {role} - {content_preview}...")
 
             stream = await self.openai_client.chat.completions.create(
                 model=self.model,
@@ -325,11 +340,29 @@ class ChatHandler:
 
             # Send completion message
             response_time = (datetime.utcnow() - start_time).total_seconds()
+
+            # Helper function to serialize citations
+            def serialize_citation(citation):
+                """Convert Citation object to JSON-serializable dict."""
+                return {
+                    "id": getattr(citation, 'id', ''),
+                    "chunk_id": getattr(citation, 'chunk_id', ''),
+                    "document_id": getattr(citation, 'document_id', ''),
+                    "text_snippet": getattr(citation, 'text_snippet', ''),
+                    "relevance_score": getattr(citation, 'relevance_score', 0),
+                    "chapter": getattr(citation, 'chapter', ''),
+                    "section": getattr(citation, 'section', ''),
+                    "page_number": getattr(citation, 'page_number', None),
+                    "url": getattr(citation, 'url', ''),
+                    "confidence": getattr(citation, 'confidence', 0)
+                }
+
             yield self._format_sse_message({
                 "type": "done",
                 "session_id": session_id,
                 "response_time": response_time,
-                "tokens_used": user_message.token_count + assistant_message.token_count
+                "tokens_used": user_message.token_count + assistant_message.token_count,
+                "sources": [serialize_citation(citation) for citation in citations]
             })
 
         except Exception as e:
@@ -555,6 +588,8 @@ class ChatHandler:
                     "relevance_score": getattr(citation, 'relevance_score', 0),
                     "chapter": getattr(citation, 'chapter', ''),
                     "section": getattr(citation, 'section', ''),
+                    "page_number": getattr(citation, 'page_number', None),
+                    "url": getattr(citation, 'url', ''),
                     "confidence": getattr(citation, 'confidence', 0)
                 }
 

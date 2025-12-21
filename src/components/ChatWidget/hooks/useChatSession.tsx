@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, ReactNode, useCallback, useMemo } from 'react';
-import { ChatSession, ChatMessage } from '../types';
+import { ChatSession, ChatMessage, SourceCitation } from '../types';
 
 // Enhanced chat context type with additional methods
 export interface ChatContextType {
@@ -169,8 +169,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_THINKING', payload: thinking });
   }, []);
 
-  const updateMessage = useCallback((id: string, content: string) => {
-    dispatch({ type: 'UPDATE_MESSAGE', payload: { id, content } });
+  const updateMessage = useCallback((id: string, content: string, sources?: SourceCitation[]) => {
+    dispatch({ type: 'UPDATE_MESSAGE', payload: { id, content, sources } });
   }, []);
 
   const setStreaming = useCallback((id: string, isStreaming: boolean) => {
