@@ -11,7 +11,7 @@ This service handles all translation-related API calls including:
 
 import { apiRequest } from './api';
 import { getCacheService } from './cache';
-import { getCookie } from '../contexts/AuthContext';
+import { getCookie } from '../context/AuthContext';
 
 // Safe cache service accessor
 const getCache = async () => {

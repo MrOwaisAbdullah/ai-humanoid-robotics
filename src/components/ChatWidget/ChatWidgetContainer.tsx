@@ -7,7 +7,7 @@ import { ChatProvider, useChat, useChatSelector } from './contexts/index';
 import { ChatWidgetContainerProps, ChatMessage } from './types';
 import { formatChatRequest, APIError } from './utils/api';
 import { withPerformanceMonitoring, usePerformanceMonitor } from './utils/performanceMonitor';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { sessionStorage } from '../../utils/sessionStorage';
 import { API_BASE_URL } from '../../config/api';
 

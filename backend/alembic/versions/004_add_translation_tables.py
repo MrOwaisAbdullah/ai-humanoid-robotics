@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import sqlite
 
 # revision identifiers
-revision = '004_add_translation_tables'
-down_revision = '003_reader_features_tables'
+revision = '0004'
+down_revision = '0003'
 branch_labels = None
 depends_on = None
 

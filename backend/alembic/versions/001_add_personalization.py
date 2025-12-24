@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers
-revision = '001_add_personalization'
-down_revision = None
+revision = '0006'
+down_revision = '0005'
 branch_labels = None
 depends_on = None
 
@@ -20,8 +20,8 @@ def upgrade():
     # Create saved_personalizations table
     op.create_table(
         'saved_personalizations',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('user_id', sa.UUID(), nullable=False),
+        sa.Column('id', sa.String(36), nullable=False),  # Changed from UUID to VARCHAR to match users.id
+        sa.Column('user_id', sa.String(36), nullable=False),  # Changed from UUID to VARCHAR to match users.id
         sa.Column('original_content_hash', sa.String(64), nullable=False),
         sa.Column('content_url', sa.String(512), nullable=False),
         sa.Column('content_title', sa.String(200), nullable=False),

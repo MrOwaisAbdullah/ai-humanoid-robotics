@@ -13,6 +13,9 @@ const config: Config = {
   organizationName: "mrowaisabdullah",
   projectName: "ai-book",
 
+  // Client modules for injecting client-side code
+  clientModules: [require.resolve('./src/clientModules/apiConfig')],
+
   markdown: {
     hooks: {
       onBrokenMarkdownLinks: "warn",

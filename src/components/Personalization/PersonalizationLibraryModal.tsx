@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
 import { Loader2, X, Clock, FileText, Trash2, Search, BookOpen, Calendar } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';

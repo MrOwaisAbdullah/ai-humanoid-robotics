@@ -6,7 +6,7 @@ import StreamingCursor from './StreamingCursor';
 import CopyButton from './CopyButton';
 import { MessageEdit } from './MessageEdit';
 import { getOptimizedMotionProps, messageEntryVariants } from '../utils/animations';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 import styles from '../styles/ChatWidget.module.css';
 
 // Helper function to safely format message content

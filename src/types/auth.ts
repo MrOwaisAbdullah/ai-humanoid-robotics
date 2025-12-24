@@ -192,4 +192,4 @@ export interface RateLimitInfo {
 }
 
 // Authentication context types (re-export from AuthContext)
-export type { AuthState, AuthContextValue } from '../contexts/AuthContext';
+export type { AuthState, AuthContextValue } from '../context/AuthContext';

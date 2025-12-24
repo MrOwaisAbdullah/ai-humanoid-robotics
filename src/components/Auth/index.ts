@@ -1,5 +1,5 @@
 // Authentication context and providers
-export { AuthProvider, useAuth, OAuthCallbackHandler } from '../../contexts/AuthContext';
+export { AuthProvider, useAuth, OAuthCallbackHandler } from '../../context/AuthContext';
 
 // Authentication UI components
 export { LoginButton } from './LoginButton';

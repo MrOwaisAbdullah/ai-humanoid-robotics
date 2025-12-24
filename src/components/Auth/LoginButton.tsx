@@ -4,8 +4,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { RegistrationBackground } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+import { RegistrationBackground } from '../../context/AuthContext';
 import { RegistrationForm } from './RegistrationForm';
 import { PasswordInput } from './PasswordInput';
 import { z } from 'zod';
@@ -103,7 +103,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
       setError(null);
       setSuccess(null);
       setIsSigningIn(true);
-      const migrationInfo = await login(data.email, data.password);
+      const response = await login({ email: data.email, password: data.password });
       setIsModalOpen(false);
       loginForm.reset();
       setIsSigningIn(false);
@@ -113,11 +113,9 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         onSuccess();
       }
 
-      // Show migration success message if applicable
-      if (migrationInfo && migrationInfo.migratedSessions && migrationInfo.migratedSessions > 0) {
-        setSuccess(
-          `Welcome back! We've migrated ${migrationInfo.migratedSessions} chat session${migrationInfo.migratedSessions > 1 ? 's' : ''} with ${migrationInfo.migratedMessages} message${migrationInfo.migratedMessages > 1 ? 's' : ''} to your account.`
-        );
+      // Show success message if applicable
+      if (response.success && response.message) {
+        setSuccess(response.message);
       }
     } catch (error: any) {
       let errorMessage = 'Login failed. Please try again.';
@@ -154,12 +152,12 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
     try {
       setError(null);
       setSuccess(null);
-      const migrationInfo = await register(
-        data.email,
-        data.password,
-        data.name,
-        data.background
-      );
+      const response = await register({
+        email: data.email,
+        name: data.name || '',
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+      });
       setIsModalOpen(false);
       registerForm.reset();
 
@@ -168,11 +166,9 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         onSuccess();
       }
 
-      // Show migration success message if applicable
-      if (migrationInfo && migrationInfo.migratedSessions && migrationInfo.migratedSessions > 0) {
-        setSuccess(
-          `Welcome! We've saved your ${migrationInfo.migratedSessions} chat session${migrationInfo.migratedSessions > 1 ? 's' : ''} with ${migrationInfo.migratedMessages} message${migrationInfo.migratedMessages > 1 ? 's' : ''} to your new account.`
-        );
+      // Show success message if applicable
+      if (response.success && response.message) {
+        setSuccess(response.message);
       }
     } catch (error: any) {
       let errorMessage = 'Registration failed. Please try again.';

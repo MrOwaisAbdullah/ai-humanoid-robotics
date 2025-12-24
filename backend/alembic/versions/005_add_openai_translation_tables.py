@@ -11,8 +11,8 @@ from sqlalchemy.dialects import postgresql, sqlite
 import uuid
 
 # revision identifiers
-revision = '005_add_openai_translation_tables'
-down_revision = '004_add_translation_tables'
+revision = '0005'
+down_revision = '0004'
 branch_labels = None
 depends_on = None
 

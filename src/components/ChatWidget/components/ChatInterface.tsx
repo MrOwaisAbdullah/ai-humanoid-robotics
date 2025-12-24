@@ -7,7 +7,7 @@ import InputArea from './InputArea';
 import ThinkingIndicator from './ThinkingIndicator';
 import { getOptimizedMotionProps, widgetVariants } from '../utils/animations';
 import styles from '../styles/ChatWidget.module.css';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 import { AuthenticationBanner, AnonymousLimitBanner } from '../../../components/Auth/AuthenticationBanner';
 import { useChatActions } from '../contexts/index';
 

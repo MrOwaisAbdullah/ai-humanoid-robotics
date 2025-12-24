@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusMode } from '../../contexts/FocusModeContext';
 import { useLocalization } from '../../contexts/LocalizationContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { Loader2, Globe, Sparkles, Lock } from 'lucide-react';
 import { useLocation } from '@docusaurus/router';
 import TextToSpeech from '../../components/TTS/TextToSpeech';

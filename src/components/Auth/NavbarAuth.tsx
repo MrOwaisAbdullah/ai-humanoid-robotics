@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { LoginButton } from './LoginButton';
 import { UserProfile } from './UserProfile';
 import { PersonalizationLibraryModal } from '../Personalization/PersonalizationLibraryModal';

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { OnboardingModal } from './OnboardingModal';
 import { PersonalizationLibraryModal } from '../Personalization/PersonalizationLibraryModal';
 import { apiRequest } from '../../services/api';

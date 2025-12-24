@@ -59,6 +59,7 @@ from middleware.auth import AuthMiddleware
 
 # Import auth routes
 from routes import auth
+from src.api.v1 import auth as auth_v1  # New JWT-based auth
 from src.api.routes import chat
 from src.api.routes import users
 
@@ -279,7 +280,7 @@ app.add_middleware(
     httponly=False,
     samesite="lax",
     max_age=3600,
-    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth/login", "/auth/register", "/api/chat", "/auth/logout", "/auth/me", "/auth/preferences", "/auth/refresh", "/api/v1/translation", "/api/v1/onboarding", "/api/v1/personalization"],
+    exempt_paths=["/health", "/docs", "/openapi.json", "/ingest/status", "/collections", "/auth/login", "/auth/register", "/api/chat", "/auth/logout", "/auth/me", "/auth/preferences", "/auth/refresh", "/api/v1/translation", "/api/v1/onboarding", "/api/v1/personalization", "/api/v1/auth"],
 )
 
 app.add_middleware(
@@ -291,6 +292,9 @@ app.add_middleware(
 
 # Include auth routes
 app.include_router(auth.router)
+
+# Include new JWT-based auth routes
+app.include_router(auth_v1.router, prefix="/api/v1")
 
 # Include users routes
 app.include_router(users.router, prefix="/api/v1")
