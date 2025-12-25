@@ -1397,3 +1397,344 @@ class Settings(BaseSettings):
 7. **Review the lessons learned above to avoid common pitfalls**
 
 For detailed documentation and advanced configurations, visit the [Better Auth documentation](https://better-auth.com/docs).
+
+---
+
+## FastAPI + React JWT Authentication: Critical Implementation Lessons
+
+**Context**: These lessons are from implementing JWT-based authentication with FastAPI (backend) and React (frontend), not using Better Auth library. If you're implementing custom JWT authentication, avoid these pitfalls:
+
+### 1. Database Column Name Mismatches
+
+**Problem**: SQLAlchemy model attribute names don't always match database column names
+```python
+# ❌ This causes error: "column user_backgrounds.years_of_experience does not exist"
+class UserBackground(Base):
+    years_of_experience = Column(Integer, nullable=False, default=0)
+
+# ✅ Fix: Add explicit column name mapping
+class UserBackground(Base):
+    years_of_experience = Column("years_experience", Integer, nullable=False, default=0)
+```
+
+**Root Cause**: Database migration created `years_experience` column but model uses `years_of_experience` attribute name. SQLAlchemy needs explicit column name when they differ.
+
+**Files**: `backend/src/models/auth.py`
+
+---
+
+### 2. Async Database Operations with asyncpg Driver
+
+**Problem**: Using synchronous SQLAlchemy with async PostgreSQL driver causes connection errors
+```python
+# ❌ This causes: "TypeError: connect() got an unexpected keyword argument 'sslmode'"
+from src.database.base import get_db  # Synchronous session
+
+@router.get("/background")
+async def get_user_background(db = Depends(get_db)):
+    result = db.query(UserBackground).filter(...).first()  # Sync query
+```
+
+**✅ Fix: Use AsyncSession with async queries**
+```python
+from src.core.database import get_async_db  # Async session
+from sqlalchemy import select
+
+@router.get("/background")
+async def get_user_background(
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
+):
+    result = await db.execute(
+        select(UserBackground).where(UserBackground.user_id == user.id)
+    )
+    background = result.scalar_one_or_none()
+    await db.commit()
+```
+
+**Root Cause**: asyncpg driver doesn't support synchronous connection parameters. All database operations must be async.
+
+**Files**: `backend/src/api/routes/users.py`
+
+---
+
+### 3. useReducer Lazy Initialization with localStorage
+
+**Problem**: Initial state evaluated at module load time when localStorage is unavailable
+```typescript
+// ❌ This runs at module load, localStorage might not be available
+const initialState: AuthState = {
+  token: localStorage.getItem('auth_token'),  // Can be null or error
+  isLoading: !!localStorage.getItem('auth_token'),
+  // ...
+};
+
+const [state, dispatch] = useReducer(authReducer, initialState);
+```
+
+**✅ Fix: Use lazy initialization with init function**
+```typescript
+// Function called when component mounts, not at module load
+const getInitialState = (): AuthState => {
+  const tokens = tokenManager.getTokens();  // Safely called after mount
+  console.log('[AuthContext] getInitialState:', {
+    hasToken: !!tokens.token,
+    isLoading: !!tokens.token
+  });
+  return {
+    user: null,
+    token: tokens.token,
+    refreshToken: tokens.refreshToken,
+    isLoading: !!tokens.token,  // Only load if token exists
+    isAuthenticated: false,
+    error: null,
+  };
+};
+
+const [state, dispatch] = useReducer(authReducer, undefined, getInitialState);
+```
+
+**Root Cause**: React's `useReducer` with lazy initialization (third parameter) defers initial state calculation until component mount, ensuring browser APIs are available.
+
+**Files**: `src/context/AuthContext.tsx`
+
+---
+
+### 4. Reducer Actions Must Update All State
+
+**Problem**: Missing state updates in reducer causes infinite loading
+```typescript
+// ❌ isLoading never gets reset to false
+case 'SET_USER':
+  return {
+    ...state,
+    user: action.payload,
+    isAuthenticated: true,
+    // Missing: isLoading: false
+  };
+```
+
+**✅ Fix: Always update isLoading in auth state changes**
+```typescript
+case 'SET_USER':
+  return {
+    ...state,
+    user: action.payload,
+    isAuthenticated: true,
+    isLoading: false,  // CRITICAL: Reset loading state
+  };
+```
+
+**Root Cause**: Components waiting for `isLoading` to become `false` will hang forever.
+
+**Files**: `src/context/AuthContext.tsx`
+
+---
+
+### 5. API Response Format Consistency
+
+**Problem**: Different endpoints return different response structures
+```typescript
+// ❌ /api/v1/auth/register returns:
+{ success: true, user: {...}, token: "..." }
+
+// But /api/v1/auth/me returns user directly:
+{ id: "...", email: "...", name: "..." }
+```
+
+**✅ Fix: Handle both response formats in frontend**
+```typescript
+// Check response format appropriately
+if (response.success && response.user && response.token) {
+  // Register/Login response
+  tokenManager.setTokens(response.token, response.refreshToken);
+  dispatch({ type: 'AUTH_SUCCESS', payload: response });
+} else if (response && response.id) {
+  // Direct user response from /me endpoint
+  dispatch({ type: 'SET_USER', payload: response });
+}
+```
+
+**Better Solution**: Standardize all endpoint responses
+```python
+# Backend: Always use consistent wrapper
+class UserResponse(BaseModel):
+    success: bool
+    user: Dict[str, Any]  # Use Dict for camelCase flexibility
+    token: Optional[str] = None
+```
+
+**Files**: `src/context/AuthContext.tsx`, `backend/src/api/v1/auth.py`
+
+---
+
+### 6. Token Storage Key Consistency
+
+**Problem**: Different parts of codebase use different localStorage keys
+```typescript
+// ❌ Inconsistent key names
+localStorage.getItem('access_token')    // api.ts
+localStorage.setItem('auth_token', ...) // auth-api.ts
+localStorage.getItem('token')           // Some other file
+```
+
+**✅ Fix: Standardize on one key name across entire app**
+```typescript
+// Create a centralized token manager
+class TokenManager {
+  private readonly TOKEN_KEY = 'auth_token';
+  private readonly REFRESH_KEY = 'refresh_token';
+
+  getTokens() {
+    return {
+      token: localStorage.getItem(this.TOKEN_KEY),
+      refreshToken: localStorage.getItem(this.REFRESH_KEY)
+    };
+  }
+
+  setTokens(token: string, refreshToken?: string) {
+    localStorage.setItem(this.TOKEN_KEY, token);
+    if (refreshToken) {
+      localStorage.setItem(this.REFRESH_KEY, refreshToken);
+    }
+  }
+}
+```
+
+**Files**: `src/services/auth-api.ts`, `src/services/api.ts`
+
+---
+
+### 7. Race Conditions in Auth Check
+
+**Problem**: Components initialize before authentication check completes
+```typescript
+// ❌ Initializes anonymous session before knowing if user is authenticated
+const { isAuthenticated } = useAuth();
+
+useEffect(() => {
+  if (!isAuthenticated) {
+    initializeAnonymousSession();  // Runs too early!
+  }
+}, [isAuthenticated]);
+```
+
+**✅ Fix: Wait for auth check to complete before taking action**
+```typescript
+const { isAuthenticated, isLoading } = useAuth();  // Include isLoading
+
+useEffect(() => {
+  // Only initialize if not authenticated AND auth check is complete
+  if (!isAuthenticated && !isLoading) {
+    initializeAnonymousSession();
+  }
+}, [isAuthenticated, isLoading]);  // Both as dependencies
+```
+
+**Root Cause**: `isLoading` indicates auth check is in progress. Components must wait for `isLoading: false` before making auth-dependent decisions.
+
+**Files**: `src/components/ChatWidget/ChatWidgetContainer.tsx`
+
+---
+
+### 8. Middleware User vs Dependency Injection
+
+**Problem**: Inconsistent user retrieval patterns across endpoints
+```python
+# ❌ Old way: Duplicate authentication logic
+@router.get("/background")
+async def get_background(
+    current_user: User = Depends(get_current_active_user)
+):
+    # Re-validates token, makes extra DB query
+    pass
+
+# ✅ New way: Use middleware's validated user
+@router.get("/background")
+async def get_background(request: Request):
+    user = request.state.user  # Already validated by middleware
+    pass
+```
+
+**Benefits**:
+- Middleware validates token once per request
+- Reduces database queries
+- Consistent authentication across all endpoints
+
+**Files**: `backend/src/api/routes/users.py`, `backend/middleware/auth.py`
+
+---
+
+### 9. Module Import Path Updates
+
+**Problem**: Refactoring breaks imports across codebase
+```python
+# ❌ Old import after code reorganization
+from auth.auth import verify_token
+
+# ✅ Fix: Update to new module path
+from src.core.security import verify_token
+```
+
+**Best Practice**: When refactoring, use IDE's "Find All References" to update all imports consistently.
+
+**Files**: `backend/middleware/auth.py`
+
+---
+
+### 10. Missing Dependencies
+
+**Problem**: Required packages not installed, causing cryptic errors
+```
+ModuleNotFoundError: No module named 'sqlmodel'
+ModuleNotFoundError: No module named 'psycopg2'
+```
+
+**✅ Fix: Install all required dependencies upfront**
+```bash
+# Database dependencies
+pip install sqlalchemy[asyncio] asyncpg psycopg2-binary
+
+# ORM dependencies
+pip install sqlmodel
+
+# Auth dependencies
+pip install python-jose[cryptography] passlib[bcrypt]
+```
+
+**Files**: `backend/pyproject.toml` or `requirements.txt`
+
+---
+
+### Quick Reference: JWT Auth Implementation Checklist
+
+**Backend (FastAPI)**:
+- [ ] Use `AsyncSession` with async database driver (asyncpg)
+- [ ] Add explicit column name mappings for model attributes
+- [ ] Implement middleware for consistent authentication
+- [ ] Standardize API response formats (wrapper or direct)
+- [ ] Install all dependencies: `sqlalchemy[asyncio]`, `asyncpg`, `python-jose`, `passlib`
+
+**Frontend (React)**:
+- [ ] Use `useReducer` with lazy initialization for localStorage-dependent state
+- [ ] Always update `isLoading` in all auth reducer actions
+- [ ] Include `isLoading` in auth-dependent conditional logic
+- [ ] Standardize token storage keys across entire app
+- [ ] Handle both wrapped and direct API response formats
+
+**Testing**:
+- [ ] Test page refresh with valid token (should stay logged in)
+- [ ] Test page refresh with expired token (should log out)
+- [ ] Test authenticated endpoints with valid token
+- [ ] Test authenticated endpoints without token (should return 401)
+- [ ] Test async database operations don't block requests
+
+**Common Error Messages and Solutions**:
+
+| Error | Root Cause | Solution |
+|-------|-----------|----------|
+| `column ... does not exist` | Model attribute != DB column name | Add explicit column name mapping |
+| `TypeError: connect() got an unexpected keyword argument 'sslmode'` | Sync SQLAlchemy with async driver | Convert to async operations |
+| `User logs out on refresh` | Multiple: isLoading not reset, lazy init issue, race condition | Check all three fixes above |
+| `LocalStorage token: None` | Wrong storage key | Standardize key names |
+| `401 Unauthorized` on valid token | Import path issues, middleware not loading | Update imports, verify middleware order |
