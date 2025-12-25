@@ -242,6 +242,130 @@ async def health_check():
     }
 ```
 
+### 6. Hatchling README.md Not Found Error
+**Problem**: `pip install -e .` fails with `OSError: Readme file does not exist: README.md`
+```dockerfile
+# ❌ Wrong - README.md not copied before pip install
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir -e .
+
+# ✅ Correct - Copy README.md with pyproject.toml
+COPY pyproject.toml README.md ./
+RUN pip install --no-cache-dir -e .
+```
+**Root Cause**: `pyproject.toml` has `readme = "README.md"` but hatchling can't find it during install.
+**Files Affected**: `Dockerfile`, `Dockerfile.hf`
+
+### 7. Multiple Dockerfiles Confusion
+**Problem**: HuggingFace Spaces uses `Dockerfile` by default, not `Dockerfile.hf`
+```bash
+# You have TWO files:
+Dockerfile       # Used by HF Spaces by default
+Dockerfile.hf     # IGNORED by HF Spaces unless specified
+
+# Solution: Keep BOTH files in sync or use one file
+# Or specify in README.md frontmatter:
+# sdk: docker
+# dockerfile: Dockerfile.hf  # Optional override
+```
+**Lesson Learned**: When you have multiple Dockerfiles, HuggingFace uses `Dockerfile` by default. Either keep them synchronized or explicitly specify which one to use.
+
+### 8. Docusaurus SSR Build Errors
+**Problem**: `ReferenceError: window is not defined` or `localStorage is not defined` during build
+```typescript
+// ❌ Wrong - Runs during SSR build
+function setupAPIConfig() {
+  window.__API_BASE_URL__ = 'http://localhost:7860';
+}
+setupAPIConfig(); // Runs immediately at module load
+
+// ✅ Correct - SSR guard
+function setupAPIConfig() {
+  window.__API_BASE_URL__ = 'http://localhost:7860';
+}
+if (typeof window !== 'undefined') {
+  setupAPIConfig(); // Only runs in browser
+}
+```
+
+**For AuthContext with localStorage:**
+```typescript
+// ❌ Wrong - getInitialState accesses localStorage during SSR
+const getInitialState = (): AuthState => {
+  const tokens = tokenManager.getTokens(); // Uses localStorage
+  return { token: tokens.token, ... };
+};
+
+// ✅ Correct - SSR guard in init function
+const getInitialState = (): AuthState => {
+  // Return default state during SSR
+  if (typeof window === 'undefined') {
+    return {
+      user: null,
+      token: null,
+      refreshToken: null,
+      isLoading: false,
+      isAuthenticated: false,
+      error: null,
+    };
+  }
+
+  const tokens = tokenManager.getTokens();
+  return { token: tokens.token, ... };
+};
+```
+**Files Affected**: `src/clientModules/apiConfig.ts`, `src/context/AuthContext.tsx`
+
+### 9. HuggingFace Spaces Missing Configuration
+**Problem**: "Missing configuration in README" error
+```yaml
+# ❌ Wrong - README.md missing YAML frontmatter
+# My Backend
+
+FastAPI backend...
+
+# ✅ Correct - YAML frontmatter at TOP of README.md
+---
+title: AI Book Backend
+emoji: 🤖
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+sdk_version: "3.11"
+app_file: main.py
+pinned: false
+license: mit
+---
+
+# AI Book Backend
+
+FastAPI backend...
+```
+**Root Cause**: HuggingFace Spaces requires YAML configuration in README.md at the ROOT of the repository.
+**Files Affected**: `backend/README.md`
+
+### 10. Client Module SSR Execution
+**Problem**: Client modules execute during SSR build in Docusaurus
+```typescript
+// ❌ Wrong - Immediately executes code that needs browser APIs
+// src/clientModules/apiConfig.ts
+const config = window.location.hostname; // FAILS during build
+
+// ✅ Correct - Lazy execution with guard
+// src/clientModules/apiConfig.ts
+function setupAPIConfig() {
+  if (typeof window !== 'undefined') {
+    window.__API_BASE_URL__ = 'http://localhost:7860';
+  }
+}
+// Only call if in browser
+if (typeof window !== 'undefined') {
+  setupAPIConfig();
+}
+export default {};
+```
+**Key Insight**: Docusaurus client modules are bundled server-side. Always check `typeof window !== 'undefined'` before accessing browser APIs.
+
 ## Deployment Checklist
 
 ### Pre-Deployment
