@@ -13,8 +13,10 @@ function setupAPIConfig() {
   (window as any).__API_BASE_URL__ = API_BASE_URL;
 }
 
-// Run the setup immediately
-setupAPIConfig();
+// Only run on client side (browser), not during SSR build
+if (typeof window !== 'undefined') {
+  setupAPIConfig();
+}
 
 // Export empty object as required by Docusaurus client modules
 export default {};
