@@ -24,6 +24,18 @@ type AuthAction =
 
 // Initial state function - called when component mounts, not at module load
 const getInitialState = (): AuthState => {
+  // SSR guard: localStorage doesn't exist during server-side rendering
+  if (typeof window === 'undefined') {
+    return {
+      user: null,
+      token: null,
+      refreshToken: null,
+      isLoading: false,
+      isAuthenticated: false,
+      error: null,
+    };
+  }
+
   const tokens = tokenManager.getTokens();
   console.log('[AuthContext] getInitialState:', {
     hasToken: !!tokens.token,
