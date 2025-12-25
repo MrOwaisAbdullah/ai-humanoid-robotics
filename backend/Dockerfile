@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /app/.cache/huggingface /app/.cache/transformers /app/logs
 
 # Copy requirements first for better caching
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # Install Python dependencies
 RUN pip install --upgrade pip setuptools wheel
