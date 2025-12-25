@@ -251,6 +251,7 @@ include = [
     "/rag",
     "/pyproject.toml",
     "/README.md",
+    "/AUTHENTICATION_README.md",
     "/LICENSE"
 ]
 exclude = [
