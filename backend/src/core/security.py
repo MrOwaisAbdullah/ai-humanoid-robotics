@@ -2,6 +2,7 @@
 Security utilities for authentication, password hashing, and JWT token management.
 """
 
+import base64
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Union
 import secrets
@@ -258,7 +259,7 @@ def generate_verification_token() -> str:
     Returns:
         str: Secure random token
     """
-    return secrets.urlsafe_b64encode(secrets.token_bytes(32)).decode()
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
 
 
 def generate_password_reset_token() -> str:
@@ -268,7 +269,7 @@ def generate_password_reset_token() -> str:
     Returns:
         str: Secure random token
     """
-    return secrets.urlsafe_b64encode(secrets.token_bytes(32)).decode()
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
 
 
 def generate_session_token() -> str:

@@ -115,8 +115,11 @@ class EmailVerificationRequest(BaseModel):
 class UserResponse(BaseModel):
     """User response model."""
     success: bool
-    user: UserRead
-    tokens: Optional[TokenResponse] = None
+    user: Dict[str, Any]  # Changed from UserRead to Dict to allow camelCase
+    token: Optional[str] = None
+    refreshToken: Optional[str] = None
+    tokenType: Optional[str] = None
+    expiresIn: Optional[int] = None
     requires_verification: Optional[bool] = False
 
 
@@ -158,7 +161,7 @@ async def register(
         # Register user
         result = await auth_service.register_user(user_create, db)
 
-        # Format response
+        # Format response - flatten tokens to match frontend expectations
         response_data = {
             "success": result["success"],
             "user": result["user"],
@@ -166,7 +169,11 @@ async def register(
         }
 
         if "tokens" in result:
-            response_data["tokens"] = TokenResponse(**result["tokens"])
+            tokens = result["tokens"]
+            response_data["token"] = tokens.get("access_token")
+            response_data["refreshToken"] = tokens.get("refresh_token")
+            response_data["tokenType"] = tokens.get("token_type")
+            response_data["expiresIn"] = tokens.get("expires_in")
 
         return response_data
 
@@ -210,26 +217,39 @@ async def login(
         )
 
         if not result:
+            logger.warning(f"Login failed for email: {login_data.email} - User not found or invalid password")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
 
-        # Format response
-        return {
+        # Format response - flatten tokens to match frontend expectations
+        response_data = {
             "success": result["success"],
             "user": result["user"],
-            "tokens": TokenResponse(**result["tokens"])
+            "requires_verification": result.get("requires_verification", False)
         }
 
+        if "tokens" in result:
+            tokens = result["tokens"]
+            response_data["token"] = tokens.get("access_token")
+            response_data["refreshToken"] = tokens.get("refresh_token")
+            response_data["tokenType"] = tokens.get("token_type")
+            response_data["expiresIn"] = tokens.get("expires_in")
+
+        return response_data
+
+    except HTTPException:
+        # Re-raise HTTPException (like 401) as-is
+        raise
     except ValueError as e:
-        logger.warning(f"Login failed: {e}")
+        logger.warning(f"Login failed for email {login_data.email}: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Login error: {e}")
+        logger.error(f"Login error for {login_data.email}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Login failed. Please try again later."
@@ -467,11 +487,11 @@ async def reset_password(
 # ============================================
 # User Profile Endpoints
 # ============================================
-@router.get("/me", response_model=UserRead)
+@router.get("/me")
 async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_async_db)
-) -> User:
+) -> Dict[str, Any]:
     """
     Get current user profile.
 
@@ -480,7 +500,7 @@ async def get_current_user(
         db: Database session
 
     Returns:
-        Current user data
+        Current user data with camelCase fields
     """
     try:
         # Get user from request state (set by middleware)
@@ -490,7 +510,26 @@ async def get_current_user(
                 detail="Not authenticated"
             )
 
-        return request.state.user
+        user = request.state.user
+
+        # Return user with camelCase field names
+        return {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "fullName": user.full_name,
+            "avatarUrl": user.avatar_url,
+            "bio": user.bio,
+            "role": user.role.value if hasattr(user.role, 'value') else user.role,
+            "status": user.status.value if hasattr(user.status, 'value') else user.status,
+            "emailVerified": user.email_verified,
+            "authProvider": user.auth_provider.value if hasattr(user.auth_provider, 'value') else user.auth_provider,
+            "isPremium": user.is_premium,
+            "preferences": user.preferences,
+            "lastLoginAt": user.last_login_at.isoformat() if user.last_login_at else None,
+            "createdAt": user.created_at.isoformat() if user.created_at else None,
+            "updatedAt": user.updated_at.isoformat() if user.updated_at else None
+        }
 
     except HTTPException:
         raise

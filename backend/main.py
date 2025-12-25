@@ -44,8 +44,6 @@ from pydantic_settings import BaseSettings
 
 # Load environment variables first
 load_dotenv()
-print(f"*** Environment loaded. GEMINI_API_KEY exists: {bool(os.getenv('GEMINI_API_KEY'))} ***")
-
 from rag.ingestion import DocumentIngestor
 from rag.chat import ChatHandler
 from rag.qdrant_client import QdrantManager

@@ -7,12 +7,21 @@ onboarding, and preferences.
 
 from datetime import datetime
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from pydantic import BaseModel
 
-from src.database.base import get_db
-from src.models.auth import User, UserBackground, OnboardingResponse, UserPreferences
+# Import async database session
+from src.core.database import get_async_db
+
+# Import User model from new location
+from src.models.user import User
+
+# Import other models from old location (they're still there)
+from src.models.auth import UserBackground, OnboardingResponse, UserPreferences
+
+# Import schemas (these might need updating too)
 from src.schemas.auth import (
     UserResponse as UserSchema,
     UserBackgroundResponse,
@@ -25,46 +34,68 @@ from src.schemas.auth import (
     UserPreferencesUpdate,
     SuccessResponse
 )
-from src.security.dependencies import get_current_active_user
+
+# Remove the old dependency - we'll use middleware's user
+# from src.security.dependencies import get_current_active_user
 
 router = APIRouter(tags=["users"])
 
 
+async def get_current_user(request: Request) -> User:
+    """
+    Get the current authenticated user from middleware.
+    The middleware has already validated the token and set request.state.user.
+    """
+    if not hasattr(request.state, 'user') or not request.state.user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    return request.state.user
+
+
 @router.get("/me", response_model=UserSchema)
 async def get_user_profile(
-    current_user: UserSchema = Depends(get_current_active_user)
+    request: Request
 ) -> Any:
     """
     Get current user's profile information.
 
     Args:
-        current_user: Currently authenticated user
+        request: FastAPI request object (user from middleware)
 
     Returns:
         User profile data
     """
-    return current_user
+    user = await get_current_user(request)
+    return user
 
 
 @router.put("/me", response_model=UserSchema)
 async def update_user_profile(
     user_update: dict,
-    current_user: UserSchema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ) -> Any:
     """
     Update current user's profile information.
 
     Args:
         user_update: User data to update
-        current_user: Currently authenticated user
+        request: FastAPI request object (user from middleware)
         db: Database session
 
     Returns:
         Updated user data
     """
-    # Get user from database
-    db_user = db.query(User).filter(User.id == current_user.id).first()
+    user = await get_current_user(request)
+
+    # Get user from database (using async)
+    result = await db.execute(
+        select(User).where(User.id == user.id)
+    )
+    db_user = result.scalar_one_or_none()
+
     if not db_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -73,14 +104,17 @@ async def update_user_profile(
 
     # Update allowed fields
     if "name" in user_update and user_update["name"] is not None:
-        db_user.name = user_update["name"]
+        db_user.full_name = user_update["name"]
 
     if "email" in user_update and user_update["email"] is not None:
         # Check if email is already taken by another user
-        existing_user = db.query(User).filter(
-            User.email == user_update["email"],
-            User.id != current_user.id
-        ).first()
+        result = await db.execute(
+            select(User).where(
+                User.email == user_update["email"],
+                User.id != user.id
+            )
+        )
+        existing_user = result.scalar_one_or_none()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -90,36 +124,40 @@ async def update_user_profile(
         db_user.email_verified = False  # Require re-verification
 
     db_user.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
 
     return db_user
 
 
 @router.get("/background", response_model=UserBackgroundResponse)
 async def get_user_background(
-    current_user: UserSchema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ) -> Any:
     """
     Get user's background information.
 
     Args:
-        current_user: Currently authenticated user
+        request: FastAPI request object (user from middleware)
         db: Database session
 
     Returns:
         User background data
     """
-    background = db.query(UserBackground).filter(
-        UserBackground.user_id == current_user.id
-    ).first()
+    user = await get_current_user(request)
+
+    # Query using async
+    result = await db.execute(
+        select(UserBackground).where(UserBackground.user_id == user.id)
+    )
+    background = result.scalar_one_or_none()
 
     if not background:
         # Return default background
         return {
             "id": "",
-            "user_id": current_user.id,
+            "user_id": user.id,
             "experience_level": "beginner",
             "years_experience": 0,
             "preferred_languages": [],
@@ -144,24 +182,27 @@ async def get_user_background(
 @router.post("/background", response_model=UserBackgroundResponse)
 async def create_or_update_user_background(
     background_data: UserBackgroundCreate,
-    current_user: UserSchema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ) -> Any:
     """
     Create or update user's background information.
 
     Args:
         background_data: User background data
-        current_user: Currently authenticated user
+        request: FastAPI request object (user from middleware)
         db: Database session
 
     Returns:
         Created/updated user background data
     """
-    # Check if background exists
-    background = db.query(UserBackground).filter(
-        UserBackground.user_id == current_user.id
-    ).first()
+    user = await get_current_user(request)
+
+    # Check if background exists (using async)
+    result = await db.execute(
+        select(UserBackground).where(UserBackground.user_id == user.id)
+    )
+    background = result.scalar_one_or_none()
 
     if background:
         # Update existing background
@@ -174,7 +215,7 @@ async def create_or_update_user_background(
                 background.experience_level = UserBackground.ExperienceLevel.INTERMEDIATE
             elif exp_level == "advanced":
                 background.experience_level = UserBackground.ExperienceLevel.ADVANCED
-        background.years_experience = background_data.years_experience
+        background.years_of_experience = background_data.years_experience
         background.preferred_languages = background_data.preferred_languages
         background.hardware_expertise = background_data.hardware_expertise
         background.updated_at = datetime.utcnow()
@@ -191,16 +232,16 @@ async def create_or_update_user_background(
                 exp_level_enum = UserBackground.ExperienceLevel.ADVANCED
 
         background = UserBackground(
-            user_id=current_user.id,
+            user_id=user.id,
             experience_level=exp_level_enum,
-            years_experience=background_data.years_experience,
+            years_of_experience=background_data.years_experience,
             preferred_languages=background_data.preferred_languages,
             hardware_expertise=background_data.hardware_expertise
         )
         db.add(background)
 
-    db.commit()
-    db.refresh(background)
+    await db.commit()
+    await db.refresh(background)
 
     return background
 
@@ -208,35 +249,42 @@ async def create_or_update_user_background(
 @router.post("/onboarding", response_model=SuccessResponse)
 async def submit_onboarding(
     onboarding_data: OnboardingBatch,
-    current_user: UserSchema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ) -> Any:
     """
     Submit onboarding responses.
 
     Args:
         onboarding_data: Batch of onboarding responses
-        current_user: Currently authenticated user
+        request: FastAPI request object (user from middleware)
         db: Database session
 
     Returns:
         Success response
     """
-    # Clear existing onboarding responses for this user
-    db.query(OnboardingResponse).filter(
-        OnboardingResponse.user_id == current_user.id
-    ).delete()
+    user = await get_current_user(request)
+
+    # Clear existing onboarding responses for this user (using async)
+    await db.execute(
+        select(OnboardingResponse).where(OnboardingResponse.user_id == user.id)
+    )
+    # Delete properly
+    from sqlalchemy import delete
+    await db.execute(
+        delete(OnboardingResponse).where(OnboardingResponse.user_id == user.id)
+    )
 
     # Add new responses
     for response_data in onboarding_data.responses:
         response = OnboardingResponse(
-            user_id=current_user.id,
+            user_id=user.id,
             question_key=response_data.question_key,
             response_value=response_data.response_value
         )
         db.add(response)
 
-    db.commit()
+    await db.commit()
 
     # Optionally update user background based on responses
     background_responses = {
@@ -277,9 +325,10 @@ async def submit_onboarding(
 
     # Create or update user background
     if background_update:
-        background = db.query(UserBackground).filter(
-            UserBackground.user_id == current_user.id
-        ).first()
+        result = await db.execute(
+            select(UserBackground).where(UserBackground.user_id == user.id)
+        )
+        background = result.scalar_one_or_none()
 
         if background:
             # Update existing background - handle enum specially
@@ -313,7 +362,7 @@ async def submit_onboarding(
                         exp_level_enum = UserBackground.ExperienceLevel.ADVANCED
 
             background = UserBackground(
-                user_id=current_user.id,
+                user_id=user.id,
                 experience_level=exp_level_enum,
                 years_of_experience=background_update.get("years_of_experience", 0),
                 preferred_languages=background_update.get("preferred_languages", []),
@@ -321,57 +370,63 @@ async def submit_onboarding(
             )
             db.add(background)
 
-        db.commit()
+        await db.commit()
 
     return {"success": True, "message": "Onboarding responses saved successfully"}
 
 
 @router.get("/onboarding", response_model=List[OnboardingResponseSchema])
 async def get_onboarding_responses(
-    current_user: UserSchema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ) -> Any:
     """
     Get user's onboarding responses.
 
     Args:
-        current_user: Currently authenticated user
+        request: FastAPI request object (user from middleware)
         db: Database session
 
     Returns:
         List of onboarding responses
     """
-    responses = db.query(OnboardingResponse).filter(
-        OnboardingResponse.user_id == current_user.id
-    ).all()
+    user = await get_current_user(request)
+
+    result = await db.execute(
+        select(OnboardingResponse).where(OnboardingResponse.user_id == user.id)
+    )
+    responses = result.scalars().all()
 
     return responses
 
 
 @router.get("/preferences", response_model=UserPreferencesResponse)
 async def get_user_preferences(
-    current_user: UserSchema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ) -> Any:
     """
     Get user's preferences.
 
     Args:
-        current_user: Currently authenticated user
+        request: FastAPI request object (user from middleware)
         db: Database session
 
     Returns:
         User preferences data
     """
-    preferences = db.query(UserPreferences).filter(
-        UserPreferences.user_id == current_user.id
-    ).first()
+    user = await get_current_user(request)
+
+    result = await db.execute(
+        select(UserPreferences).where(UserPreferences.user_id == user.id)
+    )
+    preferences = result.scalar_one_or_none()
 
     if not preferences:
         # Return default preferences
         return {
             "id": "",
-            "user_id": current_user.id,
+            "user_id": user.id,
             "theme": "auto",
             "language": "en",
             "notification_settings": {
@@ -389,24 +444,27 @@ async def get_user_preferences(
 @router.put("/preferences", response_model=UserPreferencesResponse)
 async def update_user_preferences(
     preferences_data: UserPreferencesUpdate,
-    current_user: UserSchema = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    request: Request,
+    db: AsyncSession = Depends(get_async_db)
 ) -> Any:
     """
     Update user's preferences.
 
     Args:
         preferences_data: Preferences data to update
-        current_user: Currently authenticated user
+        request: FastAPI request object (user from middleware)
         db: Database session
 
     Returns:
         Updated preferences data
     """
-    # Get or create preferences
-    preferences = db.query(UserPreferences).filter(
-        UserPreferences.user_id == current_user.id
-    ).first()
+    user = await get_current_user(request)
+
+    # Get or create preferences (using async)
+    result = await db.execute(
+        select(UserPreferences).where(UserPreferences.user_id == user.id)
+    )
+    preferences = result.scalar_one_or_none()
 
     if preferences:
         # Update existing preferences
@@ -420,7 +478,7 @@ async def update_user_preferences(
     else:
         # Create new preferences with defaults
         preferences = UserPreferences(
-            user_id=current_user.id,
+            user_id=user.id,
             theme=preferences_data.theme or "auto",
             language=preferences_data.language or "en",
             notification_settings=preferences_data.notification_settings or {
@@ -431,7 +489,7 @@ async def update_user_preferences(
         )
         db.add(preferences)
 
-    db.commit()
-    db.refresh(preferences)
+    await db.commit()
+    await db.refresh(preferences)
 
     return preferences

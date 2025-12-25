@@ -2,8 +2,10 @@
 Comprehensive authentication service for handling user authentication, registration, and token management.
 """
 
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
+from enum import Enum
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
@@ -77,6 +79,7 @@ class AuthService:
                 username=user_data.username,
                 full_name=user_data.full_name,
                 password_hash=get_password_hash(user_data.password) if user_data.password else None,
+                role=UserRole.USER,
                 auth_provider=AuthProvider.EMAIL,
                 status=UserStatus.INACTIVE if settings.email_verification_required else UserStatus.ACTIVE,
                 email_verified=False if settings.email_verification_required else True
@@ -86,17 +89,42 @@ class AuthService:
             await db.flush()  # Get the user ID
 
             # Create email verification if required
+            verification = None
             if settings.email_verification_required:
-                await self._create_email_verification(user, db)
+                verification = await self._create_email_verification(user, db)
 
             # Create session and tokens
             session_result = await self._create_user_session(user, db)
 
+            # Refresh user to ensure all attributes are loaded before commit
+            await db.refresh(user)
+
+            # Commit database transaction
             await db.commit()
 
-            # Send verification email
-            if settings.email_verification_required:
-                await self.email_service.send_verification_email(user.email)
+            # Convert datetime objects to ISO format strings to avoid lazy loading issues
+            user_created_at = user.created_at.isoformat() if user.created_at else None
+            user_updated_at = user.updated_at.isoformat() if user.updated_at else None
+            user_last_login_at = user.last_login_at.isoformat() if user.last_login_at else None
+
+            # Send verification email in background (don't fail registration if email fails)
+            if settings.email_verification_required and verification:
+                # Extract email and token before user object potentially becomes detached
+                user_email = user.email
+                verification_token_value = verification.token
+
+                async def send_email_task():
+                    try:
+                        await self.email_service.send_verification_email(
+                            to_email=user_email,
+                            verification_token=verification_token_value,
+                            frontend_url=settings.frontend_url
+                        )
+                    except Exception as email_error:
+                        logger.error(f"Failed to send verification email to {user_email}: {email_error}")
+
+                # Create background task for sending email
+                asyncio.create_task(send_email_task())
 
             return {
                 "success": True,
@@ -104,11 +132,18 @@ class AuthService:
                     "id": user.id,
                     "email": user.email,
                     "username": user.username,
-                    "full_name": user.full_name,
-                    "role": user.role,
-                    "status": user.status,
-                    "email_verified": user.email_verified,
-                    "created_at": user.created_at
+                    "fullName": user.full_name,
+                    "avatarUrl": user.avatar_url,
+                    "bio": user.bio,
+                    "role": user.role.value if isinstance(user.role, Enum) else user.role,
+                    "status": user.status.value if isinstance(user.status, Enum) else user.status,
+                    "emailVerified": user.email_verified,
+                    "authProvider": user.auth_provider.value if isinstance(user.auth_provider, Enum) else user.auth_provider,
+                    "isPremium": user.is_premium,
+                    "preferences": user.preferences,
+                    "lastLoginAt": user_last_login_at,
+                    "createdAt": user_created_at,
+                    "updatedAt": user_updated_at
                 },
                 "tokens": session_result,
                 "requires_verification": settings.email_verification_required
@@ -175,12 +210,18 @@ class AuthService:
                     "id": user.id,
                     "email": user.email,
                     "username": user.username,
-                    "full_name": user.full_name,
-                    "role": user.role,
-                    "status": user.status,
-                    "email_verified": user.email_verified,
-                    "last_login_at": user.last_login_at,
-                    "created_at": user.created_at
+                    "fullName": user.full_name,
+                    "avatarUrl": user.avatar_url,
+                    "bio": user.bio,
+                    "role": user.role.value if isinstance(user.role, Enum) else user.role,
+                    "status": user.status.value if isinstance(user.status, Enum) else user.status,
+                    "emailVerified": user.email_verified,
+                    "authProvider": user.auth_provider.value if isinstance(user.auth_provider, Enum) else user.auth_provider,
+                    "isPremium": user.is_premium,
+                    "preferences": user.preferences,
+                    "lastLoginAt": user.last_login_at.isoformat() if user.last_login_at else None,
+                    "createdAt": user.created_at.isoformat() if user.created_at else None,
+                    "updatedAt": user.updated_at.isoformat() if user.updated_at else None
                 },
                 "tokens": session_result
             }
@@ -373,8 +414,22 @@ class AuthService:
             db.add(reset_token)
             await db.commit()
 
-            # Send reset email
-            await self.email_service.send_password_reset_email(user.email, reset_token.token)
+            # Send reset email in background (don't fail request if email fails)
+            # Extract email before user object potentially becomes detached
+            user_email = user.email
+
+            async def send_reset_email_task():
+                try:
+                    await self.email_service.send_password_reset_email(
+                        to_email=user_email,
+                        reset_token=reset_token.token,
+                        frontend_url=settings.frontend_url
+                    )
+                except Exception as email_error:
+                    logger.error(f"Failed to send password reset email to {user_email}: {email_error}")
+
+            # Create background task for sending email
+            asyncio.create_task(send_reset_email_task())
 
             return {
                 "success": True,

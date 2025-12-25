@@ -30,7 +30,16 @@ function ChatWidgetContainerInner({
   const chatContext = useChat();
 
   // Use auth context to get authentication state
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Debug logging to see auth state on each render
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[ChatWidgetContainer] Auth state:', {
+      isAuthenticated,
+      isLoading,
+      shouldInitAnonymous: !isAuthenticated && !isLoading
+    });
+  }
 
   // Ref for anonymous session ID
   const anonymousSessionIdRef = useRef<string | null>(null);
@@ -363,8 +372,8 @@ function ChatWidgetContainerInner({
    * Initialize anonymous session on mount
    */
   useEffect(() => {
-    // Only initialize if not authenticated
-    if (!isAuthenticated) {
+    // Only initialize if not authenticated AND auth check is complete
+    if (!isAuthenticated && !isLoading) {
       const initializeAnonymousSession = async () => {
         try {
           // Get or create session ID with fallback

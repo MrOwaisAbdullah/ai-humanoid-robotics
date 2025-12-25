@@ -6,15 +6,20 @@ and session expiration checks.
 """
 
 import uuid
+import logging
 from typing import Optional
 from datetime import datetime
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from database.config import SessionLocal
 from src.models.auth import Session as AuthSession
-from auth.auth import verify_token
+from src.core.security import verify_token
+from src.models.user import User
+
+logger = logging.getLogger(__name__)
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -46,26 +51,32 @@ class AuthMiddleware(BaseHTTPMiddleware):
         self._user_sessions: dict[str, dict] = {}
 
     async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        logger.info(f"AuthMiddleware: Processing {path}")
+
         # Skip middleware for exempt paths
         if self._is_path_exempt(request):
+            logger.info(f"AuthMiddleware: Path {path} is exempt")
             return await call_next(request)
 
         # Try to authenticate with JWT token
         user = await self._authenticate_user(request)
         if user:
+            logger.info(f"AuthMiddleware: User authenticated for {path}: {user.email}")
             request.state.user = user
             request.state.authenticated = True
-            
+
             # Create a DB session to get user session ID
             db = SessionLocal()
             try:
-                request.state.session_id = await self._get_user_session_id(user["id"], db)
+                request.state.session_id = await self._get_user_session_id(user.id, db)
             finally:
                 db.close()
-                
+
             return await call_next(request)
 
         # Handle anonymous access
+        logger.info(f"AuthMiddleware: No user found for {path}, handling as anonymous")
         await self._handle_anonymous_request(request)
         return await call_next(request)
 
@@ -76,32 +87,41 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 return True
         return False
 
-    async def _authenticate_user(self, request: Request) -> Optional[dict]:
+    async def _authenticate_user(self, request: Request) -> Optional[User]:
         """
         Authenticate user from JWT token in cookie or header.
+        Returns the full User object from database.
         """
         token = request.cookies.get("access_token")
-        
+
         # Check header if no cookie
         if not token:
             auth_header = request.headers.get("Authorization")
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header.split(" ")[1]
-        
+
         if not token:
+            logger.info("_authenticate_user: No token found in cookies or header")
             return None
 
         payload = verify_token(token)
         if not payload:
+            logger.info("_authenticate_user: Token verification failed")
             return None
 
-        # In a real implementation, fetch user from database
-        # For now, return payload as user representation
-        return {
-            "id": payload.get("sub"),
-            "email": payload.get("email"),
-            "name": payload.get("name", ""),
-        }
+        logger.info(f"_authenticate_user: Token verified for user {payload.get('sub')}")
+
+        # Fetch full user from database
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == payload.get("sub")).first()
+            if user:
+                logger.info(f"_authenticate_user: User found in database: {user.email}")
+            else:
+                logger.info(f"_authenticate_user: User not found in database for id {payload.get('sub')}")
+            return user
+        finally:
+            db.close()
 
     async def _get_user_session_id(self, user_id: str, db: Session) -> Optional[str]:
         """Get active session ID for user."""

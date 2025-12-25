@@ -20,8 +20,10 @@ const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
+    console.log('Request interceptor - token from localStorage:', !!token);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('Request interceptor - added auth header');
     }
     return config;
   },
@@ -36,7 +38,12 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Only handle 401 for token refresh if this is NOT a login/register endpoint
+    // Login endpoints should return 401 to the caller without redirect
+    const isAuthEndpoint = originalRequest.url?.includes('/api/v1/auth/login') ||
+                          originalRequest.url?.includes('/api/v1/auth/register');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       const refreshToken = localStorage.getItem('refresh_token');
@@ -57,13 +64,13 @@ apiClient.interceptors.response.use(
           // Refresh failed, logout user
           localStorage.removeItem('auth_token');
           localStorage.removeItem('refresh_token');
-          window.location.href = '/login';
+          // Don't redirect - let the caller handle the error
           return Promise.reject(refreshError);
         }
       } else {
-        // No refresh token, logout user
+        // No refresh token, clear tokens but don't redirect
         localStorage.removeItem('auth_token');
-        window.location.href = '/login';
+        localStorage.removeItem('refresh_token');
       }
     }
 

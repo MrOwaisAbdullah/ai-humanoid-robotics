@@ -22,8 +22,9 @@ const api = axios.create({
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Add token if available in cookies or localStorage
+    // Note: auth-api stores token as 'auth_token', but we also check for 'access_token' for compatibility
     const cookieToken = getCookie('access_token');
-    const localToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    const localToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') || localStorage.getItem('access_token') : null;
     const token = cookieToken || localToken;
 
     // Debug logging for specific endpoints
@@ -55,10 +56,12 @@ api.interceptors.response.use(
 
     // Handle 401 Unauthorized errors
     if (error.response?.status === 401 && originalRequest) {
-      // Clear expired token
+      // Clear expired tokens (both possible keys)
       deleteCookie('access_token');
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
         localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
       }
 
       // Don't retry login requests to avoid infinite loops

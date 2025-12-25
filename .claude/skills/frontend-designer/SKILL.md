@@ -1,5 +1,5 @@
 ---
-name: frontend-design
+name: frontend-architect
 description: Create distinctive, production-grade frontend interfaces with high design quality and advanced animation choreography. Use this skill when the user asks to build web components, pages, or applications.
 category: frontend
 version: 1.1.0

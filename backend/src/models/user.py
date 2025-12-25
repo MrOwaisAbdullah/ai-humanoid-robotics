@@ -2,12 +2,13 @@
 User models for authentication and user management.
 """
 
+import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from enum import Enum
 
 from sqlmodel import SQLModel, Field, Relationship, Column
-from sqlalchemy import String, Text, Boolean, DateTime, JSON, Index
+from sqlalchemy import String, Text, Boolean, DateTime, JSON, Index, Enum as SQLEnum
 from sqlalchemy.sql import func
 
 from ..core.database import Base
@@ -38,6 +39,26 @@ class AuthProvider(str, Enum):
     MICROSOFT = "microsoft"
 
 
+# Create SQLAlchemy Enum types for database columns
+user_role_enum = SQLEnum(
+    UserRole,
+    values_callable=lambda obj: [e.value for e in obj],
+    name="userrole"
+)
+
+user_status_enum = SQLEnum(
+    UserStatus,
+    values_callable=lambda obj: [e.value for e in obj],
+    name="userstatus"
+)
+
+auth_provider_enum = SQLEnum(
+    AuthProvider,
+    values_callable=lambda obj: [e.value for e in obj],
+    name="authprovider"
+)
+
+
 # ============================================
 # User Model
 # ============================================
@@ -57,12 +78,14 @@ class UserBase(SQLModel):
     full_name: Optional[str] = Field(
         default=None,
         max_length=100,
-        description="User's full name"
+        description="User's full name",
+        alias="fullName"
     )
     avatar_url: Optional[str] = Field(
         default=None,
         max_length=500,
-        description="URL to user's avatar image"
+        description="URL to user's avatar image",
+        alias="avatarUrl"
     )
     bio: Optional[str] = Field(
         default=None,
@@ -71,23 +94,29 @@ class UserBase(SQLModel):
     )
     role: UserRole = Field(
         default=UserRole.USER,
+        sa_column=Column(user_role_enum, nullable=False, server_default="user"),
         description="User role for permissions"
     )
     status: UserStatus = Field(
         default=UserStatus.INACTIVE,
+        sa_column=Column(user_status_enum, nullable=False, server_default="inactive"),
         description="Account status"
     )
     email_verified: bool = Field(
         default=False,
-        description="Whether the user's email has been verified"
+        description="Whether the user's email has been verified",
+        alias="emailVerified"
     )
     auth_provider: AuthProvider = Field(
         default=AuthProvider.EMAIL,
-        description="Primary authentication provider"
+        sa_column=Column(auth_provider_enum, nullable=False, server_default="email"),
+        description="Primary authentication provider",
+        alias="authProvider"
     )
     is_premium: bool = Field(
         default=False,
-        description="Whether user has premium access"
+        description="Whether user has premium access",
+        alias="isPremium"
     )
     preferences: Dict[str, Any] = Field(
         default_factory=dict,
@@ -110,13 +139,16 @@ class UserBase(SQLModel):
         description="Last update timestamp"
     )
 
+    class Config:
+        populate_by_name = True
+
 
 class User(UserBase, table=True):
     """User model with database table configuration."""
     __tablename__ = "users"
 
     id: Optional[str] = Field(
-        default=None,
+        default_factory=lambda: str(uuid.uuid4()),
         primary_key=True,
         description="Primary key (UUID)"
     )
@@ -203,9 +235,12 @@ class UserUpdate(SQLModel):
 class UserRead(UserBase):
     """User read schema (safe for API responses)."""
     id: str
-    last_login_at: Optional[datetime]
-    created_at: datetime
-    updated_at: datetime
+    last_login_at: Optional[datetime] = Field(alias="lastLoginAt")
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: datetime = Field(alias="updatedAt")
+
+    class Config:
+        populate_by_name = True
 
 
 class UserPublic(SQLModel):
@@ -260,7 +295,7 @@ class UserSession(UserSessionBase, table=True):
     __tablename__ = "user_sessions"
 
     id: Optional[str] = Field(
-        default=None,
+        default_factory=lambda: str(uuid.uuid4()),
         primary_key=True
     )
     user_id: str = Field(
@@ -279,7 +314,7 @@ class UserSession(UserSessionBase, table=True):
 class RefreshTokenBase(SQLModel):
     """Base refresh token model."""
     token: str = Field(
-        max_length=255,
+        max_length=500,
         unique=True,
         index=True,
         description="Unique refresh token"
@@ -304,7 +339,7 @@ class RefreshToken(RefreshTokenBase, table=True):
     __tablename__ = "refresh_tokens"
 
     id: Optional[str] = Field(
-        default=None,
+        default_factory=lambda: str(uuid.uuid4()),
         primary_key=True
     )
     user_id: str = Field(
@@ -348,7 +383,7 @@ class EmailVerification(EmailVerificationBase, table=True):
     __tablename__ = "email_verifications"
 
     id: Optional[str] = Field(
-        default=None,
+        default_factory=lambda: str(uuid.uuid4()),
         primary_key=True
     )
     user_id: str = Field(
@@ -392,7 +427,7 @@ class PasswordReset(PasswordResetBase, table=True):
     __tablename__ = "password_resets"
 
     id: Optional[str] = Field(
-        default=None,
+        default_factory=lambda: str(uuid.uuid4()),
         primary_key=True
     )
     user_id: str = Field(
@@ -410,7 +445,8 @@ class PasswordReset(PasswordResetBase, table=True):
 # ============================================
 class OAuthAccountBase(SQLModel):
     """Base OAuth account model."""
-    provider: AuthProvider = Field(
+    provider: str = Field(
+        sa_column=Column(String(length=50), nullable=False),
         description="OAuth provider name"
     )
     provider_account_id: str = Field(
@@ -438,7 +474,7 @@ class OAuthAccount(OAuthAccountBase, table=True):
     __tablename__ = "oauth_accounts"
 
     id: Optional[str] = Field(
-        default=None,
+        default_factory=lambda: str(uuid.uuid4()),
         primary_key=True
     )
     user_id: str = Field(

@@ -4,13 +4,14 @@ import { OnboardingModal } from './OnboardingModal';
 import { apiRequest } from '../../services/api';
 
 export const OnboardingManager: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     const checkOnboardingStatus = async () => {
-      if (!isAuthenticated || checked) return;
+      // Don't make requests while auth context is loading or if not authenticated
+      if (isLoading || !isAuthenticated || checked) return;
 
       try {
         // Check if user has completed onboarding by checking background data
@@ -39,7 +40,7 @@ export const OnboardingManager: React.FC = () => {
     };
 
     checkOnboardingStatus();
-  }, [isAuthenticated, checked, user]);
+  }, [isAuthenticated, isLoading, checked, user]);
 
   const handleOnboardingComplete = () => {
     setShowModal(false);

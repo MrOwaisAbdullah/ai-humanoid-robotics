@@ -22,14 +22,22 @@ type AuthAction =
   | { type: 'SET_USER'; payload: User }
   | { type: 'SET_LOADING'; payload: boolean };
 
-// Initial state
-const initialState: AuthState = {
-  user: null,
-  token: tokenManager.getTokens().token,
-  refreshToken: tokenManager.getTokens().refreshToken,
-  isLoading: false,
-  isAuthenticated: false,
-  error: null,
+// Initial state function - called when component mounts, not at module load
+const getInitialState = (): AuthState => {
+  const tokens = tokenManager.getTokens();
+  console.log('[AuthContext] getInitialState:', {
+    hasToken: !!tokens.token,
+    token: tokens.token ? `${tokens.token.substring(0, 20)}...` : null,
+    isLoading: !!tokens.token
+  });
+  return {
+    user: null,
+    token: tokens.token,
+    refreshToken: tokens.refreshToken,
+    isLoading: !!tokens.token, // Start loading if token exists
+    isAuthenticated: false,
+    error: null,
+  };
 };
 
 // Auth reducer
@@ -78,6 +86,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         ...state,
         user: action.payload,
         isAuthenticated: true,
+        isLoading: false,
       };
     case 'SET_LOADING':
       return {
@@ -94,34 +103,45 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // AuthProvider component
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(authReducer, initialState);
+  const [state, dispatch] = useReducer(authReducer, undefined, getInitialState);
 
   // Check authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
       const { token } = tokenManager.getTokens();
 
+      console.log('[AuthContext] checkAuth:', {
+        hasToken: !!token,
+        isExpired: token ? tokenManager.isTokenExpired(token) : 'no token'
+      });
+
       if (token && !tokenManager.isTokenExpired(token)) {
         try {
           dispatch({ type: 'AUTH_START' });
           const response = await authAPI.getCurrentUser();
 
-          if (response.success && response.user) {
+          console.log('[AuthContext] getCurrentUser response:', response);
+
+          // Backend returns user object directly, not wrapped in {success, user}
+          if (response && response.id) {
             dispatch({
               type: 'SET_USER',
-              payload: response.user,
+              payload: response,
             });
           } else {
+            console.log('[AuthContext] Invalid response, clearing tokens');
             // Invalid token, clear it
             tokenManager.clearTokens();
             dispatch({ type: 'LOGOUT' });
           }
         } catch (error) {
+          console.log('[AuthContext] checkAuth error:', error);
           // Token is invalid or error occurred
           tokenManager.clearTokens();
           dispatch({ type: 'LOGOUT' });
         }
       } else {
+        console.log('[AuthContext] No valid token, logging out');
         // No valid token
         tokenManager.clearTokens();
         dispatch({ type: 'LOGOUT' });
@@ -159,7 +179,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return response;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Login failed';
+      const errorMessage = error.response?.data?.detail || error.response?.data?.error || 'Login failed';
       dispatch({
         type: 'AUTH_FAILURE',
         payload: errorMessage,
@@ -178,9 +198,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await authAPI.register(data);
 
+      console.log('Register response:', response);
+      console.log('Has token:', !!response.token);
+      console.log('Has refreshToken:', !!response.refreshToken);
+
       if (response.success && response.user && response.token) {
         // Store tokens
         tokenManager.setTokens(response.token, response.refreshToken);
+        console.log('Tokens stored in localStorage');
 
         dispatch({
           type: 'AUTH_SUCCESS',
@@ -191,6 +216,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           },
         });
       } else {
+        console.log('Registration check failed:', {
+          success: response.success,
+          hasUser: !!response.user,
+          hasToken: !!response.token
+        });
         dispatch({
           type: 'AUTH_FAILURE',
           payload: response.error || 'Registration failed',
@@ -199,7 +229,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return response;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Registration failed';
+      const errorMessage = error.response?.data?.detail || error.response?.data?.error || 'Registration failed';
       dispatch({
         type: 'AUTH_FAILURE',
         payload: errorMessage,

@@ -2,7 +2,12 @@
  * Login button component that opens a modal for email/password authentication.
  */
 
-import React, { useState, useEffect } from 'react';
+// Module-level state that persists across component remounts
+let globalError: string | null = null;
+let globalErrorId = 0;
+let globalModalOpen = false;
+
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import { RegistrationBackground } from '../../context/AuthContext';
@@ -55,9 +60,31 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
   const [mounted, setMounted] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
+  // Use ref to store error message persistently
+  const errorMessageRef = useRef<string | null>(null);
+
+  // Log component mounting/unmounting
   useEffect(() => {
+    // Restore global error and modal state if they exist (component was remounted)
+    if (globalError) {
+      setError(globalError);
+      errorMessageRef.current = globalError;
+    }
+    if (globalModalOpen) {
+      setIsModalOpen(true);
+    }
     setMounted(true);
+    return () => {
+      // Component unmounting
+    };
   }, []);
+
+  // Debug: Log when error state changes
+  useEffect(() => {
+    if (error) {
+      errorMessageRef.current = error;
+    }
+  }, [error]);
 
   // Check if dark mode is active using document element class
   const isDarkTheme = typeof window !== 'undefined' && document.documentElement.classList.contains('dark');
@@ -101,21 +128,45 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
   const handleLogin = async (data: LoginFormData) => {
     try {
       setError(null);
+      errorMessageRef.current = null;
       setSuccess(null);
       setIsSigningIn(true);
+      // Clear global error at start of login
+      globalError = null;
+      globalErrorId += 1;
       const response = await login({ email: data.email, password: data.password });
-      setIsModalOpen(false);
-      loginForm.reset();
-      setIsSigningIn(false);
 
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
-      }
+      // Check if login was successful
+      if (response.success) {
+        setIsModalOpen(false);
+        globalModalOpen = false; // Clear global modal state on success
+        globalError = null; // Clear global error on success
+        loginForm.reset();
+        setIsSigningIn(false);
 
-      // Show success message if applicable
-      if (response.success && response.message) {
-        setSuccess(response.message);
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess();
+        }
+
+        // Show success message if applicable
+        if (response.message) {
+          setSuccess(response.message);
+        }
+      } else {
+        // Login failed - show error
+        setIsSigningIn(false);
+        const errorMessage = response.error || 'Login failed. Please try again.';
+        // Set global error state that persists across remounts
+        globalError = errorMessage;
+        globalErrorId += 1; // Increment to signal this is a new error
+        // Set local state and ref
+        errorMessageRef.current = errorMessage;
+        setError(errorMessage);
+
+        if (onError) {
+          onError(errorMessage);
+        }
       }
     } catch (error: any) {
       let errorMessage = 'Login failed. Please try again.';
@@ -139,6 +190,11 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         errorMessage = 'Login request timed out. Please try again.';
       }
 
+      // Set global error state that persists across remounts
+      globalError = errorMessage;
+      globalErrorId += 1;
+      // Set local state and ref
+      errorMessageRef.current = errorMessage;
       setError(errorMessage);
 
       // Call onError callback if provided
@@ -151,24 +207,45 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
   const handleRegister = async (data: RegisterFormData & { background?: RegistrationBackground }) => {
     try {
       setError(null);
+      errorMessageRef.current = null;
       setSuccess(null);
+      // Clear global error at start of register
+      globalError = null;
+      globalErrorId += 1;
       const response = await register({
         email: data.email,
         name: data.name || '',
         password: data.password,
         confirmPassword: data.confirmPassword,
       });
-      setIsModalOpen(false);
-      registerForm.reset();
 
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
-      }
+      // Check if registration was successful
+      if (response.success) {
+        setIsModalOpen(false);
+        globalModalOpen = false; // Clear global modal state on success
+        globalError = null; // Clear global error on success
+        registerForm.reset();
 
-      // Show success message if applicable
-      if (response.success && response.message) {
-        setSuccess(response.message);
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess();
+        }
+
+        // Show success message if applicable
+        if (response.message) {
+          setSuccess(response.message);
+        }
+      } else {
+        // Registration failed - show error
+        const errorMessage = response.error || 'Registration failed. Please try again.';
+        globalError = errorMessage;
+        globalErrorId += 1;
+        errorMessageRef.current = errorMessage;
+        setError(errorMessage);
+
+        if (onError) {
+          onError(errorMessage);
+        }
       }
     } catch (error: any) {
       let errorMessage = 'Registration failed. Please try again.';
@@ -188,6 +265,9 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
         errorMessage = 'Registration request timed out. Please try again.';
       }
 
+      globalError = errorMessage;
+      globalErrorId += 1;
+      errorMessageRef.current = errorMessage;
       setError(errorMessage);
 
       // Call onError callback if provided
@@ -200,19 +280,28 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
   const switchMode = () => {
     setIsLoginMode(!isLoginMode);
     setError(null);
+    errorMessageRef.current = null;
     setSuccess(null);
     setIsSigningIn(false);
     loginForm.reset();
     registerForm.reset();
+    // Clear global error when switching modes
+    globalError = null;
+    globalErrorId += 1;
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
+    globalModalOpen = false; // Clear global modal state
     setError(null);
+    errorMessageRef.current = null;
     setSuccess(null);
     setIsSigningIn(false);
     loginForm.reset();
     registerForm.reset();
+    // Clear global error when closing modal
+    globalError = null;
+    globalErrorId += 1;
   };
 
   // Modal content with portal
@@ -244,12 +333,12 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
           )}
 
           {/* Error/Success messages */}
-          {error && (
+          {(error || errorMessageRef.current) && (
             <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 dark:text-red-200 dark:bg-red-900/30 rounded-md">
-              {error}
+              {error || errorMessageRef.current}
             </div>
           )}
-          {success && (
+          {success && !error && (
             <div className="mb-4 p-3 text-sm text-green-700 bg-green-100 dark:text-green-200 dark:bg-green-900/30 rounded-md">
               {success}
             </div>
@@ -266,6 +355,7 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
                   {...loginForm.register('email')}
                   type="email"
                   id="email"
+                  autoComplete="email"
                   className="mt-1 block w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-[#10a37f] focus:border-[#10a37f] transition-colors"
                   placeholder="your@email.com"
                 />
@@ -338,7 +428,10 @@ export const LoginButton: React.FC<LoginButtonProps> = ({
   return (
     <>
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={() => {
+          globalModalOpen = true;
+          setIsModalOpen(true);
+        }}
         className={`${primaryButtonClass} ${buttonClass} ${className}`}
       >
         {children || 'Login'}
