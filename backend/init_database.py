@@ -77,7 +77,7 @@ def fix_schema():
 
 def initialize_database():
     """Initialize the database with all required tables."""
-    print(f"Initializing database at: {DATABASE_URL}")
+    print(f"Initializing database at: {settings.database_url_sync}")
 
     # Ensure database directory exists
     db_path = ensure_database_directory()
@@ -86,9 +86,10 @@ def initialize_database():
     # Run schema fix BEFORE creating tables (in case table exists but is old)
     fix_schema()
 
-    # Create tables
+    # Create tables using sync engine
     try:
-        create_tables()
+        from src.models import user, chat
+        Base.metadata.create_all(sync_engine)
         print("✅ Database initialized successfully!")
         return True
     except Exception as e:

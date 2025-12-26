@@ -23,6 +23,29 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # ============================================
+    # OpenAI Configuration (for RAG features)
+    # ============================================
+    openai_api_key: Optional[str] = Field(default=None)
+    openai_model: str = "gpt-4o-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
+    max_context_messages: int = 10
+    context_window_size: int = 8192
+
+    # ============================================
+    # Qdrant Configuration (for RAG features)
+    # ============================================
+    qdrant_url: Optional[str] = Field(default=None)
+    qdrant_api_key: Optional[str] = Field(default=None)
+    chunk_size: int = 512
+    chunk_overlap: int = 50
+    batch_size: int = 32
+
+    # ============================================
+    # Task Management
+    # ============================================
+    max_concurrent_requests: int = 10
+
+    # ============================================
     # Database Configuration
     # ============================================
     database_url: str = "sqlite:///./database/auth_fixed_v3.db"
