@@ -445,6 +445,7 @@ print(f"Initializing database at: {settings.database_url_sync}")
 | `NameError: name 'VAR' is not defined` | Using undefined global variables | Use `from src.core.config import settings` and access via settings object |
 | `Config file '.env' not found` | Missing .env file (warning only) | Ensure all required env vars set in HF Space secrets |
 | `AttributeError: 'AsyncSession' object has no attribute 'query'` | Using sync query() with AsyncSession | Use `await db.execute(select(Model))` instead of `db.query(Model)` |
+| `asyncpg.exceptions._base.InterfaceError: connection is closed` | Database connection pool giving stale connections | Add `pool_pre_ping=True` and reduce `pool_recycle` to 1800 for Neon |
 
 ### 15. Database Initialization in Async Context
 **Problem**: Trying to use async functions in sync context during startup
@@ -505,6 +506,57 @@ user = result.scalar_one_or_none()
 **Files Affected**: All files using AsyncSession (routes, services, auth modules)
 
 **Critical**: When converting from sync to async SQLAlchemy, ALL database operations must use the async pattern.
+
+### 17. Database Connection Closed Error (Runtime)
+**Problem**: `asyncpg.exceptions._base.InterfaceError: connection is closed`
+```
+Database session error: (sqlalchemy.dialects.postgresql.asyncpg.InterfaceError)
+<class 'asyncpg.exceptions._base.InterfaceError'>: connection is closed
+```
+**Cause**: Database connection pool giving stale/closed connections, especially after idle periods.
+
+**Fix**: Configure async engine with proper pool settings:
+```python
+# ❌ Wrong: Missing pool_pre_ping and incorrect pool settings
+async_engine = create_async_engine(
+    settings.database_url_async,
+    pool_size=5,
+    max_overflow=10,
+    pool_recycle=3600,  # Too long for Neon's 5-min idle timeout
+    # Missing pool_pre_ping
+)
+
+# ✅ Fix: Add pool_pre_ping and optimize settings for async
+async_engine = create_async_engine(
+    settings.database_url_async,
+    echo=settings.debug,
+    pool_size=3,  # Reduced from 5 for async
+    max_overflow=5,  # Reduced from 10
+    pool_timeout=30,
+    pool_recycle=1800,  # 30 min (reduced from 3600 for Neon's idle timeout)
+    pool_pre_ping=True,  # CRITICAL: Verify connections before use
+    connect_args={
+        "server_settings": {
+            "application_name": "ai_book_backend",
+            "timezone": "utc"
+        },
+        "command_timeout": 60,
+        # Note: SSL configured via DATABASE_URL (sslmode=require)
+    },
+    pool_use_lifo=True,  # Use LIFO to reduce stale connections
+    pool_drop_on_rollback=False,
+)
+```
+
+**Common Issues:**
+1. **Neon PostgreSQL idle timeout**: Free tier closes connections after 5 minutes of inactivity
+2. **Missing pool_pre_ping**: Connections become stale but pool reuses them
+3. **SSL misconfiguration**: Setting `ssl` directly in connect_args doesn't work with asyncpg
+4. **Pool too large**: Async connections use more resources, keep pool smaller
+
+**Files Affected**: `src/core/database.py`
+
+**Critical for Neon PostgreSQL**: Reduce `pool_recycle` to 1800 (30 min) or less, and always use `pool_pre_ping=True`.
 
 ---
 
@@ -610,6 +662,20 @@ AttributeError: 'AsyncSession' object has no attribute 'query'
 from sqlalchemy import select
 result = await db.execute(select(Model).filter(...))
 item = result.scalar_one_or_none()
+```
+
+**Pattern 5: Database Connection Closed (Runtime)**
+```
+asyncpg.exceptions._base.InterfaceError: connection is closed
+```
+**Solution**: Add `pool_pre_ping=True` to async engine and reduce `pool_recycle`:
+```python
+async_engine = create_async_engine(
+    settings.database_url_async,
+    pool_pre_ping=True,  # Verify connections before use
+    pool_recycle=1800,   # 30 min (for Neon's idle timeout)
+    pool_use_lifo=True,  # Use most recent connections first
+)
 ```
 
 ### Production Deployment Checklist for HuggingFace Spaces
