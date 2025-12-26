@@ -211,9 +211,18 @@ async def save_personalization(
         # Check if this is a metadata update (from frontend)
         if title or tags or notes:
             # Try to find existing personalization
+            # Cast string ID to UUID for comparison
+            try:
+                personalization_uuid = uuid.UUID(personalization_id)
+            except (ValueError, AttributeError):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid personalization ID format"
+                )
+
             result = await db.execute(
                 select(SavedPersonalization).filter(
-                    SavedPersonalization.id == personalization_id,
+                    SavedPersonalization.id == personalization_uuid,
                     SavedPersonalization.user_id == current_user.id
                 )
             )

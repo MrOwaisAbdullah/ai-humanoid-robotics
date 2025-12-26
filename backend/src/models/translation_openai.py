@@ -403,12 +403,6 @@ class TranslationCache(Base):
 
     # Cache configuration
     ttl_hours = Column(Integer, default=168, nullable=False)  # 7 days default
-    is_pinned = Column(Boolean, default=False, nullable=False)  # Never expires if pinned
-    priority = Column(Integer, default=0, nullable=False)  # Higher priority less likely to evict
-
-    # Validation
-    is_validated = Column(Boolean, default=False, nullable=False)
-    validated_by = Column(String(50), nullable=True)  # user_id or "system"
 
     # Relationships
     job = relationship("TranslationJob", back_populates="cache_entries")
@@ -417,7 +411,7 @@ class TranslationCache(Base):
     __table_args__ = (
         Index('idx_cache_lookup', 'content_hash', 'source_language', 'target_language'),
         Index('idx_page_cache', 'url_hash', 'content_hash'),
-        Index('idx_cache_expires', 'expires_at', 'priority'),
+        Index('idx_cache_expires', 'expires_at'),
         Index('idx_cache_popularity', 'hit_count', 'last_hit_at'),
         CheckConstraint('hit_count >= 0', name='check_hit_count'),
         CheckConstraint('processing_time_ms >= 0', name='check_processing_time'),
