@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from database.config import SessionLocal
+from src.core.database import SessionLocal
 from src.models.auth import Session as AuthSession
 from src.core.security import verify_token
 from src.models.user import User
