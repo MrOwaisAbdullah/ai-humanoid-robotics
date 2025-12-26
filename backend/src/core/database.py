@@ -35,20 +35,28 @@ if "postgresql" in settings.database_url_async or "postgres" in settings.databas
     async_connect_args = {
         "server_settings": {
             "application_name": "ai_book_backend",
-            "jit": "off"  # Disable JIT for better performance in some cases
+            "jit": "off",  # Disable JIT for better performance in some cases
+            "timezone": "utc"
         },
-        "ssl": "require"  # Required for Neon PostgreSQL
+        "command_timeout": 60,
+        # Note: SSL is configured via DATABASE_URL (sslmode=require)
+        # Don't set ssl directly in connect_args for asyncpg
     }
 
 # Async engine for SQLModel operations
+# Use smaller pool for async to prevent connection exhaustion
 async_engine = create_async_engine(
     settings.database_url_async,
     echo=settings.debug,
-    pool_size=settings.db_pool_size,
-    max_overflow=settings.db_max_overflow,
-    pool_timeout=settings.db_pool_timeout,
-    pool_recycle=settings.db_pool_recycle,
-    connect_args=async_connect_args
+    pool_size=3,  # Reduced from settings.db_pool_size (5) for async
+    max_overflow=5,  # Reduced from settings.db_max_overflow (10)
+    pool_timeout=30,
+    pool_recycle=1800,  # 30 minutes (reduced from 3600 for Neon's idle timeout)
+    pool_pre_ping=True,  # CRITICAL: Check connections before using them
+    connect_args=async_connect_args,
+    # Additional async-specific settings
+    pool_use_lifo=True,  # Use LIFO to reduce stale connections
+    pool_drop_on_rollback=False,  # Don't drop connections on rollback
 )
 
 # Sync engine for Alembic migrations
@@ -65,12 +73,12 @@ sync_engine = create_engine(
 # ============================================
 # Session Factories
 # ============================================
-# Async session factory
+# Async session factory with better error handling
 AsyncSessionLocal = async_sessionmaker(
     async_engine,
     class_=AsyncSession,
     expire_on_commit=False,
-    autoflush=True,
+    autoflush=False,  # Changed from True to False for better control
     autocommit=False
 )
 
@@ -109,6 +117,7 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
             await session.rollback()
             raise
         finally:
+            # Always close the session to return connection to pool
             await session.close()
 
 
