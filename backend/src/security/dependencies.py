@@ -288,3 +288,55 @@ def get_current_user_or_anonymous(
 CurrentUser = Depends(get_current_active_user)
 OptionalCurrentUser = Depends(get_optional_current_user)
 RequireAuth = Depends(require_auth)
+
+
+async def get_current_user_from_request(request: Request) -> User:
+    """
+    Get current user from request.state (set by AuthMiddleware).
+
+    This is an async-compatible dependency that uses the user already
+    authenticated by AuthMiddleware, avoiding redundant database queries.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        User: Authenticated user object
+
+    Raises:
+        HTTPException: 401 if no authenticated user in request.state
+    """
+    user = getattr(request.state, 'user', None)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    return user
+
+
+async def get_current_user_or_anonymous_async(request: Request) -> User:
+    """
+    Get current authenticated user from request.state or create anonymous user.
+
+    This is an async-compatible version that doesn't require database access.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        User: Authenticated user or anonymous user
+    """
+    user = getattr(request.state, 'user', None)
+    if user and user.id != "anonymous":
+        user.is_authenticated = True
+        return user
+
+    # Create anonymous user object
+    anon_user = User(
+        id="anonymous",
+        email="anonymous@example.com",
+        email_verified=False
+    )
+    anon_user.is_authenticated = False
+    return anon_user

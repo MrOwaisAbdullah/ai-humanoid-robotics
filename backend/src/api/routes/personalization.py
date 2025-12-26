@@ -14,7 +14,7 @@ import hashlib
 import uuid
 
 from src.core.database import get_async_db
-from auth.auth import get_current_active_user
+from src.security.dependencies import get_current_user_from_request
 from src.models.auth import User, UserBackground
 from src.models.personalization import SavedPersonalization
 from src.agents.personalization_agent import PersonalizationAgent
@@ -87,12 +87,13 @@ def clean_content_for_personalization(content: str) -> str:
 
 @router.get("/saved")  # Matches /api/v1/personalize/saved
 async def list_personalizations(
-    current_user: User = Depends(get_current_active_user),
+    request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
     List saved personalizations for the current user.
     """
+    current_user: User = await get_current_user_from_request(request)
     result = await db.execute(
         select(SavedPersonalization)
         .filter(SavedPersonalization.user_id == current_user.id)
@@ -119,17 +120,18 @@ async def list_personalizations(
 
 @router.post("")  # Matches /api/v1/personalize
 async def generate_personalization(
-    request: Dict[str, Any],
-    current_user: User = Depends(get_current_active_user),
+    request_body: Dict[str, Any],
+    http_request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
     Generate a personalized explanation for the given content.
     """
+    current_user: User = await get_current_user_from_request(http_request)
     try:
-        content = request.get("content", "")
-        context_type = request.get("context_type", "page")
-        word_count = request.get("word_count", 0)
+        content = request_body.get("content", "")
+        context_type = request_body.get("context_type", "page")
+        word_count = request_body.get("word_count", 0)
 
         # Clean content to remove UI elements that might have slipped through
         # Only clean if content is not empty
@@ -189,8 +191,8 @@ async def generate_personalization(
 @router.post("/saved/{personalization_id}")  # Matches /api/v1/personalize/saved/{id}
 async def save_personalization(
     personalization_id: str,
-    request: Dict[str, Any],
-    current_user: User = Depends(get_current_active_user),
+    request_body: Dict[str, Any],
+    http_request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
     """
@@ -200,10 +202,11 @@ async def save_personalization(
     - { content, explanation } - Full personalization save
     - { title, tags, notes } - Update existing personalization metadata
     """
+    current_user: User = await get_current_user_from_request(http_request)
     try:
-        title = request.get("title")
-        tags = request.get("tags")
-        notes = request.get("notes")
+        title = request_body.get("title")
+        tags = request_body.get("tags")
+        notes = request_body.get("notes")
 
         # Check if this is a metadata update (from frontend)
         if title or tags or notes:
@@ -243,10 +246,10 @@ async def save_personalization(
                 }
 
         # Original save behavior (fallback)
-        content = request.get("content", "")
-        explanation = request.get("explanation", "")
-        context_type = request.get("context_type", "page")
-        word_count = request.get("word_count", 0)
+        content = request_body.get("content", "")
+        explanation = request_body.get("explanation", "")
+        context_type = request_body.get("context_type", "page")
+        word_count = request_body.get("word_count", 0)
 
         if not explanation.strip():
             raise HTTPException(
