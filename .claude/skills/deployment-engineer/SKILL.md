@@ -444,6 +444,7 @@ print(f"Initializing database at: {settings.database_url_sync}")
 | `AttributeError: 'Settings' object has no attribute 'X'` | Settings class missing attributes | Add all required attributes to Settings class |
 | `NameError: name 'VAR' is not defined` | Using undefined global variables | Use `from src.core.config import settings` and access via settings object |
 | `Config file '.env' not found` | Missing .env file (warning only) | Ensure all required env vars set in HF Space secrets |
+| `AttributeError: 'AsyncSession' object has no attribute 'query'` | Using sync query() with AsyncSession | Use `await db.execute(select(Model))` instead of `db.query(Model)` |
 
 ### 15. Database Initialization in Async Context
 **Problem**: Trying to use async functions in sync context during startup
@@ -464,6 +465,46 @@ import asyncio
 asyncio.create_task(create_all_tables())  # Fire and forget
 ```
 **Files Affected**: `main.py` lifespan function, `init_database.py`
+
+### 16. AsyncSession Query Method Error (Runtime)
+**Problem**: `AttributeError: 'AsyncSession' object has no attribute 'query'`
+```python
+# ❌ Wrong: Using sync query() method with AsyncSession
+@router.get("/users")
+async def get_users(db: AsyncSession = Depends(get_async_db)):
+    users = db.query(User).all()  # Error: AsyncSession has no 'query'
+    return users
+
+# ✅ Fix: Use select() with execute() for async
+from sqlalchemy import select
+
+@router.get("/users")
+async def get_users(db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(User))
+    users = result.scalars().all()
+    return users
+
+# For single record:
+result = await db.execute(select(User).filter(User.id == user_id))
+user = result.scalar_one_or_none()
+
+# For filtering:
+result = await db.execute(
+    select(User).filter(User.email == email)
+)
+user = result.scalar_one_or_none()
+```
+**Common Async Patterns:**
+- `db.query(Model).filter(...).first()` → `result = await db.execute(select(Model).filter(...)); user = result.scalar_one_or_none()`
+- `db.query(Model).all()` → `result = await db.execute(select(Model)); users = result.scalars().all()`
+- `db.commit()` → `await db.commit()`
+- `db.refresh(obj)` → `await db.refresh(obj)`
+- `db.add(obj)` → `db.add(obj)` (no await needed)
+- `db.delete(obj)` → `await db.delete(obj)` (if iterating) or use delete statement
+
+**Files Affected**: All files using AsyncSession (routes, services, auth modules)
+
+**Critical**: When converting from sync to async SQLAlchemy, ALL database operations must use the async pattern.
 
 ---
 
@@ -558,6 +599,18 @@ AttributeError: 'Settings' object has no attribute 'openai_api_key'
 NameError: name 'DATABASE_URL' is not defined
 ```
 **Solution**: Import settings and use `settings.database_url_sync`.
+
+**Pattern 4: AsyncSession Query Errors (Runtime)**
+```
+AttributeError: 'AsyncSession' object has no attribute 'query'
+```
+**Solution**: Convert all database queries to async pattern using `select()`:
+```python
+# Replace db.query() with:
+from sqlalchemy import select
+result = await db.execute(select(Model).filter(...))
+item = result.scalar_one_or_none()
+```
 
 ### Production Deployment Checklist for HuggingFace Spaces
 
