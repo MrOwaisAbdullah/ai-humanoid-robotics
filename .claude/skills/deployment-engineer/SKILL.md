@@ -366,6 +366,239 @@ export default {};
 ```
 **Key Insight**: Docusaurus client modules are bundled server-side. Always check `typeof window !== 'undefined'` before accessing browser APIs.
 
+### 11. Outdated Import Paths After Code Refactoring
+**Problem**: Module import errors after code reorganization
+```python
+# ❌ Old import paths from refactored code
+from database.config import get_db, SessionLocal, create_tables
+from auth.auth import verify_token
+
+# ✅ Fix: Update to new module structure
+from src.core.database import get_async_db, SessionLocal, create_all_tables
+from src.core.security import verify_token
+
+# For sync operations in tests/migrations:
+from src.core.database import get_sync_db
+```
+**Common Patterns**:
+- `get_db` → `get_async_db` (async) or `get_sync_db` (sync)
+- `Session` → `AsyncSession` (async type hints)
+- `create_tables` → `create_all_tables`
+- `database.config` → `src.core.database`
+
+**Files Affected**: All files referencing old database modules after refactoring
+
+### 12. Missing Configuration Attributes
+**Problem**: `AttributeError: 'Settings' object has no attribute 'X'`
+```python
+# ❌ Settings class missing required attributes
+class Settings(BaseSettings):
+    database_url: str
+    jwt_secret_key: str
+    # Missing: openai_api_key, qdrant_url, etc.
+
+# ✅ Fix: Add all required attributes with defaults
+class Settings(BaseSettings):
+    # Core
+    database_url: str = "sqlite:///./database/auth.db"
+    jwt_secret_key: str = "your-secret-key"
+
+    # OpenAI (for RAG features)
+    openai_api_key: Optional[str] = Field(default=None)
+    openai_model: str = "gpt-4o-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
+
+    # Qdrant (for vector search)
+    qdrant_url: Optional[str] = Field(default=None)
+    qdrant_api_key: Optional[str] = Field(default=None)
+
+    # RAG settings
+    chunk_size: int = 512
+    chunk_overlap: int = 50
+    batch_size: int = 32
+    max_context_messages: int = 10
+```
+**Root Cause**: Settings class refactored but main.py still references old attributes.
+
+**Files Affected**: `src/core/config.py`, `main.py`
+
+### 13. Undefined Global Variables in Scripts
+**Problem**: `NameError: name 'DATABASE_URL' is not defined` in init scripts
+```python
+# ❌ Using undefined global variable
+print(f"Initializing database at: {DATABASE_URL}")
+
+# ✅ Fix: Use Settings object
+from src.core.config import settings
+print(f"Initializing database at: {settings.database_url_sync}")
+```
+**Files Affected**: `init_database.py`, startup scripts
+
+### 14. HuggingFace Spaces Docker Build Issues
+**Problem**: Docker build fails with various errors on HuggingFace Spaces
+
+| Error | Cause | Solution |
+|-------|--------|----------|
+| `OSError: Readme file does not exist: README.md` | pyproject.toml references README.md but Dockerfile doesn't copy it | `COPY pyproject.toml README.md ./` before `pip install -e .` |
+| `ModuleNotFoundError: No module named 'X'` | Outdated import paths after refactoring | Update all imports to new module structure |
+| `AttributeError: 'Settings' object has no attribute 'X'` | Settings class missing attributes | Add all required attributes to Settings class |
+| `NameError: name 'VAR' is not defined` | Using undefined global variables | Use `from src.core.config import settings` and access via settings object |
+| `Config file '.env' not found` | Missing .env file (warning only) | Ensure all required env vars set in HF Space secrets |
+
+### 15. Database Initialization in Async Context
+**Problem**: Trying to use async functions in sync context during startup
+```python
+# ❌ Wrong: Calling async function without await
+async def create_all_tables():
+    await conn.run_sync(Base.metadata.create_all)
+
+# In startup sync context:
+create_all_tables()  # Doesn't actually create tables!
+
+# ✅ Fix: Use sync engine for startup
+from src.core.database import sync_engine, Base
+Base.metadata.create_all(sync_engine)
+
+# OR use async properly:
+import asyncio
+asyncio.create_task(create_all_tables())  # Fire and forget
+```
+**Files Affected**: `main.py` lifespan function, `init_database.py`
+
+---
+
+## HuggingFace Spaces Deployment: Complete Guide
+
+### Critical Requirements
+
+**1. README.md with YAML Frontmatter (REQUIRED)**
+```yaml
+---
+title: AI Book Backend
+emoji: 🤖
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+sdk_version: "3.11"
+app_file: main.py
+pinned: false
+license: mit
+---
+```
+Must be at ROOT of repository with YAML at the TOP.
+
+**2. Dockerfile Requirements**
+```dockerfile
+# MUST copy README.md before pip install
+COPY pyproject.toml README.md ./
+RUN pip install --no-cache-dir -e .
+
+# Not just:
+COPY pyproject.toml ./  # ❌ Will fail if pyproject.toml has readme field
+```
+
+**3. Environment Variables (Set in Space Settings)**
+```
+JWT_SECRET_KEY=your-super-secret-jwt-key-at-least-32-chars
+DATABASE_URL=sqlite:///./database/auth.db
+ALLOWED_ORIGINS=https://your-frontend.github.io,https://huggingface.co
+```
+
+**4. Import Path Consistency**
+All Python imports must use the new module structure:
+```python
+# Old (broken):
+from database.config import get_db
+from auth.auth import verify_token
+
+# New (working):
+from src.core.database import get_async_db
+from src.core.security import verify_token
+```
+
+**5. Database Session Types**
+```python
+# For async endpoints (most FastAPI routes):
+from src.core.database import get_async_db
+from sqlalchemy.ext.asyncio import AsyncSession
+
+@router.get("/users")
+async def get_users(db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(User))
+    return result.scalars().all()
+
+# For sync operations (migrations, scripts):
+from src.core.database import get_sync_db, sync_engine
+from sqlalchemy.orm import Session
+
+def run_migration():
+    Base.metadata.create_all(sync_engine)
+```
+
+### Common Startup Sequence Failures
+
+**Pattern 1: Import Errors**
+```
+File "/app/main.py", line 56, in <module>
+    from routes import auth
+File "/app/routes/auth.py", line 9, in <module>
+    from database.config import get_db
+ModuleNotFoundError: No module named 'database.config'
+```
+**Solution**: Update ALL import paths across the codebase.
+
+**Pattern 2: Attribute Errors**
+```
+AttributeError: 'Settings' object has no attribute 'openai_api_key'
+```
+**Solution**: Add missing attributes to `src/core/config.py` Settings class.
+
+**Pattern 3: Database Initialization Errors**
+```
+NameError: name 'DATABASE_URL' is not defined
+```
+**Solution**: Import settings and use `settings.database_url_sync`.
+
+### Production Deployment Checklist for HuggingFace Spaces
+
+**Before Pushing:**
+- [ ] README.md has YAML frontmatter at ROOT
+- [ ] Dockerfile copies README.md before pip install
+- [ ] All import paths updated to new structure
+- [ ] Settings class has all required attributes
+- [ ] Environment variables documented in `.env.hf-template`
+
+**In HuggingFace Space Settings:**
+- [ ] Set JWT_SECRET_KEY (required)
+- [ ] Set DATABASE_URL (defaults to sqlite if not set)
+- [ ] Set ALLOWED_ORIGINS (your frontend domain)
+- [ ] Set OPENAI_API_KEY (if using RAG features)
+- [ ] Set QDRANT_URL and QDRANT_API_KEY (if using vector search)
+
+**After Deployment:**
+- [ ] Check logs for startup errors
+- [ ] Test `/health` endpoint
+- [ ] Visit `/docs` for Swagger UI
+- [ ] Test authentication endpoints
+- [ ] Verify CORS with frontend requests
+
+### Troubleshooting HuggingFace Spaces
+
+**Issue**: "Config error" in Space UI
+- **Fix**: Add YAML frontmatter to README.md
+
+**Issue**: Build fails at pip install
+- **Fix**: Ensure Dockerfile copies README.md with pyproject.toml
+
+**Issue**: Module import errors
+- **Fix**: Update all import paths from old structure to new `src.core.*` structure
+
+**Issue**: AttributeError on startup
+- **Fix**: Add missing configuration to Settings class
+
+**Issue**: Database initialization fails
+- **Fix**: Use sync operations in init scripts, ensure proper imports
+
 ## Deployment Checklist
 
 ### Pre-Deployment

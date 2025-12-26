@@ -9,6 +9,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 
@@ -103,7 +104,8 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -119,10 +121,18 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 
-def create_user_session(db: AsyncSession, user: User) -> str:
+async def create_user_session(db: AsyncSession, user: User) -> str:
     """Create a new session for user and return token"""
     # Delete existing sessions for this user (optional - remove if you want multiple sessions)
-    db.query(Session).filter(Session.user_id == user.id).delete()
+    await db.execute(
+        select(Session).filter(Session.user_id == user.id)
+    )
+    # Use delete with filter
+    result = await db.execute(
+        select(Session).filter(Session.user_id == user.id)
+    )
+    for session in result.scalars().all():
+        await db.delete(session)
 
     # Create new session token
     session_token = secrets.token_urlsafe(32)
@@ -134,20 +144,21 @@ def create_user_session(db: AsyncSession, user: User) -> str:
         expires_at=expires_at
     )
     db.add(db_session)
-    db.commit()
-    db.refresh(db_session)
+    await db.commit()
+    await db.refresh(db_session)
 
     return session_token
 
 
-def get_or_create_user(db: AsyncSession, user_info: dict) -> User:
+async def get_or_create_user(db: AsyncSession, user_info: dict) -> User:
     """Get existing user or create new one from OAuth info"""
     email = user_info.get('email')
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
 
     # Check if user exists
-    user = db.query(User).filter(User.email == email).first()
+    result = await db.execute(select(User).filter(User.email == email))
+    user = result.scalar_one_or_none()
 
     if user:
         # Update user info if needed
@@ -164,18 +175,18 @@ def get_or_create_user(db: AsyncSession, user_info: dict) -> User:
             email_verified=user_info.get('email_verified', False)
         )
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
 
         # Create default preferences
         preferences = UserPreferences(user_id=user.id)
         db.add(preferences)
-        db.commit()
+        await db.commit()
 
     return user
 
 
-def create_or_update_account(db: AsyncSession, user: User, provider: str, account_info: dict) -> Account:
+async def create_or_update_account(db: AsyncSession, user: User, provider: str, account_info: dict) -> Account:
     """Create or update OAuth account"""
     # For Google OAuth, the 'sub' field is in the userinfo
     provider_account_id = account_info.get('sub')
@@ -191,11 +202,14 @@ def create_or_update_account(db: AsyncSession, user: User, provider: str, accoun
     print(f"Account info keys: {list(account_info.keys()) if account_info else 'None'}")
 
     # Check if account exists
-    account = db.query(Account).filter(
-        Account.user_id == user.id,
-        Account.provider == provider,
-        Account.provider_account_id == provider_account_id
-    ).first()
+    result = await db.execute(
+        select(Account).filter(
+            Account.user_id == user.id,
+            Account.provider == provider,
+            Account.provider_account_id == provider_account_id
+        )
+    )
+    account = result.scalar_one_or_none()
 
     if account:
         # Update account info
@@ -219,12 +233,14 @@ def create_or_update_account(db: AsyncSession, user: User, provider: str, accoun
         )
         db.add(account)
 
-    db.commit()
-    db.refresh(account)
+    await db.commit()
+    await db.refresh(account)
     return account
 
 
-def invalidate_user_sessions(db: AsyncSession, user: User) -> None:
+async def invalidate_user_sessions(db: AsyncSession, user: User) -> None:
     """Invalidate all sessions for a user"""
-    db.query(Session).filter(Session.user_id == user.id).delete()
-    db.commit()
+    result = await db.execute(select(Session).filter(Session.user_id == user.id))
+    for session in result.scalars().all():
+        await db.delete(session)
+    await db.commit()

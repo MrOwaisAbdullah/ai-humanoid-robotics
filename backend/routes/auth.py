@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from pydantic import BaseModel
 import os
 
@@ -65,18 +66,19 @@ class LoginRequest(BaseModel):
 @router.get("/anonymous-session/{session_id}")
 async def get_anonymous_session(session_id: str, db: AsyncSession = Depends(get_async_db)):
     """Get anonymous session data including message count."""
-    
-    session = db.query(AnonymousSession).filter(
-        AnonymousSession.id == session_id
-    ).first()
-    
+
+    result = await db.execute(
+        select(AnonymousSession).filter(AnonymousSession.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+
     if session:
         return {
             "id": session.id,
             "message_count": session.message_count,
             "exists": True
         }
-    
+
     return {
         "id": session_id,
         "message_count": 0,
@@ -88,7 +90,10 @@ async def get_anonymous_session(session_id: str, db: AsyncSession = Depends(get_
 async def register(request: Request, register_data: RegisterRequest, db: AsyncSession = Depends(get_async_db)):
     """Register a new user"""
     # Check if user already exists
-    existing_user = db.query(User).filter(User.email == register_data.email).first()
+    result = await db.execute(
+        select(User).filter(User.email == register_data.email)
+    )
+    existing_user = result.scalar_one_or_none()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -106,13 +111,13 @@ async def register(request: Request, register_data: RegisterRequest, db: AsyncSe
         email_verified=False
     )
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    await db.commit()
+    await db.refresh(new_user)
 
     # Create default preferences
     preferences = UserPreferences(user_id=new_user.id)
     db.add(preferences)
-    db.commit()
+    await db.commit()
 
     # Check for anonymous session to migrate
     anonymous_session_id = request.headers.get("X-Anonymous-Session-ID")
@@ -134,7 +139,7 @@ async def register(request: Request, register_data: RegisterRequest, db: AsyncSe
             print(f"Session migration failed during registration: {e}")
 
     # Create session
-    session_token = create_user_session(db, new_user)
+    session_token = await create_user_session(db, new_user)
     access_token = create_access_token(data={"sub": str(new_user.id), "email": new_user.email})
 
     return LoginResponse(
@@ -154,7 +159,10 @@ async def register(request: Request, register_data: RegisterRequest, db: AsyncSe
 @limiter.limit("10/minute")
 async def login(request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_async_db)):
     """Login with email and password"""
-    user = db.query(User).filter(User.email == login_data.email).first()
+    result = await db.execute(
+        select(User).filter(User.email == login_data.email)
+    )
+    user = result.scalar_one_or_none()
 
     # Check if user exists
     if not user:
@@ -191,7 +199,7 @@ async def login(request: Request, login_data: LoginRequest, db: AsyncSession = D
             print(f"Session migration failed during login: {e}")
 
     # Create session
-    session_token = create_user_session(db, user)
+    session_token = await create_user_session(db, user)
     access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
 
     return LoginResponse(
@@ -254,7 +262,7 @@ async def google_callback(
             )
 
         # Get or create user
-        user = get_or_create_user(db, user_info)
+        user = await get_or_create_user(db, user_info)
 
         # Create or update OAuth account
         # Pass both user_info and token info
@@ -266,10 +274,10 @@ async def google_callback(
             'token_type': token.get('token_type'),
             'scope': token.get('scope')
         }
-        create_or_update_account(db, user, 'google', account_data)
+        await create_or_update_account(db, user, 'google', account_data)
 
         # Create user session and JWT token
-        session_token = create_user_session(db, user)
+        session_token = await create_user_session(db, user)
         jwt_token = create_access_token(data={"sub": str(user.id), "email": user.email})
 
         # Redirect to frontend with token
@@ -309,7 +317,7 @@ async def logout(
 ):
     """Logout current user"""
     # Invalidate all sessions for this user
-    invalidate_user_sessions(db, current_user)
+    await invalidate_user_sessions(db, current_user)
 
     # Clear HTTP-only cookie if using one
     response.delete_cookie(key="access_token")
@@ -323,16 +331,17 @@ async def get_user_preferences(
     db: AsyncSession = Depends(get_async_db)
 ):
     """Get user preferences"""
-    preferences = db.query(UserPreferences).filter(
-        UserPreferences.user_id == current_user.id
-    ).first()
+    result = await db.execute(
+        select(UserPreferences).filter(UserPreferences.user_id == current_user.id)
+    )
+    preferences = result.scalar_one_or_none()
 
     if not preferences:
         # Create default preferences
         preferences = UserPreferences(user_id=current_user.id)
         db.add(preferences)
-        db.commit()
-        db.refresh(preferences)
+        await db.commit()
+        await db.refresh(preferences)
 
     return PreferencesResponse(
         theme=preferences.theme,
@@ -349,9 +358,10 @@ async def update_user_preferences(
     db: AsyncSession = Depends(get_async_db)
 ):
     """Update user preferences"""
-    preferences = db.query(UserPreferences).filter(
-        UserPreferences.user_id == current_user.id
-    ).first()
+    result = await db.execute(
+        select(UserPreferences).filter(UserPreferences.user_id == current_user.id)
+    )
+    preferences = result.scalar_one_or_none()
 
     if not preferences:
         preferences = UserPreferences(user_id=current_user.id)
@@ -363,8 +373,8 @@ async def update_user_preferences(
     preferences.notifications_enabled = preferences_update.notifications_enabled
     preferences.chat_settings = preferences_update.chat_settings
 
-    db.commit()
-    db.refresh(preferences)
+    await db.commit()
+    await db.refresh(preferences)
 
     return PreferencesResponse(
         theme=preferences.theme,
@@ -383,7 +393,7 @@ async def refresh_token(
 ):
     """Refresh access token"""
     # Create new session and token
-    session_token = create_user_session(db, current_user)
+    session_token = await create_user_session(db, current_user)
     access_token = create_access_token(data={"sub": str(current_user.id), "email": current_user.email})
 
     return {
