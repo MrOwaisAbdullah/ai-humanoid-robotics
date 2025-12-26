@@ -140,6 +140,13 @@ Additional context will be provided as needed for specific domains.
             Dictionary containing translation result
         """
         try:
+            # Check if we have any agent initialized
+            if not self.agent and not self.fallback_agent:
+                raise Exception(
+                    "No translation agent available. "
+                    "Please configure OPENROUTER_API_KEY or OPENAI_API_KEY."
+                )
+
             # Build the prompt with context
             prompt = self._build_translation_prompt(text, context)
 
@@ -152,8 +159,10 @@ Additional context will be provided as needed for specific domains.
 
             # Run the agent using the proper Runner.run pattern
             try:
+                # Use primary agent if available, otherwise use fallback
+                agent_to_use = self.agent or self.fallback_agent
                 result = await Runner.run(
-                    self.agent,
+                    agent_to_use,
                     prompt,
                     max_turns=1  # Single turn for simple translation
                 )

@@ -5,15 +5,16 @@ Handles content personalization endpoints
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List, Dict, Any
 import json
 from datetime import datetime, timedelta
 import hashlib
 import uuid
 
-from src.database.base import get_db
-from src.security.dependencies import get_current_active_user
+from src.core.database import get_async_db
+from auth.auth import get_current_active_user
 from src.models.auth import User, UserBackground
 from src.models.personalization import SavedPersonalization
 from src.agents.personalization_agent import PersonalizationAgent
@@ -87,14 +88,17 @@ def clean_content_for_personalization(content: str) -> str:
 @router.get("/list")
 async def list_personalizations(
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     List saved personalizations for the current user.
     """
-    saved_items = db.query(SavedPersonalization).filter(
-        SavedPersonalization.user_id == current_user.id
-    ).order_by(SavedPersonalization.created_at.desc()).all()
+    result = await db.execute(
+        select(SavedPersonalization)
+        .filter(SavedPersonalization.user_id == current_user.id)
+        .order_by(SavedPersonalization.created_at.desc())
+    )
+    saved_items = result.scalars().all()
 
     return {
         "personalizations": [
@@ -117,7 +121,7 @@ async def list_personalizations(
 async def generate_personalization(
     request: Dict[str, Any],
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Generate a personalized explanation for the given content.
@@ -186,7 +190,7 @@ async def generate_personalization(
 async def save_personalization(
     request: Dict[str, Any],
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Save a personalization for later reference.
@@ -227,8 +231,8 @@ async def save_personalization(
         )
         
         db.add(saved_item)
-        db.commit()
-        db.refresh(saved_item)
+        await db.commit()
+        await db.refresh(saved_item)
 
         return {
             "id": str(saved_item.id),
@@ -244,12 +248,13 @@ async def save_personalization(
         )
 
 
-async def _build_user_profile(user: User, db: Session) -> Dict[str, Any]:
+async def _build_user_profile(user: User, db: AsyncSession) -> Dict[str, Any]:
     """Build user profile for personalization."""
     # Get user background if exists
-    background = db.query(UserBackground).filter(
-        UserBackground.user_id == user.id
-    ).first()
+    result = await db.execute(
+        select(UserBackground).filter(UserBackground.user_id == user.id)
+    )
+    background = result.scalar_one_or_none()
 
     # Initialize with basic profile
     profile = {
@@ -332,9 +337,10 @@ async def _build_user_profile(user: User, db: Session) -> Dict[str, Any]:
     try:
         # Check if UserPreferences model exists
         from src.models.auth import UserPreferences
-        preferences = db.query(UserPreferences).filter(
-            UserPreferences.user_id == user.id
-        ).first()
+        pref_result = await db.execute(
+            select(UserPreferences).filter(UserPreferences.user_id == user.id)
+        )
+        preferences = pref_result.scalar_one_or_none()
 
         if preferences:
             pref_dict = {}
