@@ -23,7 +23,7 @@ from jose import jwt
 
 # Import modules to test
 from main import app
-from database.config import get_db, Base
+from src.core.database import get_sync_db, Base
 from src.models.auth import User, Session, UserPreferences
 from auth.auth import create_access_token, verify_token
 from middleware.csrf import CSRFMiddleware
@@ -38,14 +38,14 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 client = TestClient(app)
 
 # Override dependency for testing
-def override_get_db():
+def override_get_sync_db():
     try:
         db = TestingSessionLocal()
         yield db
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
+app.dependency_overrides[get_sync_db] = override_get_sync_db
 
 # Setup and teardown
 @pytest.fixture(scope="module")

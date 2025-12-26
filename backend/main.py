@@ -160,19 +160,21 @@ async def lifespan(app: FastAPI):
 
     try:
         # Create database tables on startup
-        from database.config import create_tables, engine, DATABASE_URL
+        from src.core.database import create_all_tables
+        from src.core.config import settings
         import os
         from pathlib import Path
 
         # Ensure database directory exists
-        if "sqlite" in DATABASE_URL:
-            db_path = Path(DATABASE_URL.replace("sqlite:///", ""))
+        if "sqlite" in settings.database_url_sync:
+            db_path = Path(settings.database_url_sync.replace("sqlite:///", ""))
             db_dir = db_path.parent
             db_dir.mkdir(parents=True, exist_ok=True)
             print(f"Database directory ensured: {db_dir}")
 
-        # Create tables
-        create_tables()
+        # Create tables (async)
+        import asyncio
+        asyncio.create_task(create_all_tables())
 
         logger.info("Starting up RAG backend...",
                     openai_configured=bool(settings.openai_api_key),

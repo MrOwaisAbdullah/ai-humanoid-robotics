@@ -8,11 +8,11 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 
-from database.config import get_db
+from src.core.database import get_async_db
 from src.models.auth import User, Session, Account, UserPreferences
 
 # JWT Settings
@@ -82,7 +82,7 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ) -> User:
     """Get current authenticated user"""
     token = credentials.credentials
@@ -119,7 +119,7 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 
-def create_user_session(db: Session, user: User) -> str:
+def create_user_session(db: AsyncSession, user: User) -> str:
     """Create a new session for user and return token"""
     # Delete existing sessions for this user (optional - remove if you want multiple sessions)
     db.query(Session).filter(Session.user_id == user.id).delete()
@@ -140,7 +140,7 @@ def create_user_session(db: Session, user: User) -> str:
     return session_token
 
 
-def get_or_create_user(db: Session, user_info: dict) -> User:
+def get_or_create_user(db: AsyncSession, user_info: dict) -> User:
     """Get existing user or create new one from OAuth info"""
     email = user_info.get('email')
     if not email:
@@ -175,7 +175,7 @@ def get_or_create_user(db: Session, user_info: dict) -> User:
     return user
 
 
-def create_or_update_account(db: Session, user: User, provider: str, account_info: dict) -> Account:
+def create_or_update_account(db: AsyncSession, user: User, provider: str, account_info: dict) -> Account:
     """Create or update OAuth account"""
     # For Google OAuth, the 'sub' field is in the userinfo
     provider_account_id = account_info.get('sub')
@@ -224,7 +224,7 @@ def create_or_update_account(db: Session, user: User, provider: str, account_inf
     return account
 
 
-def invalidate_user_sessions(db: Session, user: User) -> None:
+def invalidate_user_sessions(db: AsyncSession, user: User) -> None:
     """Invalidate all sessions for a user"""
     db.query(Session).filter(Session.user_id == user.id).delete()
     db.commit()

@@ -10,12 +10,13 @@ from pathlib import Path
 backend_path = Path(__file__).parent
 sys.path.insert(0, str(backend_path))
 
-from database.config import create_tables, engine, DATABASE_URL
+from src.core.database import create_all_tables, sync_engine
+from src.core.config import settings
 
 
 def ensure_database_directory():
     """Ensure the database directory exists."""
-    db_path = Path(DATABASE_URL.replace("sqlite:///", ""))
+    db_path = Path(settings.database_url_sync.replace("sqlite:///", ""))
 
     if not db_path.exists():
         db_dir = db_path.parent
@@ -30,7 +31,7 @@ from sqlalchemy import text, inspect, Integer
 def fix_schema():
     """Fix database schema issues on existing databases."""
     try:
-        inspector = inspect(engine)
+        inspector = inspect(sync_engine)
         if inspector.has_table("users"):
             columns = inspector.get_columns("users")
             col_names = [col["name"] for col in columns]

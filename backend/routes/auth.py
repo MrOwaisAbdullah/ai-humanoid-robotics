@@ -2,11 +2,11 @@
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 import os
 
-from database.config import get_db
+from src.core.database import get_async_db
 from auth.auth import (
     oauth, create_access_token, get_or_create_user,
     create_or_update_account, create_user_session,
@@ -63,7 +63,7 @@ class LoginRequest(BaseModel):
     password: str
 
 @router.get("/anonymous-session/{session_id}")
-async def get_anonymous_session(session_id: str, db: Session = Depends(get_db)):
+async def get_anonymous_session(session_id: str, db: AsyncSession = Depends(get_async_db)):
     """Get anonymous session data including message count."""
     
     session = db.query(AnonymousSession).filter(
@@ -85,7 +85,7 @@ async def get_anonymous_session(session_id: str, db: Session = Depends(get_db)):
 
 @router.post("/register")
 @limiter.limit("5/minute")
-async def register(request: Request, register_data: RegisterRequest, db: Session = Depends(get_db)):
+async def register(request: Request, register_data: RegisterRequest, db: AsyncSession = Depends(get_async_db)):
     """Register a new user"""
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == register_data.email).first()
@@ -152,7 +152,7 @@ async def register(request: Request, register_data: RegisterRequest, db: Session
 
 @router.post("/login")
 @limiter.limit("10/minute")
-async def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_db)):
+async def login(request: Request, login_data: LoginRequest, db: AsyncSession = Depends(get_async_db)):
     """Login with email and password"""
     user = db.query(User).filter(User.email == login_data.email).first()
 
@@ -219,7 +219,7 @@ async def login_via_google(request: Request):
 @limiter.limit("10/minute")  # Limit OAuth callback attempts
 async def google_callback(
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Handle Google OAuth callback"""
     try:
@@ -305,7 +305,7 @@ async def logout(
     request: Request,
     response: Response,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Logout current user"""
     # Invalidate all sessions for this user
@@ -320,7 +320,7 @@ async def logout(
 @router.get("/preferences", response_model=PreferencesResponse)
 async def get_user_preferences(
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Get user preferences"""
     preferences = db.query(UserPreferences).filter(
@@ -346,7 +346,7 @@ async def get_user_preferences(
 async def update_user_preferences(
     preferences_update: PreferencesResponse,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Update user preferences"""
     preferences = db.query(UserPreferences).filter(
@@ -379,7 +379,7 @@ async def update_user_preferences(
 async def refresh_token(
     request: Request,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """Refresh access token"""
     # Create new session and token
