@@ -101,11 +101,14 @@ async def translate_text(
         )
 
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Translation error: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "error": "TRANSLATION_ERROR",
-                "message": "Failed to translate text"
+                "message": f"Failed to translate text: {str(e)}"
             }
         )
 
@@ -231,11 +234,14 @@ async def translate_with_agent(
         )
 
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Translation error: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "error": "AGENT_TRANSLATION_ERROR",
-                "message": "Failed to translate text using agent"
+                "message": f"Failed to translate text using agent: {str(e)}"
             }
         )
 
