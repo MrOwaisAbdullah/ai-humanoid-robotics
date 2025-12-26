@@ -20,7 +20,7 @@ from src.models.personalization import SavedPersonalization
 from src.agents.personalization_agent import PersonalizationAgent
 from src.services.personalization import PersonalizationService
 
-router = APIRouter(prefix="/personalization", tags=["personalization"])
+router = APIRouter(prefix="/personalize", tags=["personalization"])
 security = HTTPBearer()
 
 
@@ -85,7 +85,7 @@ def clean_content_for_personalization(content: str) -> str:
     return cleaned_content.strip()
 
 
-@router.get("/list")
+@router.get("/saved")  # Matches /api/v1/personalize/saved
 async def list_personalizations(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db)
@@ -117,7 +117,7 @@ async def list_personalizations(
     }
 
 
-@router.post("/generate")
+@router.post("")  # Matches /api/v1/personalize
 async def generate_personalization(
     request: Dict[str, Any],
     current_user: User = Depends(get_current_active_user),
@@ -186,16 +186,63 @@ async def generate_personalization(
         )
 
 
-@router.post("/save")
+@router.post("/saved/{personalization_id}")  # Matches /api/v1/personalize/saved/{id}
 async def save_personalization(
+    personalization_id: str,
     request: Dict[str, Any],
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db)
 ):
     """
     Save a personalization for later reference.
+
+    Accepts either:
+    - { content, explanation } - Full personalization save
+    - { title, tags, notes } - Update existing personalization metadata
     """
     try:
+        title = request.get("title")
+        tags = request.get("tags")
+        notes = request.get("notes")
+
+        # Check if this is a metadata update (from frontend)
+        if title or tags or notes:
+            # Try to find existing personalization
+            result = await db.execute(
+                select(SavedPersonalization).filter(
+                    SavedPersonalization.id == personalization_id,
+                    SavedPersonalization.user_id == current_user.id
+                )
+            )
+            saved_item = result.scalar_one_or_none()
+
+            if saved_item:
+                # Update existing item
+                if title:
+                    saved_item.content_title = title
+                if tags:
+                    # Store tags in metadata
+                    metadata = saved_item.personalization_metadata or {}
+                    metadata["tags"] = tags
+                    saved_item.personalization_metadata = metadata
+                if notes:
+                    # Store notes in metadata
+                    metadata = saved_item.personalization_metadata or {}
+                    metadata["notes"] = notes
+                    saved_item.personalization_metadata = metadata
+
+                await db.commit()
+                await db.refresh(saved_item)
+
+                return {
+                    "id": str(saved_item.id),
+                    "message": "Personalization updated successfully",
+                    "title": saved_item.content_title,
+                    "tags": tags,
+                    "notes": notes
+                }
+
+        # Original save behavior (fallback)
         content = request.get("content", "")
         explanation = request.get("explanation", "")
         context_type = request.get("context_type", "page")
@@ -209,13 +256,14 @@ async def save_personalization(
 
         # Clean content to remove UI elements
         content = clean_content_for_personalization(content)
-        
+
         # Calculate hash
         content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
-        
-        # Generate title
-        title = content[:50] + "..." if len(content) > 50 else content
-        
+
+        # Generate title if not provided
+        if not title:
+            title = content[:50] + "..." if len(content) > 50 else content
+
         saved_item = SavedPersonalization(
             user_id=current_user.id,
             original_content_hash=content_hash,
@@ -225,11 +273,13 @@ async def save_personalization(
             personalization_metadata={
                 "context_type": context_type,
                 "word_count": word_count,
-                "original_excerpt": content[:200]
+                "original_excerpt": content[:200],
+                "tags": tags or [],
+                "notes": notes or ""
             },
             adaptations_applied=[]
         )
-        
+
         db.add(saved_item)
         await db.commit()
         await db.refresh(saved_item)
@@ -238,9 +288,13 @@ async def save_personalization(
             "id": str(saved_item.id),
             "message": "Personalization saved successfully",
             "expires_at": (datetime.utcnow() + timedelta(days=30)).isoformat(),
-            "title": title
+            "title": title,
+            "tags": tags or [],
+            "notes": notes or ""
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
