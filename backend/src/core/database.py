@@ -56,7 +56,6 @@ async_engine = create_async_engine(
     connect_args=async_connect_args,
     # Additional async-specific settings
     pool_use_lifo=True,  # Use LIFO to reduce stale connections
-    pool_drop_on_rollback=False,  # Don't drop connections on rollback
 )
 
 # Sync engine for Alembic migrations
