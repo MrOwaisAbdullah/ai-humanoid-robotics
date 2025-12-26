@@ -39,6 +39,12 @@ Required secrets (set in Space Settings):
 
 See `.env.hf-template` for full configuration options.
 
+## Deployment Notes
+
+- HuggingFace Space auto-rebuilds on push to main branch
+- CORS origins are configured via ALLOWED_ORIGINS environment variable
+- Backend runs on port 7860 (HF Spaces default)
+
 ## License
 
 MIT
