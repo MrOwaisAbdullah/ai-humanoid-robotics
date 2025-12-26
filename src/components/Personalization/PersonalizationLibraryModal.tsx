@@ -50,7 +50,7 @@ export const PersonalizationLibraryModal: React.FC<PersonalizationLibraryModalPr
   const loadLibrary = async () => {
     setIsLoading(true);
     try {
-      const response = await apiRequest.get('/api/v1/personalization/list');
+      const response = await apiRequest.get('/api/v1/personalize/saved');
       if (response.data && response.data.personalizations) {
         setSavedItems(response.data.personalizations);
       }

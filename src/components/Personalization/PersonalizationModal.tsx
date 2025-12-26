@@ -62,7 +62,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
     if (!user) return;
     
     try {
-      const response = await apiRequest.get('/api/v1/personalization/list');
+      const response = await apiRequest.get('/api/v1/personalize/saved');
       if (response.data && response.data.personalizations) {
         setSavedPersonalizations(response.data.personalizations);
       }
@@ -82,7 +82,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
     setError(null);
 
     try {
-      const response = await apiRequest.post('/api/v1/personalization/generate', {
+      const response = await apiRequest.post('/api/v1/personalize', {
         content: content.trim(),
         context_type: contentType,
         word_count: wordCount || content.split(' ').length
@@ -106,7 +106,9 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
     if (!explanation.trim() || !user || !content) return;
 
     try {
-      const response = await apiRequest.post('/api/v1/personalization/save', {
+      // Generate a UUID for the new personalization
+      const newId = `new-${Date.now()}`;
+      const response = await apiRequest.post(`/api/v1/personalize/saved/${newId}`, {
         content: content.trim(),
         explanation: explanation.trim(),
         context_type: contentType,
