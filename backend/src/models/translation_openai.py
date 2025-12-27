@@ -23,7 +23,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.sql import func
 
-from src.database.base import Base
+from src.core.database import Base
 
 
 class TranslationJobStatus(Enum):
@@ -403,12 +403,6 @@ class TranslationCache(Base):
 
     # Cache configuration
     ttl_hours = Column(Integer, default=168, nullable=False)  # 7 days default
-
-    # Cache management (database columns)
-    is_pinned = Column(Boolean, default=False, nullable=False)
-    priority = Column(Integer, default=0, nullable=False)
-    is_validated = Column(Boolean, default=False, nullable=False)
-    validated_by = Column(String(50), nullable=True)
 
     # Relationships
     job = relationship("TranslationJob", back_populates="cache_entries")
