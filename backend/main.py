@@ -186,6 +186,32 @@ async def lifespan(app: FastAPI):
         import asyncio
         asyncio.create_task(create_all_tables())
 
+        # Clear translation and personalization cache on startup
+        async def clear_database_cache():
+            try:
+                from src.core.database import get_async_db
+                from sqlalchemy import text
+                import os
+
+                # Only clear cache if explicitly requested via environment variable
+                # Set CLEAR_CACHE=true in HuggingFace Secrets to enable
+                if os.getenv("CLEAR_CACHE", "false").lower() == "true":
+                    async with get_async_db() as db:
+                        # Clear expired translation cache entries
+                        await db.execute(text("DELETE FROM translation_cache WHERE expires_at < NOW()"))
+
+                        # Clear old personalizations (older than 7 days)
+                        await db.execute(text("DELETE FROM saved_personalizations WHERE created_at < NOW() - INTERVAL '7 days'"))
+
+                        await db.commit()
+                        print("✅ Database cache cleared (expired translations & old personalizations)")
+                else:
+                    print("ℹ️ Set CLEAR_CACHE=true in Secrets to clear database cache on startup")
+            except Exception as e:
+                print(f"⚠️ Failed to clear database cache: {e}")
+
+        asyncio.create_task(clear_database_cache())
+
         logger.info("Starting up RAG backend...",
                     openai_configured=bool(settings.openai_api_key),
                     qdrant_url=settings.qdrant_url)
