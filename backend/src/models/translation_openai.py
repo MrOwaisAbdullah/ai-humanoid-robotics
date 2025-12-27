@@ -396,7 +396,11 @@ class TranslationCache(Base):
     hit_count = Column(Integer, default=0, nullable=False)
     last_hit_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+
+    # Validation status (required by existing database schema)
+    is_validated = Column(Boolean, default=True, nullable=False)
 
     # Quality and performance
     quality_score = Column(Numeric(5, 2), nullable=True)
