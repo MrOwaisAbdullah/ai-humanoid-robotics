@@ -406,6 +406,7 @@ class TranslationCache(Base):
     quality_score = Column(Numeric(5, 2), nullable=True)
     processing_time_ms = Column(BigInteger, nullable=False)
     model_version = Column(String(50), nullable=False)
+    priority = Column(Integer, default=0, nullable=False)  # Cache priority for eviction
 
     # Cache configuration
     ttl_hours = Column(Integer, default=168, nullable=False)  # 7 days default
