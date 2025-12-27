@@ -23,7 +23,8 @@ class Bookmark(BaseModel):
     is_private = Column(Boolean, nullable=False, default=True)
 
     # Relationships
-    user = relationship("User", back_populates="bookmarks")
+    # Note: back_populates removed since User model doesn't have this relationship
+    user = relationship("User")
     tags = relationship("BookmarkTag", back_populates="bookmark", cascade="all, delete-orphan")
 
     __table_args__ = (

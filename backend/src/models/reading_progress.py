@@ -22,7 +22,8 @@ class ReadingProgress(BaseModel):
     last_accessed = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
-    user = relationship("User", back_populates="reading_progress")
+    # Note: back_populates removed since User model uses different Base
+    user = relationship("User")
 
     # Unique constraint to ensure one progress record per user per section
     __table_args__ = (

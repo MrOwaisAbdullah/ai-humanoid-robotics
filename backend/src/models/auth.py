@@ -42,10 +42,10 @@ class User(Base):
     chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
     folders = relationship("ChatFolder", back_populates="user", cascade="all, delete-orphan")
     tags = relationship("ChatTag", back_populates="user", cascade="all, delete-orphan")
-    translation_jobs = relationship("TranslationJob", back_populates="user", cascade="all, delete-orphan")
-    translation_sessions = relationship("TranslationSession", back_populates="user", cascade="all, delete-orphan")
-    translation_metrics = relationship("TranslationMetrics", back_populates="user", cascade="all, delete-orphan")
-    reading_progress = relationship("ReadingProgress", back_populates="user", cascade="all, delete-orphan")
+    # Note: Translation models (TranslationJob, TranslationSession, TranslationMetrics)
+    # and ReadingProgress use async Base from src.core.database, so relationships
+    # are defined at the database level via foreign keys only, not SQLAlchemy relationships.
+    # reading_progress = relationship("ReadingProgress", back_populates="user", cascade="all, delete-orphan")
 
 
 class Account(Base):
