@@ -38,8 +38,8 @@ class OpenAITranslationAgent:
                 openrouter_client = AsyncOpenAI(
                     api_key=os.getenv("OPENROUTER_API_KEY"),
                     base_url="https://openrouter.ai/api/v1",
-                    timeout=120.0,
-                    max_retries=3,
+                    timeout=60.0,  # 60 seconds timeout
+                    max_retries=2,
                     default_headers={
                         "HTTP-Referer": os.getenv("FRONTEND_URL", "http://localhost:3000"),
                         "X-Title": "AI Book Translation Agent"
@@ -67,8 +67,8 @@ class OpenAITranslationAgent:
             try:
                 openai_client = AsyncOpenAI(
                     api_key=os.getenv("OPENAI_API_KEY"),
-                    timeout=120.0,
-                    max_retries=3
+                    timeout=60.0,  # 60 seconds timeout
+                    max_retries=2
                 )
 
                 fallback_model_name = "gpt-5-nano"

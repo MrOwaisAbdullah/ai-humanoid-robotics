@@ -11,7 +11,7 @@ import { API_BASE_URL } from '../config/api';
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 80000, // 80 seconds timeout
+  timeout: 150000, // 150 seconds timeout (2.5 minutes) for slow translations
   withCredentials: true, // Important for cookies
   headers: {
     'Content-Type': 'application/json',
