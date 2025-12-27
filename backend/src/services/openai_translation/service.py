@@ -43,7 +43,7 @@ class OpenAITranslationRequest:
     session_id: Optional[str] = None
 
     # OpenAI parameters
-    model: str = "openai/gpt-oss-120b:free"
+    model: str = "xiaomi/mimo-v2-flash:free"
     temperature: float = 0.3
     max_tokens: int = 2048
 
@@ -148,7 +148,7 @@ Translation:
     # Model pricing (approximate USD per 1K tokens)
     MODEL_PRICING = {
         # OpenRouter pricing (free model)
-        "openai/gpt-oss-120b:free": {
+        "xiaomi/mimo-v2-flash:free": {
             "input": 0.0,
             "output": 0.0
         },
@@ -194,7 +194,7 @@ Translation:
                         "X-Title": "AI Book Translation Service"
                     }
                 )
-                self.openrouter_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
+                self.openrouter_model = os.getenv("OPENROUTER_MODEL", "xiaomi/mimo-v2-flash:free")
                 logger.info(
                     "OpenRouter primary client initialized for translation",
                     model=self.openrouter_model
@@ -230,7 +230,7 @@ Translation:
 
         logger.info(
             "OpenAI Translation Service initialized",
-            model="openai/gpt-oss-120b:free",
+            model="xiaomi/mimo-v2-flash:free",
             analytics_enabled=enable_analytics
         )
 
@@ -940,7 +940,7 @@ Translation:
             # Test OpenRouter connection
             if self.openrouter_client:
                 response = await self.openrouter_client.chat.completions.create(
-                    model=self.openrouter_model or "openai/gpt-oss-120b:free",
+                    model=self.openrouter_model or "xiaomi/mimo-v2-flash:free",
                     messages=[{"role": "user", "content": "test"}],
                     max_tokens=1
                 )

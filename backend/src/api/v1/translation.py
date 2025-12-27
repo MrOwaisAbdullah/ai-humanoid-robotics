@@ -47,7 +47,7 @@ async def translate_text(
         document_type = request.get("document_type")
         technical_domain = request.get("technical_domain")
         target_audience = request.get("target_audience")
-        model = request.get("model", "openai/gpt-oss-120b:free")  # Use OpenRouter free model as default
+        model = request.get("model", "xiaomi/mimo-v2-flash:free")  # Use OpenRouter free model as default
 
         # Validate that text is not empty or just whitespace
         if not text or text.strip() == "":
@@ -140,7 +140,7 @@ async def translate_with_agent(
         source_language = request.get("source_language", "en")
         target_language = request.get("target_language", "ur")
         page_url = request.get("page_url")
-        model = request.get("model", "openai/gpt-oss-120b:free")  # Use OpenRouter free model as default
+        model = request.get("model", "xiaomi/mimo-v2-flash:free")  # Use OpenRouter free model as default
 
         # Validate that text is not empty or just whitespace
         if not text or text.strip() == "":

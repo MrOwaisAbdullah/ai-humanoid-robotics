@@ -52,7 +52,7 @@ class PersonalizationAgent:
         self.fallback_model = None
         if self.openrouter_client:
             self.fallback_model = OpenAIChatCompletionsModel(
-                model="openai/gpt-oss-120b:free",
+                model="xiaomi/mimo-v2-flash:free",
                 openai_client=self.openrouter_client
             )
 
@@ -176,7 +176,7 @@ class PersonalizationAgent:
         if not result["success"] and self._should_use_fallback(result["error_message"]) and self.fallback_model:
             print(f"Primary model failed, attempting fallback to OpenRouter...")
             result = await self._try_personalize_with_model(
-                model_name="openai/gpt-oss-120b:free",
+                model_name="xiaomi/mimo-v2-flash:free",
                 model=self.fallback_model,
                 input_text=personalized_input,
                 content=content,
