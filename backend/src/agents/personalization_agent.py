@@ -64,7 +64,7 @@ class PersonalizationAgent:
         if self.openrouter_client:
             try:
                 # Use a working free model with fewer restrictions
-                model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                model_name = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
                 self.primary_model = OpenAIChatCompletionsModel(
                     model=model_name,
                     openai_client=self.openrouter_client
@@ -223,7 +223,7 @@ class PersonalizationAgent:
 
         # Try primary model first (OpenRouter)
         if self.primary_model:
-            primary_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+            primary_model_name = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
             result = await self._try_personalize_with_model(
                 model_name=primary_model_name,
                 model=self.primary_model,

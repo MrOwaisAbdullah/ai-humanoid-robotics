@@ -1,6 +1,6 @@
 ---
-name: better-auth-v2
-description: Production-ready authentication system using Better Auth v2 with latest features. Includes OAuth providers, advanced RBAC, multi-tenant support, and security best practices.
+name: better-auth-integration
+description: Production-ready authentication system using Better Auth with latest features. Includes OAuth providers, advanced RBAC, multi-tenant support, and security best practices.
 category: authentication
 version: 2.0.0
 dependencies:
@@ -9,11 +9,11 @@ dependencies:
   - better-auth/plugins: organization|oauth|two-factor|passkey
 ---
 
-# Better Auth v2 Integration Skill
+# Better Auth Integration Skill
 
 ## Purpose
 
-Provides **cutting-edge authentication templates** and **expert integration guidance** using Better Auth v2. This skill analyzes your project architecture and implements a full-featured authentication system including:
+Provides **cutting-edge authentication templates** and **expert integration guidance** using Better Auth. This skill analyzes your project architecture and implements a full-featured authentication system including:
 - Email/password and OAuth authentication (Google, Apple, Facebook, X, etc.)
 - Advanced OAuth token encryption and account linking
 - Multi-factor authentication (2FA) support
@@ -21,12 +21,25 @@ Provides **cutting-edge authentication templates** and **expert integration guid
 - Multi-tenant architecture with organizations
 - Session management with enhanced security
 - Production-ready security configurations
-- **Personalized onboarding flows** for user background collection
+- **🔒 Advanced Security**
+  - OAuth token encryption at rest
+  - Account linking across providers
+  - Advanced rate limiting
+  - Session management with auto-renewal
+  - CSRF protection
+  - IP-based security
+
+- **🐍 FastAPI Integration**
+  - Decoupled architecture support
+  - JWT token generation for external backends
+  - Python middleware templates
+  - Stateless authentication flow
+
 
 ## What This Skill Provides
 
 ✅ **Automated Implementation Plan**: Analyzes project structure (framework, DB, backend) and provides a tailored integration strategy.
-✅ **Latest Better Auth v2 configuration templates**
+✅ **Latest Better Auth configuration templates**
 ✅ **Enhanced database schemas** (Prisma, Drizzle, Kysely, MongoDB)
 ✅ **Modern React/Vue/Svelte authentication clients**
 ✅ **Middleware for route protection with advanced features**
@@ -47,7 +60,7 @@ Provides **cutting-edge authentication templates** and **expert integration guid
 
 Use this skill when:
 - Building new applications with modern authentication requirements
-- Migrating from older auth systems to Better Auth v2
+- Migrating from older auth systems to Better Auth
 - Implementing enterprise-grade security features
 - Setting up multi-tenant SaaS applications
 - Requiring advanced OAuth features like token encryption
@@ -57,7 +70,7 @@ Use this skill when:
 
 **How to use:**
 ```
-Load the better-auth-v2 skill and use the [template-name] for [framework] with [database-adapter]
+Load the better-auth-integration skill and use the [template-name] for [framework] with [database-adapter]
 OR
 Simply ask: "Add Better-Auth to my project" to start the automated integrator flow.
 ```
@@ -158,8 +171,8 @@ After activation, I will deliver:
 
 ### Configuration Templates
 
-1. **Production Auth Config v2** (`config/production-auth-v2.template.ts`)
-   - Latest Better Auth v2 features
+1. **Production Auth Config** (`config/production-auth-v2.template.ts`)
+   - Latest Better Auth features
    - OAuth token encryption enabled
    - Account linking with email validation
    - Advanced security defaults
@@ -184,14 +197,14 @@ After activation, I will deliver:
 
 ### Database Schema Templates
 
-1. **Prisma Schema v2** (`schemas/prisma-v2.template.prisma`)
-2. **Drizzle Schema v2** (`schemas/drizzle-v2.template.ts`)
-3. **Kysely Schema v2** (`schemas/kysely-v2.template.ts`)
+1. **Prisma Schema** (`schemas/prisma-v2.template.prisma`)
+2. **Drizzle Schema** (`schemas/drizzle-v2.template.ts`)
+3. **Kysely Schema** (`schemas/kysely-v2.template.ts`)
 4. **MongoDB Schema** (`schemas/mongodb.template.ts`)
 
 ### Client-Side Templates
 
-1. **React Auth Client v2** (`client/react-auth-client-v2.template.tsx`)
+1. **React Auth Client** (`client/react-auth-client-v2.template.tsx`)
 2. **Vue 3 Auth Client** (`client/vue3-auth-client.template.ts`)
 3. **Svelte Auth Client** (`client/svelte-auth-client.template.ts`)
 4. **TypeScript Auth Utilities** (`client/auth-utils.template.ts`)
@@ -260,13 +273,13 @@ After activation, I will deliver:
 
 ## Quick Start Templates
 
-### Template 1: Production Auth Configuration v2
+### Template 1: Production Auth Configuration
 
-**File**: `.claude/skills/better-auth-v2/config/production-auth-v2.template.ts`
+**File**: `.claude/skills/better-auth-integration/config/production-auth-v2.template.ts`
 
 ```typescript
 /**
- * Better Auth v2 - Production-Ready Configuration
+ * Better Auth - Production-Ready Configuration
  *
  * Latest Features:
  * - OAuth token encryption
@@ -716,13 +729,13 @@ export type User = typeof auth.$Infer.User;
 export type Organization = typeof auth.$Infer.Organization;
 ```
 
-### Template 2: React Auth Client v2
+### Template 2: React Auth Client
 
-**File**: `.claude/skills/better-auth-v2/client/react-auth-client-v2.template.tsx`
+**File**: `.claude/skills/better-auth-integration/client/react-auth-client-v2.template.tsx`
 
 ```typescript
 /**
- * React Auth Client v2 with Enhanced Features
+ * React Auth Client with Enhanced Features
  *
  * Features:
  * - TypeScript integration
@@ -1192,549 +1205,3 @@ export type User = NonNullable<Session>["user"];
 export type Organization = Awaited<ReturnType<typeof useOrganizations>>["data"]?.[0];
 export type Member = Awaited<ReturnType<typeof removeMember>>["data"];
 ```
-
-## Getting Started
-
-1. **Install Dependencies**
-   ```bash
-   npm install better-auth@latest @better-auth/prisma-adapter
-   ```
-
-2. **Set Up Database**
-   - Choose your adapter (Prisma, Drizzle, Kysely, or MongoDB)
-   - Copy and run the appropriate schema template
-   - Run migrations
-
-3. **Configure Auth**
-   - Copy the production configuration template
-   - Set up environment variables
-   - Configure OAuth providers
-
-4. **Set Up Client**
-   - Copy the React client template
-   - Wrap your app with `AuthProvider`
-   - Use hooks in components
-
-5. **Add Components**
-   - Copy authentication component templates
-   - Customize for your application
-   - Add to your pages
-
-## Environment Variables
-
-Create a `.env.local` file with:
-
-```env
-# Core Auth
-BETTER_AUTH_SECRET=your-secret-key-here
-BETTER_AUTH_URL=http://localhost:3000
-
-# Database
-DATABASE_URL=your-database-url
-
-# OAuth Providers
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_CLIENT_SECRET=your-discord-client-secret
-MICROSOFT_CLIENT_ID=your-microsoft-client-id
-MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
-
-# Email Service
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-smtp-user
-SMTP_PASSWORD=your-smtp-password
-EMAIL_FROM_ADDRESS=noreply@example.com
-EMAIL_FROM_NAME=Your App
-
-# App Settings
-APP_NAME=Your App Name
-PASSKEY_RP_ID=yourdomain.com
-PASSKEY_ORIGIN=https://yourdomain.com
-```
-
-## Security Checklist
-
-- [ ] Set strong, unique `BETTER_AUTH_SECRET`
-- [ ] Enable OAuth token encryption
-- [ ] Configure rate limiting
-- [ ] Set up proper CORS origins
-- [ ] Enable 2FA for sensitive roles
-- [ ] Configure email verification
-- [ ] Set up audit logging
-- [ ] Review session settings
-- [ ] Test password reset flow
-- [ ] Verify OAuth callback URLs
-
-## ⚠️ Critical Implementation Lessons Learned
-
-Based on real-world OAuth implementation challenges, avoid these common pitfalls:
-
-### 1. Database Schema Conflicts
-**Problem**: Using reserved attribute names like `metadata` in SQLAlchemy models
-```python
-# ❌ Causes error
-class ChatMessage(Base):
-    metadata = Column(JSON, nullable=True)  # SQLAlchemy reserves this!
-
-# ✅ Fixed version
-class ChatMessage(Base):
-    message_metadata = Column(JSON, nullable=True)  # Use different name
-```
-
-### 2. OAuth Redirect URI Configuration
-**Critical Issues**:
-- Always include the full path with trailing slash removal
-- For cross-platform deployments (GitHub Pages + HuggingFace):
-  ```env
-  # OAuth callback to backend
-  AUTH_REDIRECT_URI=https://your-hf-space.hf.space/backend/auth/google/callback
-  # Frontend redirect after auth
-  FRONTEND_URL=https://your-username.github.io/your-repo
-  ```
-
-### 3. Session Middleware Requirements
-**Must-Have**: OAuth requires SessionMiddleware for state parameter
-```python
-from starlette.middleware.sessions import SessionMiddleware
-
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.jwt_secret_key,
-    session_cookie="session_id",
-    max_age=3600,
-    same_site="lax",
-    https_only=False,  # Set true in production
-)
-```
-
-### 4. Docusaurus Base Path Handling
-**Issue**: Static sites have base paths that affect OAuth callbacks
-```typescript
-// Docusaurus config
-baseUrl: '/ai-humanoid-robotics/',  // This affects ALL routes
-
-// Must match in environment
-FRONTEND_URL=https://username.github.io/ai-humanoid-robotics
-```
-
-### 5. Google OAuth Response Structure
-**Problem**: Provider account ID (`sub`) field might be missing
-```python
-def create_or_update_account(db: Session, user: User, provider: str, account_info: dict) -> Account:
-    provider_account_id = account_info.get('sub')  # Primary: Google ID
-    if not provider_account_id:
-        # Fallback to email
-        provider_account_id = account_info.get('email')
-    if not provider_account_id:
-        # Final fallback
-        provider_account_id = str(user.id)
-```
-
-### 6. GitHub Pages Static Route Handling
-**Problem**: Cannot create dynamic routes on static sites
-```typescript
-// Create static page: src/pages/auth/callback.tsx
-export default function AuthCallbackPage() {
-  return <OAuthCallbackHandler />;
-}
-```
-
-### 7. Dependency Management
-**Missing Dependencies Cause Failures**:
-```toml
-# pyproject.toml
-dependencies = [
-    "sqlalchemy>=2.0.0",
-    "alembic>=1.12.0",
-    "python-jose[cryptography]>=3.3.0",
-    "authlib>=1.2.1",
-    "itsdangerous>=2.1.0",  # Required for SessionMiddleware
-]
-```
-
-### 8. CORS Configuration Checklist
-**Essential for Cross-Platform**:
-```python
-# main.py
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://username.github.io",
-    "https://huggingface.co",
-    "https://your-hf-space.hf.space",
-]
-```
-
-### 9. JWT Secret Key Requirements
-**Must Configure**:
-```python
-class Settings(BaseSettings):
-    # Add to your settings class
-    jwt_secret_key: str = "your-super-secret-jwt-key-at-least-32-characters-long"
-```
-
-### 10. Production Deployment Checklist
-- [ ] Test OAuth in production environment (localhost may work with wrong URLs)
-- [ ] Verify redirect URIs match EXACTLY in provider console
-- [ ] Include base path in frontend URLs for static sites
-- [ ] Set up proper session middleware before OAuth routes
-- [ ] Configure CORS for all deployment domains
-- [ ] Enable HTTPS in production
-- [ ] Set proper cookie attributes (SameSite, Secure, HttpOnly)
-
-## Next Steps
-
-1. Customize the templates for your application
-2. Set up additional OAuth providers as needed
-3. Configure advanced RBAC rules
-4. Set up monitoring and analytics
-5. Add custom email templates
-6. Configure webhooks for your business logic
-7. **Review the lessons learned above to avoid common pitfalls**
-
-For detailed documentation and advanced configurations, visit the [Better Auth documentation](https://better-auth.com/docs).
-
----
-
-## FastAPI + React JWT Authentication: Critical Implementation Lessons
-
-**Context**: These lessons are from implementing JWT-based authentication with FastAPI (backend) and React (frontend), not using Better Auth library. If you're implementing custom JWT authentication, avoid these pitfalls:
-
-### 1. Database Column Name Mismatches
-
-**Problem**: SQLAlchemy model attribute names don't always match database column names
-```python
-# ❌ This causes error: "column user_backgrounds.years_of_experience does not exist"
-class UserBackground(Base):
-    years_of_experience = Column(Integer, nullable=False, default=0)
-
-# ✅ Fix: Add explicit column name mapping
-class UserBackground(Base):
-    years_of_experience = Column("years_experience", Integer, nullable=False, default=0)
-```
-
-**Root Cause**: Database migration created `years_experience` column but model uses `years_of_experience` attribute name. SQLAlchemy needs explicit column name when they differ.
-
-**Files**: `backend/src/models/auth.py`
-
----
-
-### 2. Async Database Operations with asyncpg Driver
-
-**Problem**: Using synchronous SQLAlchemy with async PostgreSQL driver causes connection errors
-```python
-# ❌ This causes: "TypeError: connect() got an unexpected keyword argument 'sslmode'"
-from src.database.base import get_db  # Synchronous session
-
-@router.get("/background")
-async def get_user_background(db = Depends(get_db)):
-    result = db.query(UserBackground).filter(...).first()  # Sync query
-```
-
-**✅ Fix: Use AsyncSession with async queries**
-```python
-from src.core.database import get_async_db  # Async session
-from sqlalchemy import select
-
-@router.get("/background")
-async def get_user_background(
-    request: Request,
-    db: AsyncSession = Depends(get_async_db)
-):
-    result = await db.execute(
-        select(UserBackground).where(UserBackground.user_id == user.id)
-    )
-    background = result.scalar_one_or_none()
-    await db.commit()
-```
-
-**Root Cause**: asyncpg driver doesn't support synchronous connection parameters. All database operations must be async.
-
-**Files**: `backend/src/api/routes/users.py`
-
----
-
-### 3. useReducer Lazy Initialization with localStorage
-
-**Problem**: Initial state evaluated at module load time when localStorage is unavailable
-```typescript
-// ❌ This runs at module load, localStorage might not be available
-const initialState: AuthState = {
-  token: localStorage.getItem('auth_token'),  // Can be null or error
-  isLoading: !!localStorage.getItem('auth_token'),
-  // ...
-};
-
-const [state, dispatch] = useReducer(authReducer, initialState);
-```
-
-**✅ Fix: Use lazy initialization with init function**
-```typescript
-// Function called when component mounts, not at module load
-const getInitialState = (): AuthState => {
-  const tokens = tokenManager.getTokens();  // Safely called after mount
-  console.log('[AuthContext] getInitialState:', {
-    hasToken: !!tokens.token,
-    isLoading: !!tokens.token
-  });
-  return {
-    user: null,
-    token: tokens.token,
-    refreshToken: tokens.refreshToken,
-    isLoading: !!tokens.token,  // Only load if token exists
-    isAuthenticated: false,
-    error: null,
-  };
-};
-
-const [state, dispatch] = useReducer(authReducer, undefined, getInitialState);
-```
-
-**Root Cause**: React's `useReducer` with lazy initialization (third parameter) defers initial state calculation until component mount, ensuring browser APIs are available.
-
-**Files**: `src/context/AuthContext.tsx`
-
----
-
-### 4. Reducer Actions Must Update All State
-
-**Problem**: Missing state updates in reducer causes infinite loading
-```typescript
-// ❌ isLoading never gets reset to false
-case 'SET_USER':
-  return {
-    ...state,
-    user: action.payload,
-    isAuthenticated: true,
-    // Missing: isLoading: false
-  };
-```
-
-**✅ Fix: Always update isLoading in auth state changes**
-```typescript
-case 'SET_USER':
-  return {
-    ...state,
-    user: action.payload,
-    isAuthenticated: true,
-    isLoading: false,  // CRITICAL: Reset loading state
-  };
-```
-
-**Root Cause**: Components waiting for `isLoading` to become `false` will hang forever.
-
-**Files**: `src/context/AuthContext.tsx`
-
----
-
-### 5. API Response Format Consistency
-
-**Problem**: Different endpoints return different response structures
-```typescript
-// ❌ /api/v1/auth/register returns:
-{ success: true, user: {...}, token: "..." }
-
-// But /api/v1/auth/me returns user directly:
-{ id: "...", email: "...", name: "..." }
-```
-
-**✅ Fix: Handle both response formats in frontend**
-```typescript
-// Check response format appropriately
-if (response.success && response.user && response.token) {
-  // Register/Login response
-  tokenManager.setTokens(response.token, response.refreshToken);
-  dispatch({ type: 'AUTH_SUCCESS', payload: response });
-} else if (response && response.id) {
-  // Direct user response from /me endpoint
-  dispatch({ type: 'SET_USER', payload: response });
-}
-```
-
-**Better Solution**: Standardize all endpoint responses
-```python
-# Backend: Always use consistent wrapper
-class UserResponse(BaseModel):
-    success: bool
-    user: Dict[str, Any]  # Use Dict for camelCase flexibility
-    token: Optional[str] = None
-```
-
-**Files**: `src/context/AuthContext.tsx`, `backend/src/api/v1/auth.py`
-
----
-
-### 6. Token Storage Key Consistency
-
-**Problem**: Different parts of codebase use different localStorage keys
-```typescript
-// ❌ Inconsistent key names
-localStorage.getItem('access_token')    // api.ts
-localStorage.setItem('auth_token', ...) // auth-api.ts
-localStorage.getItem('token')           // Some other file
-```
-
-**✅ Fix: Standardize on one key name across entire app**
-```typescript
-// Create a centralized token manager
-class TokenManager {
-  private readonly TOKEN_KEY = 'auth_token';
-  private readonly REFRESH_KEY = 'refresh_token';
-
-  getTokens() {
-    return {
-      token: localStorage.getItem(this.TOKEN_KEY),
-      refreshToken: localStorage.getItem(this.REFRESH_KEY)
-    };
-  }
-
-  setTokens(token: string, refreshToken?: string) {
-    localStorage.setItem(this.TOKEN_KEY, token);
-    if (refreshToken) {
-      localStorage.setItem(this.REFRESH_KEY, refreshToken);
-    }
-  }
-}
-```
-
-**Files**: `src/services/auth-api.ts`, `src/services/api.ts`
-
----
-
-### 7. Race Conditions in Auth Check
-
-**Problem**: Components initialize before authentication check completes
-```typescript
-// ❌ Initializes anonymous session before knowing if user is authenticated
-const { isAuthenticated } = useAuth();
-
-useEffect(() => {
-  if (!isAuthenticated) {
-    initializeAnonymousSession();  // Runs too early!
-  }
-}, [isAuthenticated]);
-```
-
-**✅ Fix: Wait for auth check to complete before taking action**
-```typescript
-const { isAuthenticated, isLoading } = useAuth();  // Include isLoading
-
-useEffect(() => {
-  // Only initialize if not authenticated AND auth check is complete
-  if (!isAuthenticated && !isLoading) {
-    initializeAnonymousSession();
-  }
-}, [isAuthenticated, isLoading]);  // Both as dependencies
-```
-
-**Root Cause**: `isLoading` indicates auth check is in progress. Components must wait for `isLoading: false` before making auth-dependent decisions.
-
-**Files**: `src/components/ChatWidget/ChatWidgetContainer.tsx`
-
----
-
-### 8. Middleware User vs Dependency Injection
-
-**Problem**: Inconsistent user retrieval patterns across endpoints
-```python
-# ❌ Old way: Duplicate authentication logic
-@router.get("/background")
-async def get_background(
-    current_user: User = Depends(get_current_active_user)
-):
-    # Re-validates token, makes extra DB query
-    pass
-
-# ✅ New way: Use middleware's validated user
-@router.get("/background")
-async def get_background(request: Request):
-    user = request.state.user  # Already validated by middleware
-    pass
-```
-
-**Benefits**:
-- Middleware validates token once per request
-- Reduces database queries
-- Consistent authentication across all endpoints
-
-**Files**: `backend/src/api/routes/users.py`, `backend/middleware/auth.py`
-
----
-
-### 9. Module Import Path Updates
-
-**Problem**: Refactoring breaks imports across codebase
-```python
-# ❌ Old import after code reorganization
-from auth.auth import verify_token
-
-# ✅ Fix: Update to new module path
-from src.core.security import verify_token
-```
-
-**Best Practice**: When refactoring, use IDE's "Find All References" to update all imports consistently.
-
-**Files**: `backend/middleware/auth.py`
-
----
-
-### 10. Missing Dependencies
-
-**Problem**: Required packages not installed, causing cryptic errors
-```
-ModuleNotFoundError: No module named 'sqlmodel'
-ModuleNotFoundError: No module named 'psycopg2'
-```
-
-**✅ Fix: Install all required dependencies upfront**
-```bash
-# Database dependencies
-pip install sqlalchemy[asyncio] asyncpg psycopg2-binary
-
-# ORM dependencies
-pip install sqlmodel
-
-# Auth dependencies
-pip install python-jose[cryptography] passlib[bcrypt]
-```
-
-**Files**: `backend/pyproject.toml` or `requirements.txt`
-
----
-
-### Quick Reference: JWT Auth Implementation Checklist
-
-**Backend (FastAPI)**:
-- [ ] Use `AsyncSession` with async database driver (asyncpg)
-- [ ] Add explicit column name mappings for model attributes
-- [ ] Implement middleware for consistent authentication
-- [ ] Standardize API response formats (wrapper or direct)
-- [ ] Install all dependencies: `sqlalchemy[asyncio]`, `asyncpg`, `python-jose`, `passlib`
-
-**Frontend (React)**:
-- [ ] Use `useReducer` with lazy initialization for localStorage-dependent state
-- [ ] Always update `isLoading` in all auth reducer actions
-- [ ] Include `isLoading` in auth-dependent conditional logic
-- [ ] Standardize token storage keys across entire app
-- [ ] Handle both wrapped and direct API response formats
-
-**Testing**:
-- [ ] Test page refresh with valid token (should stay logged in)
-- [ ] Test page refresh with expired token (should log out)
-- [ ] Test authenticated endpoints with valid token
-- [ ] Test authenticated endpoints without token (should return 401)
-- [ ] Test async database operations don't block requests
-
-**Common Error Messages and Solutions**:
-
-| Error | Root Cause | Solution |
-|-------|-----------|----------|
-| `column ... does not exist` | Model attribute != DB column name | Add explicit column name mapping |
-| `TypeError: connect() got an unexpected keyword argument 'sslmode'` | Sync SQLAlchemy with async driver | Convert to async operations |
-| `User logs out on refresh` | Multiple: isLoading not reset, lazy init issue, race condition | Check all three fixes above |
-| `LocalStorage token: None` | Wrong storage key | Standardize key names |
-| `401 Unauthorized` on valid token | Import path issues, middleware not loading | Update imports, verify middleware order |

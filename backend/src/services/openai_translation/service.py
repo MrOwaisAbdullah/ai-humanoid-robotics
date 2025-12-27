@@ -43,7 +43,7 @@ class OpenAITranslationRequest:
     session_id: Optional[str] = None
 
     # OpenAI parameters
-    model: str = "meta-llama/llama-3.2-3b-instruct:free"
+    model: str = "openai/gpt-oss-120b:free"
     temperature: float = 0.3
     max_tokens: int = 2048
 
@@ -148,7 +148,7 @@ Translation:
     # Model pricing (approximate USD per 1K tokens)
     MODEL_PRICING = {
         # OpenRouter pricing (free model)
-        "meta-llama/llama-3.2-3b-instruct:free": {
+        "openai/gpt-oss-120b:free": {
             "input": 0.0,
             "output": 0.0
         },
@@ -194,7 +194,7 @@ Translation:
                         "X-Title": "AI Book Translation Service"
                     }
                 )
-                self.openrouter_model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                self.openrouter_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
                 logger.info(
                     "OpenRouter primary client initialized for translation",
                     model=self.openrouter_model
@@ -230,7 +230,7 @@ Translation:
 
         logger.info(
             "OpenAI Translation Service initialized",
-            model="meta-llama/llama-3.2-3b-instruct:free",
+            model="openai/gpt-oss-120b:free",
             analytics_enabled=enable_analytics
         )
 
@@ -940,7 +940,7 @@ Translation:
             # Test OpenRouter connection
             if self.openrouter_client:
                 response = await self.openrouter_client.chat.completions.create(
-                    model=self.openrouter_model or "meta-llama/llama-3.2-3b-instruct:free",
+                    model=self.openrouter_model or "openai/gpt-oss-120b:free",
                     messages=[{"role": "user", "content": "test"}],
                     max_tokens=1
                 )

@@ -27,7 +27,7 @@ class OpenAITranslationAgent:
     OpenAI Agents SDK-based translation agent using OpenRouter as primary.
     """
 
-    def __init__(self, model: str = "meta-llama/llama-3.2-3b-instruct:free"):
+    def __init__(self, model: str = "openai/gpt-oss-120b:free"):
         """Initialize translation agent with OpenRouter as primary."""
         self.model = model
 
@@ -46,7 +46,7 @@ class OpenAITranslationAgent:
                     }
                 )
 
-                primary_model_name = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                primary_model_name = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
                 primary_model = OpenAIChatCompletionsModel(
                     model=primary_model_name,
                     openai_client=openrouter_client
@@ -166,7 +166,7 @@ Additional context will be provided as needed for specific domains.
                     prompt,
                     max_turns=1  # Single turn for simple translation
                 )
-                model_used = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free")
+                model_used = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
                 logger.info(f"Primary translation successful with {model_used}")
             except Exception as e:
                 # Check for fallback
@@ -279,6 +279,6 @@ Additional context will be provided as needed for specific domains.
 
 
 # Factory function
-def create_translation_agent(model: str = "meta-llama/llama-3.2-3b-instruct:free") -> OpenAITranslationAgent:
+def create_translation_agent(model: str = "openai/gpt-oss-120b:free") -> OpenAITranslationAgent:
     """Create a translation agent instance."""
     return OpenAITranslationAgent(model=model)

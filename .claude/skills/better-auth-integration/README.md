@@ -1,6 +1,6 @@
-# Better Auth v2 Integration
+# Better Auth Integration
 
-A comprehensive authentication system for modern applications using Better Auth v2 with the latest features including OAuth token encryption, 2FA support, and multi-tenancy.
+A comprehensive authentication system for modern applications using Better Auth with the latest features including OAuth token encryption, 2FA support, and multi-tenancy.
 
 ## 🚀 Features
 
@@ -24,6 +24,12 @@ A comprehensive authentication system for modern applications using Better Auth 
   - Session management with auto-renewal
   - CSRF protection
   - IP-based security
+
+- **🐍 FastAPI Integration**
+  - Decoupled architecture support
+  - JWT token generation for external backends
+  - Python middleware templates
+  - Stateless authentication flow
 
 - **🎯 Developer Experience**
   - TypeScript support
@@ -58,16 +64,16 @@ npm install better-auth/react
 
 Choose your database adapter and copy the appropriate schema:
 
-- **Prisma**: Copy `.claude/skills/better-auth-v2/schemas/prisma-v2.template.prisma`
-- **Drizzle**: Copy `.claude/skills/better-auth-v2/schemas/drizzle-v2.template.ts`
-- **Kysely**: Copy `.claude/skills/better-auth-v2/schemas/kysely-v2.template.ts`
-- **MongoDB**: Copy `.claude/skills/better-auth-v2/schemas/mongodb.template.ts`
+- **Prisma**: Copy `.claude/skills/better-auth-integration/schemas/prisma-v2.template.prisma`
+- **Drizzle**: Copy `.claude/skills/better-auth-integration/schemas/drizzle-v2.template.ts`
+- **Kysely**: Copy `.claude/skills/better-auth-integration/schemas/kysely-v2.template.ts`
+- **MongoDB**: Copy `.claude/skills/better-auth-integration/schemas/mongodb.template.ts`
 
 Run migrations for your chosen database.
 
 ### 3. Configure Authentication
 
-Copy `.claude/skills/better-auth-v2/config/production-auth-v2.template.ts` to `lib/auth.ts` and configure:
+Copy `.claude/skills/better-auth-integration/config/production-auth-v2.template.ts` to `lib/auth.ts` and configure:
 
 ```typescript
 import { betterAuth } from "better-auth";
@@ -132,7 +138,7 @@ export const { GET, POST } = auth.handler;
 
 ### 6. Set Up Client
 
-Copy `.claude/skills/better-auth-v2/client/react-auth-client-v2.template.tsx` to `lib/auth-client.ts`.
+Copy `.claude/skills/better-auth-integration/client/react-auth-client-v2.template.tsx` to `lib/auth-client.ts`.
 
 Wrap your app with `AuthProvider` in `app/layout.tsx`:
 
@@ -152,7 +158,7 @@ export default function RootLayout({ children }) {
 
 ### 7. Add Authentication Components
 
-Copy components from `.claude/skills/better-auth-v2/components/` to your components folder:
+Copy components from `.claude/skills/better-auth-integration/components/` to your components folder:
 
 ```tsx
 import { SignInForm } from "@/components/SignInForm-v2";
@@ -162,10 +168,31 @@ export default function SignInPage() {
 }
 ```
 
+
+### 8. FastAPI Backend Integration
+
+For projects using a Python FastAPI backend separate from the Next.js frontend, use the JWT integration pattern.
+
+1.  **Read the Guide**: `.claude/skills/better-auth-integration/FASTAPI_INTEGRATION.md`
+2.  **Configure Frontend**: Use `config/jwt-auth.template.ts`
+3.  **Configure Backend**: Copy `.claude/skills/better-auth-integration/templates/fastapi/security.template.py` to your FastAPI project (e.g., `app/core/security.py`).
+4.  **Protect Routes**:
+
+```python
+from fastapi import APIRouter, Depends
+from app.core.security import get_current_user, User
+
+router = APIRouter()
+
+@router.get("/my-tasks")
+def get_tasks(user: User = Depends(get_current_user)):
+    return {"user_id": user.id, "tasks": []}
+```
+
 ## 📁 Project Structure
 
 ```
-.claude/skills/better-auth-v2/
+.claude/skills/better-auth-integration/
 ├── SKILL.md                  # Skill documentation
 ├── README.md                  # This file
 ├── config/                    # Authentication configurations
@@ -325,9 +352,9 @@ export const auth = betterAuth({
           providerId: "custom-sso",
           clientId: process.env.SSO_CLIENT_ID!,
           clientSecret: process.env.SSO_CLIENT_SECRET!,
-          authorizationUrl: "https://sso.example.com/oauth/authorize",
-          tokenUrl: "https://sso.example.com/oauth/token",
-          userInfoUrl: "https://sso.example.com/oauth/user",
+          authorizationUrl: "https://sso.example.com/authorize",
+          tokenUrl: "https://sso.example.com/token",
+          userInfoUrl: "https://sso.example.com/user",
           scope: ["openid", "profile", "email"],
         },
       ],
