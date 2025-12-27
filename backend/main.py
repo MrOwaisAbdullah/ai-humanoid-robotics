@@ -159,6 +159,16 @@ async def lifespan(app: FastAPI):
     global chat_handler, qdrant_manager, document_ingestor, task_manager
 
     try:
+        # Clear Python cache on startup
+        import subprocess
+        import sys
+        try:
+            subprocess.run([sys.executable, "-B", "-c", "import compileall; compileall.force=True"],
+                         capture_output=True, cwd="/app")
+            print("✅ Python cache cleared on startup")
+        except Exception as e:
+            print(f"⚠️ Failed to clear cache: {e}")
+
         # Create database tables on startup
         from src.core.database import create_all_tables
         from src.core.config import settings
