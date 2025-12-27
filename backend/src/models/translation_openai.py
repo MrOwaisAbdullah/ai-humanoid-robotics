@@ -134,8 +134,8 @@ class TranslationJob(Base):
     ip_address = Column(String(45), nullable=True)  # Supports IPv6
 
     # Relationships
-    # Note: back_populates removed since User model uses different Base (sync vs async)
-    user = relationship("User")
+    # Note: User relationship removed since User model uses different Base (sync vs async)
+    # User access still works via foreign key queries, just not as ORM relationship
     chunks = relationship("TranslationChunk", back_populates="job", cascade="all, delete-orphan")
     errors = relationship("TranslationError", back_populates="job", cascade="all, delete-orphan")
     metrics = relationship("TranslationMetrics", back_populates="job", cascade="all, delete-orphan")
@@ -345,8 +345,8 @@ class TranslationSession(Base):
     preferences = Column(JSON, nullable=True)
 
     # Relationships
-    # Note: back_populates removed since User model uses different Base (sync vs async)
-    user = relationship("User")
+    # Note: User relationship removed since User model uses different Base (sync vs async)
+    # User access still works via foreign key queries, just not as ORM relationship
 
     # Constraints and indexes
     __table_args__ = (
@@ -490,8 +490,8 @@ class TranslationMetrics(Base):
 
     # Relationships
     job = relationship("TranslationJob", back_populates="metrics")
-    # Note: back_populates removed since User model uses different Base (sync vs async)
-    user = relationship("User")
+    # Note: User relationship removed since User model uses different Base (sync vs async)
+    # User access still works via foreign key queries, just not as ORM relationship
 
     # Constraints and indexes
     __table_args__ = (
