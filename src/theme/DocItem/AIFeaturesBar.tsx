@@ -421,7 +421,7 @@ export default function AIFeaturesBar() {
       <div className={styles.actionsWrapper}>
         <div className={styles.topButtons}>
           <button
-            className={`button button--primary button--sm ${styles.featureBtn}`}
+            className={`cursor-pointer button button--primary button--sm ${styles.featureBtn}`}
             onClick={handlePersonalize}
             disabled={isTranslating || isPersonalizing}
             title="Personalize this content for you"
@@ -438,9 +438,9 @@ export default function AIFeaturesBar() {
               </>
             )}
           </button>
-          
+
           <button
-            className={`button button--sm button--outline ${styles.featureBtn}`}
+            className={`cursor-pointer button button--sm button--outline ${styles.featureBtn}`}
             onClick={handleTranslate}
             disabled={isTranslating || !translationEnabled}
           >

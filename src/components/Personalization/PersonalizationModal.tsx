@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/api';
-import { Loader2, Sparkles, Save, X, ChevronRight, Clock, User, FileText, Trash2 } from 'lucide-react';
+import { Loader2, Sparkles, Save, X, ChevronRight, Clock, User, FileText, Trash2, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -37,6 +37,8 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
 }) => {
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [explanation, setExplanation] = useState<string>('');
   const [savedPersonalizations, setSavedPersonalizations] = useState<SavedPersonalization[]>([]);
   const [showSaved, setShowSaved] = useState(false);
@@ -105,6 +107,9 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
   const savePersonalization = async () => {
     if (!explanation.trim() || !user || !content) return;
 
+    setIsSaving(true);
+    setSaveSuccess(false);
+
     try {
       // Generate a UUID for the new personalization
       const newId = `new-${Date.now()}`;
@@ -127,6 +132,10 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
         };
         setSavedPersonalizations(prev => [newSaved, ...prev]);
         setShowSaved(true);
+        setSaveSuccess(true);
+
+        // Reset success state after 3 seconds
+        setTimeout(() => setSaveSuccess(false), 3000);
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail ||
@@ -134,6 +143,8 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
                           'Failed to save personalization';
       setError(errorMessage);
       console.error('Save personalization failed:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -357,7 +368,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                className="cursor-pointer p-2 text-zinc-400 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -406,7 +417,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
                   <button
                     onClick={generatePersonalization}
                     disabled={isGenerating}
-                    className="group relative inline-flex items-center justify-center px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[#0d9488] hover:bg-[#0f766e] dark:bg-[#14b8a6] dark:hover:bg-[#0d9488] rounded-lg shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0d9488] dark:ring-offset-zinc-900"
+                    className="cursor-pointer group relative inline-flex items-center justify-center px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 bg-[#0d9488] hover:bg-[#0f766e] dark:bg-[#14b8a6] dark:hover:bg-[#0d9488] rounded-lg shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0d9488] dark:ring-offset-zinc-900"
                   >
                     {isGenerating ? (
                       <>
@@ -432,17 +443,32 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
                       <button
                         onClick={generatePersonalization}
                         disabled={isGenerating}
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+                        className="cursor-pointer inline-flex items-center px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isGenerating ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1.5" />}
                         Regenerate
                       </button>
                       <button
                         onClick={savePersonalization}
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-[#0d9488] hover:bg-[#0f766e] dark:bg-[#14b8a6] dark:hover:bg-[#0d9488] rounded-md shadow-sm transition-colors"
+                        disabled={isSaving}
+                        className="cursor-pointer inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-[#0d9488] hover:bg-[#0f766e] dark:bg-[#14b8a6] dark:hover:bg-[#0d9488] rounded-md shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Save className="w-3 h-3 mr-1.5" />
-                        Save to Library
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                            Saving...
+                          </>
+                        ) : saveSuccess ? (
+                          <>
+                            <Check className="w-3 h-3 mr-1.5" />
+                            Saved!
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3 h-3 mr-1.5" />
+                            Save to Library
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -460,7 +486,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
             <div className="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0">
               <button
                 onClick={() => setShowSaved(!showSaved)}
-                className="w-full flex items-center justify-between px-6 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
+                className="cursor-pointer w-full flex items-center justify-between px-6 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200">
                   <Clock className="w-4 h-4" />

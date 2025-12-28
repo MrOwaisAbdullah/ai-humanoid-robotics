@@ -60,7 +60,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
       <div className={`relative ${className}`}>
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:text-[#10a37f] dark:hover:text-[#10a37f] px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="cursor-pointer flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:text-[#10a37f] dark:hover:text-[#10a37f] px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <img
             src={user.image_url || `https://ui-avatars.com/api/?name=${user.name}&background=random`}
@@ -89,10 +89,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
             </div>
-            
+
             <button
               onClick={handleOpenLibrary}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[#10a37f] dark:hover:text-[#10a37f] transition-colors flex items-center gap-2"
+              className="cursor-pointer w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[#10a37f] dark:hover:text-[#10a37f] transition-colors flex items-center gap-2"
             >
               <BookOpen className="w-4 h-4" />
               Saved Library
@@ -100,7 +100,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
 
             <button
               onClick={handleOpenOnboarding}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[#10a37f] dark:hover:text-[#10a37f] transition-colors flex items-center gap-2"
+              className="cursor-pointer w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[#10a37f] dark:hover:text-[#10a37f] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoadingOnboarding}
             >
               <Sparkles className="w-4 h-4" />
@@ -109,7 +109,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ className = '' }) => {
 
             <button
               onClick={handleLogout}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[#10a37f] dark:hover:text-[#10a37f] transition-colors"
+              className="cursor-pointer block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-[#10a37f] dark:hover:text-[#10a37f] transition-colors"
             >
               Sign out
             </button>
@@ -151,7 +151,7 @@ export const MinimalUserProfile: React.FC<UserProfileProps> = ({ className = '' 
       />
       <button
         onClick={logout}
-        className="text-xs text-gray-500 dark:text-gray-400 hover:text-[#10a37f] dark:hover:text-[#10a37f] transition-colors"
+        className="cursor-pointer text-xs text-gray-500 dark:text-gray-400 hover:text-[#10a37f] dark:hover:text-[#10a37f] transition-colors"
         title="Sign out"
       >
         Sign out

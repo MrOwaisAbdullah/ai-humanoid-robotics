@@ -39,7 +39,7 @@ export const NavbarAuth: React.FC = () => {
         <>
           <button
             onClick={() => setIsLibraryOpen(true)}
-            className="hidden md:flex items-center justify-center p-2 text-gray-500 hover:text-[#10a37f] dark:text-gray-400 dark:hover:text-[#10a37f] transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="cursor-pointer hidden md:flex items-center justify-center p-2 text-gray-500 hover:text-[#10a37f] dark:text-gray-400 dark:hover:text-[#10a37f] transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
             title="Saved Library"
           >
             <BookOpen className="w-5 h-5" />
