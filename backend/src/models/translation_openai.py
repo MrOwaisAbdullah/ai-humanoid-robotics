@@ -23,7 +23,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.sql import func
 
-from src.core.database import Base
+from src.database.base import Base
 
 
 class TranslationJobStatus(Enum):

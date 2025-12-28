@@ -8,7 +8,7 @@ import uuid
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, UUID, Text, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from src.core.database import Base
+from src.database.base import Base
 
 
 class ReadingLevel(Enum):
