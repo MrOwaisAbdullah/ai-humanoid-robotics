@@ -272,6 +272,26 @@ async def save_personalization(
         # Calculate hash
         content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
 
+        # Check if a personalization with this content already exists for this user
+        result = await db.execute(
+            select(SavedPersonalization).filter(
+                SavedPersonalization.user_id == current_user.id,
+                SavedPersonalization.original_content_hash == content_hash
+            )
+        )
+        existing_item = result.scalar_one_or_none()
+
+        if existing_item:
+            # Return existing personalization
+            return {
+                "id": str(existing_item.id),
+                "message": "Personalization already exists",
+                "title": existing_item.content_title,
+                "explanation": existing_item.personalized_content,
+                "created_at": existing_item.created_at.isoformat(),
+                "expires_at": (existing_item.created_at + timedelta(days=30)).isoformat()
+            }
+
         # Generate title if not provided
         if not title:
             title = content[:50] + "..." if len(content) > 50 else content
