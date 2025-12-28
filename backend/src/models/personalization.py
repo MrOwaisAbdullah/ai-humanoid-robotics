@@ -71,8 +71,8 @@ class SavedPersonalization(Base):
 
     __tablename__ = "saved_personalizations"
 
-    # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Primary key - stored as String(36) in database to match users.id
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # User relationship
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
