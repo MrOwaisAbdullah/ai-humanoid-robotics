@@ -155,12 +155,28 @@ async def init_db() -> None:
     Creates all tables if they don't exist.
     """
     try:
-        # Import all models here to ensure they are registered
-        from ..models import user, chat  # noqa
+        # Import all models here to ensure they are registered with the correct Base
+        # Models using src.core.database.Base (async/sync hybrid)
+        from ..models import user, chat  # noqa: F401
 
-        # Create all tables
+        # Import auth models (they use src.database.base.Base)
+        # We need to import them to ensure tables exist, even though they use a different Base
+        from ..models import auth as auth_models  # noqa: F401
+
+        # Create tables for models using src.core.database.Base
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+        # Also create tables for models using src.database.base.Base (auth, personalization, translation)
+        # These use a sync Base, so we need to use the sync engine
+        from src.database.base import Base as SyncBase
+        from src.database.config import engine as sync_engine
+
+        # Import models that use sync Base
+        from ..models import personalization, translation_openai  # noqa: F401
+
+        # Create tables using sync engine (for auth, personalization, translation models)
+        SyncBase.metadata.create_all(bind=sync_engine, checkfirst=True)
 
         logger.info("Database initialized successfully")
 
@@ -200,8 +216,22 @@ async def check_db_connection() -> bool:
 async def create_all_tables() -> None:
     """Create all database tables."""
     try:
+        # Import all models to ensure they are registered
+        # Models using src.core.database.Base
+        from ..models import user, chat  # noqa: F401
+
+        # Import auth, personalization, translation models (they use src.database.base.Base)
+        from ..models import auth, personalization, translation_openai  # noqa: F401
+
+        # Create tables for async models (src.core.database.Base)
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+        # Create tables for sync models (src.database.base.Base)
+        from src.database.base import Base as SyncBase
+        from src.database.config import engine as sync_engine
+        SyncBase.metadata.create_all(bind=sync_engine, checkfirst=True)
+
         logger.info("All tables created successfully")
     except Exception as e:
         logger.error(f"Failed to create tables: {e}")
@@ -214,8 +244,21 @@ async def drop_all_tables() -> None:
         raise RuntimeError("Cannot drop tables in production environment")
 
     try:
+        # Drop tables for sync models (src.database.base.Base) first due to foreign key dependencies
+        from src.database.base import Base as SyncBase
+        from src.database.config import engine as sync_engine
+
+        # Import models to ensure they're registered
+        from ..models import auth, personalization, translation_openai  # noqa: F401
+
+        SyncBase.metadata.drop_all(bind=sync_engine)
+
+        # Drop tables for async models (src.core.database.Base)
+        from ..models import user, chat  # noqa: F401
+
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+
         logger.warning("All tables dropped successfully")
     except Exception as e:
         logger.error(f"Failed to drop tables: {e}")
