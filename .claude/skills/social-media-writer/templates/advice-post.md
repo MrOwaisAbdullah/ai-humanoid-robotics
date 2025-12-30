@@ -67,9 +67,11 @@ What's your experience with this?
 | Paragraphs | Max 3-4 lines each |
 | Sentences | Under 12 words (most under 10) |
 | Length | 700-1000 characters |
-| Emojis | Max 1-2 total |
+| Emojis | Max 1-2 total, ✅ ❌ 🚫 for clarity |
+| Bullets | `•` or `👉` or `→` or numbered list |
 | CTA | Required at end |
 | Language | Simple English |
+| AI Detection | NO em-dash (`—`), no banned words, no meta commentary |
 
 ## Key Techniques from Gold Standard
 
@@ -337,6 +339,9 @@ Every advice post must include:
 - [ ] 3-5 relevant hashtags
 - [ ] **700-1000 characters** (optimal length)
 - [ ] Simple English (non-native friendly)
+- [ ] **NO em-dash** (`—`) anywhere
+- [ ] No banned AI words (delve, tapestry, underscore, pivotal, showcase)
+- [ ] Bullets use `•` or `👉` or `→` or numbered list
 
 ## Tone Guidelines
 
@@ -425,6 +430,6 @@ Target 850 characters, include CTA"
 
 ---
 
-**Version**: 2.0.0
-**Last Updated**: 2025-01-28
-**Based On**: Justin Welsh 5-step formula + user's authentic voice
+**Version**: 2.1.0
+**Last Updated**: 2025-12-30
+**Based On**: Justin Welsh 5-step formula + user's authentic voice + Ruben's AI detection guide

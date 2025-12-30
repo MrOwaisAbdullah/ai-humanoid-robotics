@@ -160,6 +160,200 @@ A quiet builder, learning in public, sharing practical lessons from real constra
 | Be honest, not performative    | "I struggled with this" not "Crushing it!"          |
 | Be simple, not complex         | "Use this tool" not "Leverage this synergy"         |
 
+## AI Writing Patterns to AVOID (Critical)
+
+These patterns are instant tells that content was AI-generated. NEVER use them.
+
+### Banned Sentence Patterns
+
+1. **"That's not [X]. That's [Y]."**
+   - BAD: "That's not leadership. That's management."
+   - GOOD: "Leadership is different from management."
+
+2. **"In a world where [scary change], [virtue] becomes [advantage]."**
+   - BAD: "In a world where AI dominates, creativity becomes your competitive edge."
+   - GOOD: "AI makes creativity more valuable."
+
+3. **"Most people [lazy thing]. The few who win [disciplined thing]."**
+   - BAD: "Most people quit when it gets hard. The few who win push through."
+   - GOOD: "Most quit early. Winners push through difficulty."
+
+4. **"Here's the truth: [obvious statement]."**
+   - BAD: "Here's the truth: Consistency beats intensity."
+   - GOOD: "Consistency beats intensity."
+
+5. **"If you're not doing [X], you're already behind."**
+   - BAD: "If you're not using AI, you're already behind."
+   - GOOD: "AI is becoming essential."
+
+### Meta Commentary (DELETE ALL)
+
+These phrases add zero value and signal AI writing:
+- "Let's walk through..."
+- "In this section, we will explore..."
+- "As we discussed earlier..."
+- "It's important to note that..."
+- "It's worth mentioning that..."
+- "Highlighting the importance of..."
+- "Keep in mind..."
+
+Just say the thing directly. No introduction needed.
+
+### Passive Voice (USE ACTIVE)
+
+**BAD (Passive):**
+- "Mistakes were made."
+- "The code was refactored."
+- "Best practices should be followed."
+
+**GOOD (Active):**
+- "I made mistakes."
+- "I refactored the code."
+- "Follow best practices."
+
+### Wishy-Washy Language (TAKE A STANCE)
+
+**BAD (Vague):**
+- "This may potentially offer benefits."
+- "It could be argued that..."
+- "Some might suggest..."
+- "Ideally, you would want to..."
+
+**GOOD (Direct):**
+- "This works for small teams."
+- "Big companies will struggle with this."
+- "Use this approach."
+
+### Sentence Length (VARY THE RHYTHM)
+
+AI writes like a metronome. Every sentence is medium length.
+
+**BAD (Same length):**
+"I built a CLI tool. It manages tasks for teams. The interface is simple. Users can assign work to each other. The data is stored locally."
+
+**GOOD (Varied):**
+"I built a CLI tool. A simple one. It manages tasks for teams. Users can assign work to each other, and everything is stored locally. Nothing fancy."
+
+### Use "I" and "you" (BE DIRECT)
+
+**BAD (Impersonal):**
+- "Developers should consider..."
+- "One might find it useful to..."
+- "It is recommended to..."
+
+**GOOD (Direct):**
+- "I use this approach."
+- "You should try this."
+- "Here's what worked for me."
+
+### Cut the Padding
+
+These phrases add zero meaning. DELETE them:
+- "In order to" → just use "to"
+- "Due to the fact that" → just use "because"
+- "At this point in time" → just use "now"
+- "In the event that" → just use "if"
+- "For the purpose of" → just use "for"
+
+### Punctuation Rules
+
+- **NEVER use em-dash (`—`)**: Instant AI tell. Use periods, commas, or line breaks
+- **Colons sparingly**: AI overuses colons for explanations
+- **Semicolons rarely**: Almost never needed in social posts
+- **Periods**: Your best friend. Short sentences. More impact.
+
+### Banned Words (NEVER Use These)
+
+These words are instant AI tells. Use simpler alternatives:
+
+- **delve** → Use "explore", "look into", "check"
+- **intricate** → Use "complex", "detailed"
+- **tapestry** → Use "mix", "combination", "pattern"
+- **interplay** → Use "interaction", "relationship"
+- **foster** → Use "build", "create", "grow"
+- **garner** → Use "get", "earn", "receive"
+- **underscore** → Use "highlight", "emphasize", "show"
+- **pivotal** → Use "key", "important", "critical"
+- **showcase** → Use "show", "display", "demonstrate"
+- **enduring** → Use "lasting", "continuing"
+
+### Banned Sentence Structures
+
+**1. "Not only... but also..."**
+   - BAD: "This not only saves time but also improves quality."
+   - GOOD: "This saves time. And it improves quality."
+
+**2. The Rule of Three**
+   - BAD: "Speed, efficiency, and innovation." (AI loves listing three things)
+   - GOOD: "Speed. Efficiency. Innovation." Or just pick one.
+
+**3. "From X to Y"**
+   - BAD: "From ancient traditions to modern innovations"
+   - GOOD: Be specific about what actually changed.
+
+**4. Conclusion phrases (DELETE)**
+   - "In conclusion..."
+   - "To summarize..."
+   - "Overall..."
+   - Just stop writing when you've made your point.
+
+### Hedge Appropriately (BE HUMAN)
+
+Humans aren't 100% certain. AI never hedges.
+
+**Use these when uncertain:**
+- "maybe"
+- "sometimes"
+- "might"
+- "I think"
+- "in my experience"
+
+**BAD (Overconfident):** "This approach always works."
+
+**GOOD (Human):** "This works for me. Maybe it will for you too."
+
+### Conversational Starters
+
+Start sentences with words people actually use when speaking:
+- "And"
+- "But"
+- "Like"
+- "So"
+
+**BAD:** "Therefore, the implementation of..."
+**GOOD:** "So I implemented this."
+
+### Don't Overuse Structure
+
+AI loves headers, bullets, numbered lists everywhere.
+
+Use structure like salt. Not the main course.
+
+- One em dash max per piece (preferably zero)
+- Don't bold every key term
+- Don't create a bullet for every sentence
+- Let paragraphs breathe
+
+### Be Actionable
+
+Don't give abstract advice.
+
+**BAD:** "The importance of strategic thinking cannot be overstated."
+
+**GOOD:** "On Monday morning, list your top 3 priorities. Do them first."
+
+### Give Real Examples
+
+**BAD:** "Imagine a hypothetical scenario where..."
+
+**GOOD:** "Last week I had a bug in production. Here's what happened..."
+
+### Never End With "Challenges and Future Prospects"
+
+You're not a college student hitting a word count.
+
+Stop when you're done.
+
 ## Optimal Post Length (Based on Top Creator Research)
 
 | Platform      | Optimal Range  | Max Limit  | "See More" Cutoff |
@@ -193,8 +387,9 @@ A quiet builder, learning in public, sharing practical lessons from real constra
 - **Some lines can be combined**: For natural flow, when breaking feels forced
 - **Max 3-4 lines per paragraph**: No walls of text
 - **Simple words**: Avoid complex vocabulary
-- **Use bullets for lists**: 👉 → 1. 2. 3. for readability
-- **Limit emojis**: Max 1-2 per post, use intentionally
+- **Use bullets for lists**: `•` or `👉` or `→` or numbered list (all acceptable)
+- **Use relevant emojis**: ✅ ❌ 🚫 when they clarify meaning (don't overuse)
+- **NEVER use em-dash**: The `—` character is an instant AI tell. Use periods, commas, or line breaks instead
 
 ### Line Breaking Strategy
 
@@ -442,18 +637,35 @@ The skill automatically rejects content containing:
 
 Every generated post must pass:
 
+**Structure:**
 - [ ] One-liner hook at start (grabs attention)
-- [ ] No banned words or phrases
-- [ ] Sentences under 12 words (most under 10)
 - [ ] Max 3 lines per paragraph
 - [ ] White space after each line
 - [ ] One idea per sentence
-- [ ] No more than 1-2 emojis
-- [ ] Specific numbers or examples included
 - [ ] Platform-appropriate length (700-1000 for LinkedIn)
+
+**AI Detection Avoidance:**
+- [ ] NO em-dash (`—`) anywhere in the post
+- [ ] No banned AI words (delve, tapestry, underscore, pivotal, showcase, etc.)
+- [ ] No banned sentence patterns ("That's not X. That's Y.", "Not only... but also")
+- [ ] No meta commentary ("Let's walk through", "In this section")
+- [ ] No conclusion phrases ("In conclusion", "To summarize")
+- [ ] Bullets use `•` or `👉` or `→` or numbered list
+
+**Voice & Tone:**
+- [ ] Sentences under 12 words (most under 10), varied length
+- [ ] Active voice, "I" and "you" not passive/impersonal
+- [ ] Takes a stance, not wishy-washy ("may potentially")
+- [ ] Specific numbers or real examples included
+- [ ] Conversational starters allowed (And, But, So, Like)
+- [ ] Hedge when uncertain (maybe, sometimes, might)
+
+**Content:**
 - [ ] Has clear takeaway or insight
 - [ ] Ends with CTA (question or prompt)
 - [ ] Simple English (non-native friendly)
+- [ ] Emojis used sparingly: ✅ ❌ 🚫 for clarity only
+- [ ] 3-5 relevant hashtags (LinkedIn)
 
 ## Platform Adjustments
 
@@ -786,6 +998,6 @@ This skill is based on analysis of:
 
 ---
 
-**Version**: 2.0.0
-**Based On**: Personal writing system + top creator research
-**Last Updated**: 2025-01-28
+**Version**: 2.1.0
+**Based On**: Personal writing system + top creator research + Ruben's AI detection guide
+**Last Updated**: 2025-12-30

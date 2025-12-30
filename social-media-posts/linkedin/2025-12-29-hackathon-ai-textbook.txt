@@ -1,0 +1,67 @@
+Hackathon complete. Built an AI textbook for humanoid robotics.
+
+19 chapters on Physical AI.
+With an interactive RAG chatbot.
+Text selection Q&A.
+Personalized learning paths.
+Urdu translation support.
+
+Tech stack:
+ • Docusaurus + React
+ • FastAPI backend
+ • Qdrant vector DB
+ • OpenAI embeddings
+ • Better Auth v2
+
+This build was different.
+
+I didn't do vibe coding.
+No "let's see where this goes."
+
+I used Spec-Driven Development.
+
+Every feature started with a spec.
+Every integration started with a plan.
+Every task was testable from day one.
+
+This changed everything.
+I stopped being just a developer.
+I became an architect.
+
+Before: I would jump into code.
+Figure things out as I go.
+Refactor when it broke.
+Hope for the best.
+
+Now: I design before I build.
+Know what success looks like.
+Execute against a plan.
+Ship with confidence.
+
+The workflow:
+1. Write the spec (sp.specify)
+2. Design the architecture (sp.plan)
+3. Break into tasks (sp.tasks)
+4. Implement against the plan (sp.Implement)
+5. Ship when tests pass
+
+AI doesn't replace thinking.
+AI accelerates execution.
+When you know what to build.
+
+This hackathon felt smooth.
+Not because it was easy.
+Because I had a map.
+
+Main takeaway:
+Spec-driven AI development beats vibe coding every time.
+
+The result works.
+Live demo is live.
+https://mrowaisabdullah.github.io/ai-humanoid-robotics/
+
+How do you approach new projects?
+Spec first or code first?
+👇
+
+#Hackathon #AI #SpecDrivenDevelopment #BuildInPublic #Architecture

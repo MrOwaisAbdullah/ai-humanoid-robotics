@@ -61,9 +61,11 @@ What was your biggest hackathon challenge?
 | Paragraphs | Max 3-4 lines each |
 | Sentences | Under 12 words (most under 10) |
 | Length | 700-1000 characters |
-| Emojis | Max 1-2 total |
+| Emojis | Max 1-2 total, ✅ ❌ 🚫 for clarity |
+| Bullets | `•` or `👉` or `→` or numbered list |
 | CTA | Required at end |
 | Language | Simple English |
+| AI Detection | NO em-dash (`—`), no banned words, no meta commentary |
 
 ## Key Techniques from Gold Standard
 
@@ -74,6 +76,83 @@ What was your biggest hackathon challenge?
 - Build tension → Problem → Solution → Insight
 
 ## Examples (Updated v2.0)
+
+### Example 0: Spec-Driven Development (NEW - Using ✅ ❌ for clarity - 920 chars)
+
+```
+Hackathon complete. Built an AI textbook for humanoid robotics.
+
+19 chapters on Physical AI.
+With an interactive RAG chatbot.
+Text selection Q&A.
+Personalized learning paths.
+Urdu translation support.
+
+Tech stack:
+ • Docusaurus + React
+ • FastAPI backend
+ • Qdrant vector DB
+ • OpenAI embeddings
+ • Better Auth v2
+
+This build was different.
+
+I didn't do vibe coding.
+ ❌ No "let's see where this goes."
+
+I used Spec-Driven Development.
+ ✅ Every feature started with a spec.
+ ✅ Every integration started with a plan.
+ ✅ Every task was testable from day one.
+
+This changed everything.
+I stopped being just a developer.
+I became an architect.
+
+Before: I would jump into code.
+Figure things out as I go.
+Refactor when it broke.
+Hope for the best.
+
+Now: I design before I build.
+Know what success looks like.
+Execute against a plan.
+Ship with confidence.
+
+The workflow:
+1. Write the spec (sp.specify)
+2. Design the architecture (sp.plan)
+3. Break into tasks (sp.tasks)
+4. Implement against the plan
+5. Ship when tests pass
+
+AI doesn't replace thinking.
+AI accelerates execution.
+When you know what to build.
+
+This hackathon felt smooth.
+Not because it was easy.
+Because I had a map.
+
+Main takeaway:
+Spec-driven AI development beats vibe coding every time.
+
+The result works.
+Demo is live.
+https://mrowaisabdullah.github.io/ai-humanoid-robotics/
+
+How do you approach new projects?
+Spec first or code first?
+👇
+
+#Hackathon #AI #SpecDrivenDevelopment #BuildInPublic #Architecture
+```
+
+**Analysis:**
+- Uses ❌ and ✅ for visual clarity on what to avoid vs what to do
+- Single-line dramatic emphasis: "This changed everything." ✓
+- Hook: 7 words ✓
+- Length: 920 chars ✓
 
 ### Example 1: Won Placement (Gold Standard Style - 820 chars)
 
@@ -318,6 +397,10 @@ Every hackathon post must include:
 - [ ] 3-5 relevant hashtags
 - [ ] **700-1000 characters** (optimal length)
 - [ ] Simple English (non-native friendly)
+- [ ] **NO em-dash** (`—`) anywhere
+- [ ] No banned AI words (delve, tapestry, underscore, pivotal, showcase)
+- [ ] Bullets use `•` or `👉` or `→` or numbered list
+- [ ] Emojis used for clarity only (✅ ❌ 🚫)
 
 ## Tone Guidelines
 
@@ -408,6 +491,6 @@ Target 850 characters, include CTA"
 
 ---
 
-**Version**: 2.0.0
-**Last Updated**: 2025-01-28
-**Based On**: Aisha Riaz structure + user's authentic voice
+**Version**: 2.1.0
+**Last Updated**: 2025-12-30
+**Based On**: Aisha Riaz structure + user's authentic voice + Ruben's AI detection guide
